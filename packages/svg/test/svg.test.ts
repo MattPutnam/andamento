@@ -1,0 +1,42 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from "vitest";
+import { createLayout, grid } from "@andamento/core";
+import { polygonToPath, renderToElement, renderToString } from "@andamento/svg";
+
+const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 10 });
+
+describe("svg renderer", () => {
+  it("formats paths compactly", () => {
+    expect(polygonToPath([{ x: 0, y: 0 }, { x: 12.5, y: 0 }, { x: 12.5, y: -0.0001 }])).toBe("M0 0L12.5 0L12.5 0Z");
+  });
+
+  it("renders a cell group per cell with a viewBox", () => {
+    const s = renderToString(layout, { background: "#fff", title: "Wall <1>" });
+    expect(s.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"')).toBe(true);
+    expect(s.match(/class="andamento-cell"/g)).toHaveLength(6);
+    expect(s).toContain("<title>Wall &lt;1&gt;</title>");
+    expect(s).toContain('class="andamento-wall"');
+  });
+
+  it("clips photos to cells, in reading order", () => {
+    const s = renderToString(layout, { images: ["a.jpg", "b.jpg"], idPrefix: "w" });
+    expect(s.match(/<image /g)).toHaveLength(2);
+    expect(s).toContain('href="a.jpg"');
+    expect(s).toContain('clip-path="url(#w-clip-0)"');
+    expect(s).toContain('preserveAspectRatio="xMidYMid slice"');
+    const repeated = renderToString(layout, { images: ["a.jpg", "b.jpg"], repeatImages: true });
+    expect(repeated.match(/<image /g)).toHaveLength(6);
+  });
+
+  it("escapes attribute values", () => {
+    const s = renderToString(layout, { images: ['x.jpg?a=1&b="2"'] });
+    expect(s).toContain('href="x.jpg?a=1&amp;b=&quot;2&quot;"');
+  });
+
+  it("builds DOM elements", () => {
+    const svg = renderToElement(layout, { images: ["a.jpg"], stroke: "#000" });
+    expect(svg.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(svg.querySelectorAll("g.andamento-cell")).toHaveLength(6);
+    expect(svg.querySelector("image")?.getAttribute("href")).toBe("a.jpg");
+  });
+});

@@ -1,0 +1,7 @@
+{
+  "name": "playground",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "typecheck": "tsc --noEmit -p ." },
+  "dependencies": { "@andamento/core": "0.1.0", "@andamento/svg": "0.1.0", "@andamento/react": "0.1.0", "react": "^18.3.1", "react-dom": "^18.3.1" }
+}
