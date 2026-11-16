@@ -84,7 +84,7 @@ export function TileLayout(props: TileLayoutProps) {
           else key = `child:${i}`;
         } else content = resolve(fallback, cell);
 
-        const css = cellCss(cell, bounds);
+        const css = cellCss(cell, layout);
         return (
           <div
             key={key}

@@ -1,4 +1,5 @@
 import type { Polygon, Rect } from "./geometry";
+import { roundedPolygon } from "./rounding";
 import type { Cell, Layout } from "./layout";
 
 /**
@@ -30,14 +31,16 @@ export function cssPolygon(poly: Polygon, box: Rect, precision = 4): string {
   return `polygon(${pts.join(", ")})`;
 }
 
-export function cellCss(cell: Cell, bounds: Rect, precision = 4): CellCss {
+/** CSS placement for `cell` within `layout`, including rounded corners if the layout has them. */
+export function cellCss(cell: Cell, layout: Layout, precision = 4): CellCss {
+  const { bounds } = layout;
   const b = cell.bbox;
   return {
     left: pct(((b.x - bounds.x) / bounds.width) * 100, precision),
     top: pct(((b.y - bounds.y) / bounds.height) * 100, precision),
     width: pct((b.width / bounds.width) * 100, precision),
     height: pct((b.height / bounds.height) * 100, precision),
-    clipPath: cssPolygon(cell.polygon, b, precision),
+    clipPath: cssPolygon(roundedPolygon(cell.polygon, layout.cornerRadius), b, precision),
   };
 }
 

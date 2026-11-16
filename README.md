@@ -50,6 +50,7 @@ const layout = createLayout({
   tiling: herringbone({ length: 60, width: 30 }),
   gap: 2,
   margin: 4,
+  cornerRadius: 3, // round tile corners (shrinks to fit small corners)
   rotation: 0,
   edges: "clip",   // "clip" | "inside" | "overflow"
   minFill: 0.25,   // drop edge slivers smaller than 25% of a tile
@@ -61,10 +62,14 @@ const svg = renderToString(layout, { images: imageUrls, background: "#f4f1ea" })
 Patterns: `grid`, `runningBond`, `herringbone`, `basketweave`, `hexagonal`, `mondrian`.
 Every spec is a plain JSON object, so layouts can be saved and restored.
 
+`cornerRadius` is applied when rendering: SVG uses true arcs, HTML approximates them in the
+`clip-path` polygon. `Cell.polygon`, `area` and `centroid` describe the sharp-cornered shape;
+`roundedPolygon(cell.polygon, layout.cornerRadius)` gives the rounded outline.
+
 Each `Cell` has `polygon` (visible shape), `original` (full pattern tile), `bbox`, `centroid`, `area`,
 `index` (reading order), `boundary`, `protoTile` and `neighbors`.
 
-For other frameworks, `cellCss(cell, layout.bounds)` returns `{ left, top, width, height, clipPath }`
+For other frameworks, `cellCss(cell, layout)` returns `{ left, top, width, height, clipPath }`
 as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ratio`.
 
 ## Development

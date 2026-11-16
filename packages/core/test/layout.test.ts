@@ -181,7 +181,7 @@ describe("cellCss", () => {
     const { cellCss, boundsAspectRatio } = await import("@andamento/core");
     const l = createLayout({ region: { x: 100, y: 50, width: 400, height: 200 }, tiling: grid({ width: 100 }) });
     const c = l.cells.find((c) => c.index === 5)!; // second row, second column
-    expect(cellCss(c, l.bounds)).toEqual({
+    expect(cellCss(c, l)).toEqual({
       left: "25%",
       top: "50%",
       width: "25%",
@@ -189,5 +189,46 @@ describe("cellCss", () => {
       clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
     });
     expect(boundsAspectRatio(l)).toBe("400 / 200");
+  });
+});
+
+describe("corner rounding", () => {
+  it("rounds a square with arcs of the requested radius", async () => {
+    const { roundCorners, roundedPolygon } = await import("@andamento/core");
+    const sq = rectPolygon(0, 0, 10, 10);
+    const corners = roundCorners(sq, 2);
+    expect(corners.map((c) => c.radius)).toEqual([2, 2, 2, 2]);
+    expect(corners[0]!.center.x).toBeCloseTo(2);
+    expect(corners[0]!.center.y).toBeCloseTo(2);
+    corners.forEach((c) => expect(Math.abs(c.sweep)).toBeCloseTo(Math.PI / 2));
+    // Area of a rounded square: 100 - (4 - pi) * r^2, approximated by the flattened arcs.
+    expect(area(roundedPolygon(sq, 2, Math.PI / 180))).toBeCloseTo(100 - (4 - Math.PI) * 4, 2);
+    expect(roundedPolygon(sq, 0)).toBe(sq);
+  });
+
+  it("shrinks the radius to fit short edges", async () => {
+    const { roundCorners } = await import("@andamento/core");
+    const corners = roundCorners(rectPolygon(0, 0, 10, 4), 5);
+    corners.forEach((c) => expect(c.radius).toBeCloseTo(2)); // half the short side
+  });
+
+  it("rounds hexagon corners and stays inside the tile", async () => {
+    const { roundedPolygon } = await import("@andamento/core");
+    const l = createLayout({ region: { x: 0, y: 0, width: 200, height: 200 }, tiling: hexagonal({ size: 30 }), edges: "inside", cornerRadius: 6 });
+    expect(l.cornerRadius).toBe(6);
+    const hex = l.cells[0]!.polygon;
+    const r = roundedPolygon(hex, 6);
+    expect(r.length).toBeGreaterThan(hex.length * 2);
+    expect(containsPolygon(hex, r, 1e-6)).toBe(true);
+    expect(area(r)).toBeLessThan(area(hex));
+  });
+
+  it("puts rounded corners in the CSS clip path", async () => {
+    const { cellCss } = await import("@andamento/core");
+    const l = createLayout({ region: { x: 0, y: 0, width: 200, height: 100 }, tiling: grid({ width: 100 }), cornerRadius: 10 });
+    const clip = cellCss(l.cells[0]!, l).clipPath;
+    expect(clip.split(",").length).toBeGreaterThan(20);
+    expect(clip).not.toMatch(/[(,] ?0% 0%/); // the sharp corner is cut off
+    expect(clip).toMatch(/^polygon\(0% 10%, /);
   });
 });

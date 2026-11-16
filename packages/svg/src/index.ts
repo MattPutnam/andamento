@@ -1,4 +1,4 @@
-import { colorCells, type Cell, type Layout, type Polygon } from "@andamento/core";
+import { colorCells, roundCorners, type Cell, type Layout, type Polygon } from "@andamento/core";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
@@ -31,16 +31,32 @@ export interface RenderOptions {
   title?: string;
 }
 
-/** `d` attribute for a polygon. */
-export function polygonToPath(p: Polygon, precision = 3): string {
+const formatter = (precision: number) => (n: number) => {
+  const s = n.toFixed(precision);
+  // Trim trailing zeros: "12.500" -> "12.5", "3.000" -> "3", "-0" -> "0".
+  const t = s.includes(".") ? s.replace(/\.?0+$/, "") : s;
+  return t === "-0" ? "0" : t;
+};
+
+/** `d` attribute for a polygon. With `radius`, corners are rounded with circular arcs. */
+export function polygonToPath(p: Polygon, precision = 3, radius = 0): string {
   if (p.length === 0) return "";
-  const f = (n: number) => {
-    const s = n.toFixed(precision);
-    // Trim trailing zeros: "12.500" -> "12.5", "3.000" -> "3", "-0" -> "0".
-    const t = s.includes(".") ? s.replace(/\.?0+$/, "") : s;
-    return t === "-0" ? "0" : t;
-  };
-  return "M" + p.map((v) => `${f(v.x)} ${f(v.y)}`).join("L") + "Z";
+  const f = formatter(precision);
+  if (radius <= 0) return "M" + p.map((v) => `${f(v.x)} ${f(v.y)}`).join("L") + "Z";
+  const parts: string[] = [];
+  for (const c of roundCorners(p, radius)) {
+    parts.push(`${parts.length ? "L" : "M"}${f(c.start.x)} ${f(c.start.y)}`);
+    if (c.radius > 0) {
+      const r = f(c.radius);
+      parts.push(`A${r} ${r} 0 0 ${c.sweep > 0 ? 1 : 0} ${f(c.end.x)} ${f(c.end.y)}`);
+    }
+  }
+  return parts.join("") + "Z";
+}
+
+/** `d` attribute for a cell's visible outline, including the layout's corner rounding. */
+export function cellPath(layout: Layout, cell: Cell, precision = 3): string {
+  return polygonToPath(cell.polygon, precision, layout.cornerRadius);
 }
 
 export interface CellStyle {
@@ -99,7 +115,7 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
   }
 
   layout.cells.forEach((cell, i) => {
-    const d = polygonToPath(cell.polygon, precision);
+    const d = cellPath(layout, cell, precision);
     const style = styles[i]!;
     const parts: SvgNode[] = [el("path", { d, fill: style.fill })];
     if (style.image) {

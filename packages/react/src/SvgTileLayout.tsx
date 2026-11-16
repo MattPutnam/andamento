@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import type { Cell, Layout, LayoutOptions } from "@andamento/core";
-import { polygonToPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
+import { cellPath, polygonToPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
 import { useResolvedLayout } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
@@ -61,7 +61,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
       {title && <title>{title}</title>}
       {background && <path className="andamento-region" d={polygonToPath(layout.region)} fill={background} />}
       {layout.cells.map((cell, i) => {
-        const d = polygonToPath(cell.polygon);
+        const d = cellPath(layout, cell);
         const clipPathId = `${prefix}-clip-${cell.index}`;
         const style = styles[i]!;
         const ctx: SvgCellRenderContext = { path: d, clipPathId, clipPath: `url(#${clipPathId})`, ...style };

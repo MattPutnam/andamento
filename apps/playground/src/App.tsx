@@ -93,6 +93,7 @@ export function App() {
   const [wall, setWall] = useState({ width: 240, height: 150 });
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
+  const [cornerRadius, setCornerRadius] = useState(0);
   const [rotation, setRotation] = useState(0);
   const [edges, setEdges] = useState<EdgeMode>("clip");
   const [minFill, setMinFill] = useState(0.25);
@@ -107,6 +108,7 @@ export function App() {
     tiling,
     gap,
     margin,
+    cornerRadius,
     rotation: def.rotates ? rotation : 0,
     edges,
     minFill,
@@ -218,6 +220,7 @@ export function App() {
           <h2>Spacing & edges</h2>
           <Slider label="Gap" min={0} max={10} step={0.5} value={gap} onChange={setGap} />
           <Slider label="Margin" min={0} max={30} step={1} value={margin} onChange={setMargin} />
+          <Slider label="Corner radius" min={0} max={20} step={0.5} value={cornerRadius} onChange={setCornerRadius} />
           <label className="row">
             <span>Edge tiles</span>
             <select value={edges} onChange={(e) => setEdges(e.target.value as EdgeMode)}>

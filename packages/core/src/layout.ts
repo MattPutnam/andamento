@@ -44,6 +44,13 @@ export interface LayoutOptions {
    * so you don't get slivers. Applies to "clip" and "overflow". Defaults to 0.
    */
   minFill?: number;
+  /**
+   * Round every tile corner with this radius, in region units. Corners too small
+   * for the full radius get the largest radius that fits. Defaults to 0 (sharp).
+   * Rounding is applied when rendering; `Cell.polygon`, `area` and `centroid`
+   * describe the sharp-cornered shape.
+   */
+  cornerRadius?: number;
   /** Safety cap on generated tiles. Defaults to 20000. */
   maxTiles?: number;
 }
@@ -73,6 +80,8 @@ export interface Layout {
   region: Polygon;
   /** Bounding box of the region; a good SVG viewBox. */
   bounds: Rect;
+  /** Corner radius renderers apply to every cell (0 for sharp corners). */
+  cornerRadius: number;
   cells: Cell[];
 }
 
@@ -92,9 +101,10 @@ export function createLayout(options: LayoutOptions): Layout {
   const margin = Math.max(0, options.margin ?? 0);
   const edges = options.edges ?? "clip";
   const minFill = Math.min(1, Math.max(0, options.minFill ?? 0));
+  const cornerRadius = Math.max(0, options.cornerRadius ?? 0);
 
   const inner = margin > 0 ? insetConvex(region, margin) : region;
-  if (inner.length === 0) return { region, bounds, cells: [] };
+  if (inner.length === 0) return { region, bounds, cornerRadius, cells: [] };
   const innerBox = bbox(inner);
 
   const raw = generateTiles(options.tiling, {
@@ -155,7 +165,7 @@ export function createLayout(options: LayoutOptions): Layout {
     index,
     neighbors: neighbors[index]!.map((k) => drafts[k]!.id),
   }));
-  return { region, bounds, cells };
+  return { region, bounds, cornerRadius, cells };
 }
 
 /** Edge-adjacency between polygons, using a sweep over x-sorted bounding boxes. */

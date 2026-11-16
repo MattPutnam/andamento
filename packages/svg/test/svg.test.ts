@@ -10,6 +10,14 @@ describe("svg renderer", () => {
     expect(polygonToPath([{ x: 0, y: 0 }, { x: 12.5, y: 0 }, { x: 12.5, y: -0.0001 }])).toBe("M0 0L12.5 0L12.5 0Z");
   });
 
+  it("rounds corners with arcs", () => {
+    expect(polygonToPath([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }], 3, 2)).toBe(
+      "M0 2A2 2 0 0 1 2 0L8 0A2 2 0 0 1 10 2L10 8A2 2 0 0 1 8 10L2 10A2 2 0 0 1 0 8Z",
+    );
+    const rounded = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), cornerRadius: 5 });
+    expect(renderToString(rounded).match(/A5 5 /g)).toHaveLength(24);
+  });
+
   it("renders a cell group per cell with a viewBox", () => {
     const s = renderToString(layout, { background: "#fff", title: "Wall <1>" });
     expect(s.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"')).toBe(true);
