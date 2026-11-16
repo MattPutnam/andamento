@@ -137,6 +137,38 @@ const TILINGS: Record<TilingType, TilingDef> = {
     defaults: { length: 60, width: 20, angle: 45 },
     rotates: true,
   },
+  voronoi: {
+    label: "Voronoi",
+    params: [
+      { key: "size", label: "Cell size", min: 10, max: 100, step: 1 },
+      { key: "relax", label: "Evenness", min: 0, max: 8, step: 1 },
+      { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
+    ],
+    defaults: { size: 36, relax: 2, seed: 1 },
+    rotates: false,
+  },
+  delaunay: {
+    label: "Triangulated",
+    params: [
+      { key: "size", label: "Spacing", min: 12, max: 100, step: 1 },
+      { key: "relax", label: "Evenness", min: 0, max: 8, step: 1 },
+      { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
+    ],
+    defaults: { size: 40, relax: 2, seed: 1 },
+    rotates: false,
+  },
+  ashlar: {
+    label: "Ashlar",
+    params: [
+      { key: "height", label: "Course height", min: 8, max: 80, step: 1 },
+      { key: "minLength", label: "Min length", min: 8, max: 120, step: 1 },
+      { key: "maxLength", label: "Max length", min: 10, max: 200, step: 1 },
+      { key: "heightVariation", label: "Height variation", min: 0, max: 0.9, step: 0.05 },
+      { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
+    ],
+    defaults: { height: 22, minLength: 20, maxLength: 70, heightVariation: 0.3, seed: 1 },
+    rotates: false,
+  },
   mondrian: {
     label: "Mondrian",
     params: [

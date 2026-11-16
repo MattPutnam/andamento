@@ -65,7 +65,10 @@ Patterns:
   `hopscotch` (two square sizes), `pinwheel`
 - Regular polygons: `hexagonal`, `triangular`, `rhombille` (tumbling blocks), `octagonSquare`,
   `trihexagonal`, `rhombitrihexagonal`
-- Other: `cairo` (pentagons), `mondrian` (random rectangles)
+- Other: `cairo` (pentagons)
+- Random, seeded (same `seed`, same layout): `voronoi` (irregular polygons, like crazy paving),
+  `delaunay` (random triangles), `ashlar` (stone courses of random lengths), `mondrian`
+  (random rectangles). `relax` controls how even Voronoi cells and triangles are.
 
 `cell.protoTile` tells the tile types apart within a pattern (e.g. rhombille: 0 top, 1 right,
 2 left face), which is handy for shading.
@@ -94,6 +97,6 @@ npm run dev       # playground at http://localhost:5173
 ## Limitations
 
 - The region must be a convex polygon (rectangles are the common case).
-- Mondrian ignores `rotation` and `origin`.
+- The random patterns (`voronoi`, `delaunay`, `ashlar`, `mondrian`) ignore `rotation` and `origin`.
 - Content is laid out in each tile's bounding box and clipped; for hexagons and cut edge tiles,
   keep important content near the centre.

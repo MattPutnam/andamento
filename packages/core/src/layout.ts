@@ -33,9 +33,9 @@ export interface LayoutOptions {
   gap?: number;
   /** Empty border kept between the region outline and the tiles. Defaults to 0. */
   margin?: number;
-  /** Pattern rotation in degrees (ignored by Mondrian). Defaults to 0. */
+  /** Pattern rotation in degrees (ignored by the random patterns: mondrian, voronoi, delaunay, ashlar). Defaults to 0. */
   rotation?: number;
-  /** Shifts the pattern (ignored by Mondrian). Defaults to the top-left of the region. */
+  /** Shifts the pattern (ignored by the random patterns). Defaults to the top-left of the region. */
   origin?: Vec;
   /** Defaults to "clip". */
   edges?: EdgeMode;

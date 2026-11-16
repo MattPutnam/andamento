@@ -1,5 +1,6 @@
 import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import { mulberry32 } from "./random";
+import { generateAshlar, generateDelaunay, generateVoronoi } from "./procedural";
 
 /*
  * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
@@ -118,6 +119,40 @@ export interface ChevronSpec {
   angle?: number;
 }
 
+export interface VoronoiSpec {
+  type: "voronoi";
+  /** Typical cell width: about one cell per size × size area. */
+  size: number;
+  /** Rounds of Lloyd relaxation; more rounds give more even, rounder cells. Defaults to 2. */
+  relax?: number;
+  /** Seed for the deterministic random generator. Defaults to 1. */
+  seed?: number;
+}
+
+export interface DelaunaySpec {
+  type: "delaunay";
+  /** Typical spacing of the triangle corners. */
+  size: number;
+  /** Rounds of Lloyd relaxation on the corners; more rounds give more even triangles. Defaults to 2. */
+  relax?: number;
+  /** Seed for the deterministic random generator. Defaults to 1. */
+  seed?: number;
+}
+
+export interface AshlarSpec {
+  type: "ashlar";
+  /** Typical course (row) height. */
+  height: number;
+  /** Shortest stone. */
+  minLength: number;
+  /** Longest stone. */
+  maxLength: number;
+  /** How much course heights vary, 0–0.9, as a fraction of `height`. Defaults to 0. */
+  heightVariation?: number;
+  /** Seed for the deterministic random generator. Defaults to 1. */
+  seed?: number;
+}
+
 export interface MondrianSpec {
   type: "mondrian";
   /** No side is cut shorter than this. */
@@ -148,6 +183,9 @@ export type TilingSpec =
   | PinwheelSpec
   | FlemishBondSpec
   | ChevronSpec
+  | VoronoiSpec
+  | DelaunaySpec
+  | AshlarSpec
   | MondrianSpec;
 
 export type TilingType = TilingSpec["type"];
@@ -170,6 +208,9 @@ export const hopscotch = (p: Omit<HopscotchSpec, "type">): HopscotchSpec => ({ t
 export const pinwheel = (p: Omit<PinwheelSpec, "type">): PinwheelSpec => ({ type: "pinwheel", ...p });
 export const flemishBond = (p: Omit<FlemishBondSpec, "type">): FlemishBondSpec => ({ type: "flemishBond", ...p });
 export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "chevron", ...p });
+export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "voronoi", ...p });
+export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
+export const ashlar = (p: Omit<AshlarSpec, "type">): AshlarSpec => ({ type: "ashlar", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
@@ -220,7 +261,10 @@ function regular(n: number, r: number, startDeg: number): Polygon {
 /** Cairo bar half-length (as a fraction of the grid size) that makes all pentagon sides equal. */
 const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 
-export function periodicDefinition(spec: Exclude<TilingSpec, MondrianSpec>): PeriodicDefinition {
+/** Tilings generated procedurally (seeded) rather than from a repeating motif. */
+export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec;
+
+export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec>): PeriodicDefinition {
   switch (spec.type) {
     case "grid": {
       const w = positive("grid.width", spec.width);
@@ -573,6 +617,15 @@ export function generateMondrian(spec: MondrianSpec, ctx: GenerateContext): RawT
 }
 
 export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[] {
-  if (spec.type === "mondrian") return generateMondrian(spec, ctx);
+  switch (spec.type) {
+    case "mondrian":
+      return generateMondrian(spec, ctx);
+    case "voronoi":
+      return generateVoronoi(spec, ctx);
+    case "delaunay":
+      return generateDelaunay(spec, ctx);
+    case "ashlar":
+      return generateAshlar(spec, ctx);
+  }
   return generatePeriodic(periodicDefinition(spec), ctx);
 }

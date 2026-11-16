@@ -23,6 +23,9 @@ import {
   pinwheel,
   flemishBond,
   chevron,
+  voronoi,
+  delaunay,
+  ashlar,
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
@@ -69,6 +72,12 @@ const specs: [string, TilingSpec][] = [
   ["flemishBond", flemishBond({ length: 120, height: 50 })],
   ["chevron", chevron({ length: 140, width: 40 })],
   ["chevron 30°", chevron({ length: 140, width: 40, angle: 30 })],
+  ["voronoi", voronoi({ size: 90, seed: 7 })],
+  ["voronoi unrelaxed", voronoi({ size: 70, relax: 0 })],
+  ["delaunay", delaunay({ size: 110, seed: 3 })],
+  ["delaunay unrelaxed", delaunay({ size: 90, relax: 0 })],
+  ["ashlar", ashlar({ height: 60, minLength: 50, maxLength: 160, seed: 5 })],
+  ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
 
 describe.each(specs)("%s", (_name, tiling) => {
@@ -290,5 +299,59 @@ describe("new tiling shapes", () => {
     expect(() => createLayout({ region, tiling: hopscotch({ large: 10, small: 20 }) })).toThrow(RangeError);
     expect(() => createLayout({ region, tiling: pinwheel({ length: 10, width: 20 }) })).toThrow(RangeError);
     expect(() => createLayout({ region, tiling: chevron({ length: 100, width: 20, angle: 90 }) })).toThrow(RangeError);
+  });
+});
+
+describe("random patterns", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+
+  it("are deterministic per seed and change with it", () => {
+    for (const make of [(seed: number) => voronoi({ size: 80, seed }), (seed: number) => delaunay({ size: 80, seed }), (seed: number) => ashlar({ height: 50, minLength: 40, maxLength: 140, seed })]) {
+      const a = createLayout({ region, tiling: make(1) });
+      const b = createLayout({ region, tiling: make(1) });
+      const c = createLayout({ region, tiling: make(2) });
+      expect(b.cells).toEqual(a.cells);
+      expect(c.cells.map((x) => x.polygon)).not.toEqual(a.cells.map((x) => x.polygon));
+    }
+  });
+
+  it("makes about one Voronoi cell per size² and links neighbours", () => {
+    const l = createLayout({ region, tiling: voronoi({ size: 100 }) });
+    expect(l.cells.length).toBe(70);
+    const avg = l.cells.reduce((s, c) => s + c.neighbors.length, 0) / l.cells.length;
+    expect(avg).toBeGreaterThan(4.5); // interior Voronoi cells average six neighbours
+  });
+
+  it("relaxation evens out Voronoi cell sizes", () => {
+    const spread = (relax: number) => {
+      const a = createLayout({ region, tiling: voronoi({ size: 80, relax, seed: 4 }) }).cells.map((c) => c.area);
+      const mean = a.reduce((s, x) => s + x, 0) / a.length;
+      return Math.sqrt(a.reduce((s, x) => s + (x - mean) ** 2, 0) / a.length) / mean;
+    };
+    expect(spread(4)).toBeLessThan(spread(0) * 0.7);
+  });
+
+  it("keeps ashlar stones within their length limits and joints staggered", () => {
+    const l = createLayout({ region, tiling: ashlar({ height: 50, minLength: 40, maxLength: 140, seed: 9 }) });
+    for (const c of l.cells) {
+      expect(c.bbox.width).toBeGreaterThan(20 - 1e-9); // only the two-stone row ends may go below minLength, never below half
+      expect(c.bbox.width).toBeLessThan(140 + 1e-9);
+    }
+  });
+
+  it("never leaves a sliver course", () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      for (const heightVariation of [0, 0.3, 0.8]) {
+        const l = createLayout({ region: { x: 0, y: 0, width: 232, height: 142 }, tiling: ashlar({ height: 22, minLength: 20, maxLength: 70, heightVariation, seed }) });
+        const heights = new Set(l.cells.map((c) => c.bbox.height));
+        // Worst case is the remainder split over two courses: half of a short course.
+        for (const h of heights) expect(h).toBeGreaterThan((22 * (1 - heightVariation)) / 2 - 1e-9);
+      }
+    }
+  });
+
+  it("validates parameters", () => {
+    expect(() => createLayout({ region, tiling: ashlar({ height: 50, minLength: 100, maxLength: 50 }) })).toThrow(RangeError);
+    expect(() => createLayout({ region, tiling: voronoi({ size: 1 }) })).toThrow(/too small/);
   });
 });
