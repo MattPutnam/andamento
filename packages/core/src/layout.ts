@@ -35,7 +35,10 @@ export interface LayoutOptions {
   margin?: number;
   /** Pattern rotation in degrees (ignored by the random patterns: mondrian, voronoi, delaunay, ashlar). Defaults to 0. */
   rotation?: number;
-  /** Shifts the pattern (ignored by the random patterns). Defaults to the top-left of the region. */
+  /**
+   * Shifts the pattern (ignored by the random patterns). For penrose this is where the
+   * ten-fold star at the pattern's centre sits. Defaults to the top-left of the region.
+   */
   origin?: Vec;
   /** Defaults to "clip". */
   edges?: EdgeMode;

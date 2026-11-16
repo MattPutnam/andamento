@@ -1,6 +1,7 @@
 import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import { mulberry32 } from "./random";
 import { generateAshlar, generateDelaunay, generateVoronoi } from "./procedural";
+import { generateSubstitution, penroseRhombs } from "./substitution";
 
 /*
  * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
@@ -153,6 +154,12 @@ export interface AshlarSpec {
   seed?: number;
 }
 
+export interface PenroseSpec {
+  type: "penrose";
+  /** Edge length of the rhombs. */
+  size: number;
+}
+
 export interface MondrianSpec {
   type: "mondrian";
   /** No side is cut shorter than this. */
@@ -186,6 +193,7 @@ export type TilingSpec =
   | VoronoiSpec
   | DelaunaySpec
   | AshlarSpec
+  | PenroseSpec
   | MondrianSpec;
 
 export type TilingType = TilingSpec["type"];
@@ -211,6 +219,7 @@ export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "
 export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "voronoi", ...p });
 export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
 export const ashlar = (p: Omit<AshlarSpec, "type">): AshlarSpec => ({ type: "ashlar", ...p });
+export const penrose = (p: Omit<PenroseSpec, "type">): PenroseSpec => ({ type: "penrose", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
@@ -264,7 +273,7 @@ const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
 export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec;
 
-export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec>): PeriodicDefinition {
+export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec>): PeriodicDefinition {
   switch (spec.type) {
     case "grid": {
       const w = positive("grid.width", spec.width);
@@ -626,6 +635,8 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
       return generateDelaunay(spec, ctx);
     case "ashlar":
       return generateAshlar(spec, ctx);
+    case "penrose":
+      return generateSubstitution(penroseRhombs, positive("penrose.size", spec.size), ctx, "Penrose", "p");
   }
   return generatePeriodic(periodicDefinition(spec), ctx);
 }

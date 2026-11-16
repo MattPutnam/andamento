@@ -17,6 +17,8 @@ interface TilingDef {
   params: Param[];
   defaults: Record<string, number | string>;
   rotates: boolean;
+  /** Put the pattern's origin at the centre of the region (where Penrose has its star). */
+  centred?: boolean;
 }
 
 const TILINGS: Record<TilingType, TilingDef> = {
@@ -169,6 +171,13 @@ const TILINGS: Record<TilingType, TilingDef> = {
     defaults: { height: 22, minLength: 20, maxLength: 70, heightVariation: 0.3, seed: 1 },
     rotates: false,
   },
+  penrose: {
+    label: "Penrose",
+    params: [{ key: "size", label: "Edge length", min: 6, max: 80, step: 1 }],
+    defaults: { size: 22 },
+    rotates: true,
+    centred: true,
+  },
   mondrian: {
     label: "Mondrian",
     params: [
@@ -216,6 +225,7 @@ export function App() {
     margin,
     cornerRadius,
     rotation: def.rotates ? rotation : 0,
+    ...(def.centred ? { origin: { x: wall.width / 2, y: wall.height / 2 } } : {}),
     edges,
     minFill,
   };

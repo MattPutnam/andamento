@@ -26,6 +26,7 @@ import {
   voronoi,
   delaunay,
   ashlar,
+  penrose,
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
@@ -77,6 +78,8 @@ const specs: [string, TilingSpec][] = [
   ["delaunay", delaunay({ size: 110, seed: 3 })],
   ["delaunay unrelaxed", delaunay({ size: 90, relax: 0 })],
   ["ashlar", ashlar({ height: 60, minLength: 50, maxLength: 160, seed: 5 })],
+  ["penrose", penrose({ size: 60 })],
+  ["penrose small", penrose({ size: 25 })],
   ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
 
@@ -353,5 +356,60 @@ describe("random patterns", () => {
   it("validates parameters", () => {
     expect(() => createLayout({ region, tiling: ashlar({ height: 50, minLength: 100, maxLength: 50 }) })).toThrow(RangeError);
     expect(() => createLayout({ region, tiling: voronoi({ size: 1 }) })).toThrow(/too small/);
+  });
+});
+
+describe("penrose", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const angle = (p: { x: number; y: number }[], i: number) => {
+    const a = p[i]!, b = p[(i + 3) % 4]!, c = p[(i + 1) % 4]!;
+    const u = { x: b.x - a.x, y: b.y - a.y }, w = { x: c.x - a.x, y: c.y - a.y };
+    return (Math.acos((u.x * w.x + u.y * w.y) / (Math.hypot(u.x, u.y) * Math.hypot(w.x, w.y))) * 180) / Math.PI;
+  };
+
+  it("makes thick (72°/108°) and thin (36°/144°) rhombs with edge = size", () => {
+    const l = createLayout({ region, tiling: penrose({ size: 40 }), edges: "inside" });
+    expect(l.cells.length).toBeGreaterThan(100);
+    for (const c of l.cells) {
+      expect(c.polygon).toHaveLength(4);
+      for (let i = 0; i < 4; i++) {
+        const a = c.polygon[i]!, b = c.polygon[(i + 1) % 4]!;
+        expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeCloseTo(40, 6);
+      }
+      const corner = Math.min(angle(c.polygon, 0), angle(c.polygon, 1));
+      expect(corner).toBeCloseTo(c.protoTile === 0 ? 72 : 36, 6);
+    }
+  });
+
+  it("has about φ thick rhombs per thin one", () => {
+    const l = createLayout({ region, tiling: penrose({ size: 15 }), edges: "inside" });
+    const thick = l.cells.filter((c) => c.protoTile === 0).length;
+    const thin = l.cells.length - thick;
+    expect(thick / thin).toBeCloseTo((1 + Math.sqrt(5)) / 2, 1);
+  });
+
+  it("puts the ten-fold star at the origin and follows rotation", () => {
+    const origin = { x: 500, y: 350 };
+    const l = createLayout({ region, tiling: penrose({ size: 50 }), origin });
+    const atCentre = l.cells.filter((c) => c.polygon.some((v) => Math.hypot(v.x - origin.x, v.y - origin.y) < 1e-6));
+    expect(atCentre.length).toBeGreaterThanOrEqual(5);
+    const r = createLayout({ region, tiling: penrose({ size: 50 }), origin, rotation: 36 });
+    expect(r.cells.length).toBeGreaterThan(0);
+  });
+
+  it("shows more of the same pattern when the region grows", () => {
+    const tiling = penrose({ size: 20 });
+    const small = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling, edges: "inside" });
+    for (const width of [600, 1500, 4000]) {
+      const big = createLayout({ region: { x: 0, y: 0, width, height: width / 1.5 }, tiling, edges: "inside" });
+      const byId = new Map(big.cells.map((c) => [c.id, c]));
+      for (const c of small.cells) {
+        const same = byId.get(c.id);
+        expect(same, c.id).toBeDefined();
+        expect(same!.protoTile).toBe(c.protoTile);
+        expect(same!.centroid.x).toBeCloseTo(c.centroid.x, 6);
+        expect(same!.centroid.y).toBeCloseTo(c.centroid.y, 6);
+      }
+    }
   });
 });
