@@ -1,7 +1,7 @@
 # Andamento
 
-Tiling layouts: split a region into grid, brick, herringbone, basketweave, hexagon or
-Mondrian-style tiles, then put anything you like in each tile. Photo walls, image
+Tiling layouts: split a region into grids, bricks, herringbone, chevron, hexagons, triangles,
+Cairo pentagons, Mondrian-style rectangles and more, then put anything you like in each tile. Photo walls, image
 galleries, dashboards, card grids, decorative backgrounds.
 
 | Package | What it does |
@@ -59,7 +59,16 @@ const layout = createLayout({
 const svg = renderToString(layout, { images: imageUrls, background: "#f4f1ea" });
 ```
 
-Patterns: `grid`, `runningBond`, `herringbone`, `basketweave`, `hexagonal`, `mondrian`.
+Patterns:
+
+- Bricks and boards: `grid`, `runningBond`, `flemishBond`, `herringbone`, `chevron`, `basketweave`,
+  `hopscotch` (two square sizes), `pinwheel`
+- Regular polygons: `hexagonal`, `triangular`, `rhombille` (tumbling blocks), `octagonSquare`,
+  `trihexagonal`, `rhombitrihexagonal`
+- Other: `cairo` (pentagons), `mondrian` (random rectangles)
+
+`cell.protoTile` tells the tile types apart within a pattern (e.g. rhombille: 0 top, 1 right,
+2 left face), which is handy for shading.
 Every spec is a plain JSON object, so layouts can be saved and restored.
 
 `cornerRadius` is applied when rendering: SVG uses true arcs, HTML approximates them in the

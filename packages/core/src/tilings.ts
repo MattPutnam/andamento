@@ -46,6 +46,78 @@ export interface HexagonalSpec {
   orientation?: "pointy" | "flat";
 }
 
+export interface TriangularSpec {
+  type: "triangular";
+  /** Side length of each equilateral triangle. */
+  size: number;
+}
+
+export interface RhombilleSpec {
+  type: "rhombille";
+  /** Side length of each rhombus. Three rhombi form a hexagon ("tumbling blocks"). */
+  size: number;
+}
+
+export interface OctagonSquareSpec {
+  type: "octagonSquare";
+  /** Edge length shared by the octagons and the small squares. */
+  size: number;
+}
+
+export interface TrihexagonalSpec {
+  type: "trihexagonal";
+  /** Edge length shared by the hexagons and triangles. */
+  size: number;
+}
+
+export interface RhombitrihexagonalSpec {
+  type: "rhombitrihexagonal";
+  /** Edge length shared by the hexagons, squares and triangles. */
+  size: number;
+}
+
+export interface CairoSpec {
+  type: "cairo";
+  /** Spacing of the underlying square grid; each pentagon is roughly this wide. */
+  size: number;
+}
+
+export interface HopscotchSpec {
+  type: "hopscotch";
+  /** Side of the large squares. */
+  large: number;
+  /** Side of the small squares. Must not exceed `large`. */
+  small: number;
+}
+
+export interface PinwheelSpec {
+  type: "pinwheel";
+  /** Long side of each rectangle. Must be greater than `width`. */
+  length: number;
+  /** Short side of each rectangle. The centre squares have side `length - width`. */
+  width: number;
+}
+
+export interface FlemishBondSpec {
+  type: "flemishBond";
+  /** Length of the long bricks (stretchers). */
+  length: number;
+  /** Course height. */
+  height: number;
+  /** Length of the short bricks (headers). Defaults to `length / 2`. */
+  header?: number;
+}
+
+export interface ChevronSpec {
+  type: "chevron";
+  /** Long side of each plank. */
+  length: number;
+  /** Plank width, measured across the plank. */
+  width: number;
+  /** Plank slope in degrees from horizontal, between 0 and 90 (exclusive). Defaults to 45. */
+  angle?: number;
+}
+
 export interface MondrianSpec {
   type: "mondrian";
   /** No side is cut shorter than this. */
@@ -66,6 +138,16 @@ export type TilingSpec =
   | HerringboneSpec
   | BasketweaveSpec
   | HexagonalSpec
+  | TriangularSpec
+  | RhombilleSpec
+  | OctagonSquareSpec
+  | TrihexagonalSpec
+  | RhombitrihexagonalSpec
+  | CairoSpec
+  | HopscotchSpec
+  | PinwheelSpec
+  | FlemishBondSpec
+  | ChevronSpec
   | MondrianSpec;
 
 export type TilingType = TilingSpec["type"];
@@ -75,6 +157,19 @@ export const runningBond = (p: Omit<RunningBondSpec, "type">): RunningBondSpec =
 export const herringbone = (p: Omit<HerringboneSpec, "type">): HerringboneSpec => ({ type: "herringbone", ...p });
 export const basketweave = (p: Omit<BasketweaveSpec, "type">): BasketweaveSpec => ({ type: "basketweave", ...p });
 export const hexagonal = (p: Omit<HexagonalSpec, "type">): HexagonalSpec => ({ type: "hexagonal", ...p });
+export const triangular = (p: Omit<TriangularSpec, "type">): TriangularSpec => ({ type: "triangular", ...p });
+export const rhombille = (p: Omit<RhombilleSpec, "type">): RhombilleSpec => ({ type: "rhombille", ...p });
+export const octagonSquare = (p: Omit<OctagonSquareSpec, "type">): OctagonSquareSpec => ({ type: "octagonSquare", ...p });
+export const trihexagonal = (p: Omit<TrihexagonalSpec, "type">): TrihexagonalSpec => ({ type: "trihexagonal", ...p });
+export const rhombitrihexagonal = (p: Omit<RhombitrihexagonalSpec, "type">): RhombitrihexagonalSpec => ({
+  type: "rhombitrihexagonal",
+  ...p,
+});
+export const cairo = (p: Omit<CairoSpec, "type">): CairoSpec => ({ type: "cairo", ...p });
+export const hopscotch = (p: Omit<HopscotchSpec, "type">): HopscotchSpec => ({ type: "hopscotch", ...p });
+export const pinwheel = (p: Omit<PinwheelSpec, "type">): PinwheelSpec => ({ type: "pinwheel", ...p });
+export const flemishBond = (p: Omit<FlemishBondSpec, "type">): FlemishBondSpec => ({ type: "flemishBond", ...p });
+export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "chevron", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
@@ -113,6 +208,17 @@ function positive(name: string, value: number | undefined): number {
   }
   return value;
 }
+
+const deg = (d: number) => (d * Math.PI) / 180;
+const polar = (r: number, degrees: number): Vec => vec(r * Math.cos(deg(degrees)), r * Math.sin(deg(degrees)));
+
+/** Regular polygon with `n` corners at circumradius `r` around the origin, first corner at `startDeg`. */
+function regular(n: number, r: number, startDeg: number): Polygon {
+  return Array.from({ length: n }, (_, k) => polar(r, startDeg + (360 / n) * k));
+}
+
+/** Cairo bar half-length (as a fraction of the grid size) that makes all pentagon sides equal. */
+const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 
 export function periodicDefinition(spec: Exclude<TilingSpec, MondrianSpec>): PeriodicDefinition {
   switch (spec.type) {
@@ -169,6 +275,175 @@ export function periodicDefinition(spec: Exclude<TilingSpec, MondrianSpec>): Per
       return flat
         ? { a: vec(1.5 * s, (r3 / 2) * s), b: vec(0, r3 * s), motif: [{ polygon: hex, protoTile: 0 }] }
         : { a: vec(r3 * s, 0), b: vec((r3 / 2) * s, 1.5 * s), motif: [{ polygon: hex, protoTile: 0 }] };
+    }
+    case "triangular": {
+      const s = positive("triangular.size", spec.size);
+      const h = (Math.sqrt(3) / 2) * s;
+      // A strip of alternating up/down triangles, repeated with a half-triangle shift per row.
+      return {
+        a: vec(s, 0),
+        b: vec(s / 2, h),
+        motif: [
+          { polygon: [vec(0, h), vec(s / 2, 0), vec(s, h)], protoTile: 0 },
+          { polygon: [vec(s / 2, 0), vec((3 * s) / 2, 0), vec(s, h)], protoTile: 1 },
+        ],
+      };
+    }
+    case "rhombille": {
+      const s = positive("rhombille.size", spec.size);
+      const r3 = Math.sqrt(3);
+      // A pointy hexagon split into three rhombi from its centre: top, right and left faces of a cube.
+      const v = regular(6, s, 30);
+      const face = (k: number): Polygon => [vec(0, 0), v[k % 6]!, v[(k + 1) % 6]!, v[(k + 2) % 6]!];
+      return {
+        a: vec(r3 * s, 0),
+        b: vec((r3 / 2) * s, 1.5 * s),
+        motif: [
+          { polygon: face(3), protoTile: 0 },
+          { polygon: face(5), protoTile: 1 },
+          { polygon: face(1), protoTile: 2 },
+        ],
+      };
+    }
+    case "octagonSquare": {
+      const s = positive("octagonSquare.size", spec.size);
+      const c = s / Math.SQRT2;
+      const w = s + 2 * c;
+      const octagon = [vec(c, 0), vec(w - c, 0), vec(w, c), vec(w, w - c), vec(w - c, w), vec(c, w), vec(0, w - c), vec(0, c)];
+      const diamond = [vec(c, 0), vec(0, c), vec(-c, 0), vec(0, -c)];
+      return {
+        a: vec(w, 0),
+        b: vec(0, w),
+        motif: [
+          { polygon: octagon, protoTile: 0 },
+          { polygon: diamond, protoTile: 1 },
+        ],
+      };
+    }
+    case "trihexagonal": {
+      const s = positive("trihexagonal.size", spec.size);
+      const h = (Math.sqrt(3) / 2) * s;
+      // Flat hexagons touching corner to corner, with triangles in the gaps.
+      return {
+        a: vec(2 * s, 0),
+        b: vec(s, 2 * h),
+        motif: [
+          { polygon: regular(6, s, 0), protoTile: 0 },
+          { polygon: [vec(s, 0), vec(1.5 * s, h), vec(0.5 * s, h)], protoTile: 1 },
+          { polygon: [vec(s, 0), vec(0.5 * s, -h), vec(1.5 * s, -h)], protoTile: 2 },
+        ],
+      };
+    }
+    case "rhombitrihexagonal": {
+      const s = positive("rhombitrihexagonal.size", spec.size);
+      const d = s * (1 + Math.sqrt(3));
+      // Pointy hexagon; a square on each edge facing a neighbour (0°, 60°, 120°) and a
+      // triangle in each corner between two of those squares (30°, 90°).
+      const square = (dir: number): Polygon => {
+        const p = polar(s, dir - 30);
+        const q = polar(s, dir + 30);
+        const n = polar(s, dir);
+        return [p, q, vec(q.x + n.x, q.y + n.y), vec(p.x + n.x, p.y + n.y)];
+      };
+      const triangle = (corner: number): Polygon => {
+        const v = polar(s, corner);
+        const n1 = polar(s, corner - 30);
+        const n2 = polar(s, corner + 30);
+        return [v, vec(v.x + n1.x, v.y + n1.y), vec(v.x + n2.x, v.y + n2.y)];
+      };
+      return {
+        a: vec(d, 0),
+        b: vec(d / 2, (Math.sqrt(3) / 2) * d),
+        motif: [
+          { polygon: regular(6, s, 30), protoTile: 0 },
+          { polygon: square(0), protoTile: 1 },
+          { polygon: square(60), protoTile: 1 },
+          { polygon: square(120), protoTile: 1 },
+          { polygon: triangle(30), protoTile: 2 },
+          { polygon: triangle(90), protoTile: 2 },
+        ],
+      };
+    }
+    case "cairo": {
+      const L = positive("cairo.size", spec.size);
+      const h = L / 2;
+      const u = CAIRO_BAR * L;
+      // Checkerboard of squares holding alternately a horizontal and a vertical bar; each
+      // bar end is joined to the two nearest corners. Every grid edge then separates two
+      // pieces that merge into one pentagon. Listed here: the four around a horizontal-bar square.
+      return {
+        a: vec(L, L),
+        b: vec(L, -L),
+        motif: [
+          { polygon: [vec(0, 0), vec(h, -h + u), vec(L, 0), vec(h + u, h), vec(h - u, h)], protoTile: 0 },
+          { polygon: [vec(L, 0), vec(L + h, h - u), vec(L + h, h + u), vec(L, L), vec(h + u, h)], protoTile: 1 },
+          { polygon: [vec(0, L), vec(h - u, h), vec(h + u, h), vec(L, L), vec(h, L + h - u)], protoTile: 0 },
+          { polygon: [vec(0, 0), vec(h - u, h), vec(0, L), vec(-h, h + u), vec(-h, h - u)], protoTile: 1 },
+        ],
+      };
+    }
+    case "hopscotch": {
+      const A = positive("hopscotch.large", spec.large);
+      const B = positive("hopscotch.small", spec.small);
+      if (B > A) throw new RangeError("hopscotch.small must not exceed hopscotch.large");
+      // Pythagorean tiling: each large square is stepped down by the small square's side.
+      return {
+        a: vec(A, B),
+        b: vec(-B, A),
+        motif: [
+          { polygon: rectPolygon(0, 0, A, A), protoTile: 0 },
+          { polygon: rectPolygon(A - B, A, B, B), protoTile: 1 },
+        ],
+      };
+    }
+    case "pinwheel": {
+      const L = positive("pinwheel.length", spec.length);
+      const W = positive("pinwheel.width", spec.width);
+      if (L <= W) throw new RangeError("pinwheel.length must be greater than pinwheel.width");
+      // Four rectangles turning around a small square; neighbouring pinwheels share rectangles.
+      return {
+        a: vec(L, -W),
+        b: vec(W, L),
+        motif: [
+          { polygon: rectPolygon(0, 0, L, W), protoTile: 0 },
+          { polygon: rectPolygon(L, 0, W, L), protoTile: 1 },
+          { polygon: rectPolygon(W, W, L - W, L - W), protoTile: 2 },
+        ],
+      };
+    }
+    case "flemishBond": {
+      const L = positive("flemishBond.length", spec.length);
+      const H = positive("flemishBond.height", spec.height);
+      const D = positive("flemishBond.header", spec.header ?? L / 2);
+      // Each course alternates stretcher and header; the next course is shifted so its
+      // headers sit centred over the stretchers below.
+      return {
+        a: vec(L + D, 0),
+        b: vec((L + D) / 2, H),
+        motif: [
+          { polygon: rectPolygon(0, 0, L, H), protoTile: 0 },
+          { polygon: rectPolygon(L, 0, D, H), protoTile: 1 },
+        ],
+      };
+    }
+    case "chevron": {
+      const len = positive("chevron.length", spec.length);
+      const w = positive("chevron.width", spec.width);
+      const angle = spec.angle ?? 45;
+      if (!(angle > 0 && angle < 90)) throw new RangeError("chevron.angle must be between 0 and 90 degrees");
+      const t = deg(angle);
+      const c = len * Math.cos(t); // column width
+      const rise = c * Math.tan(t);
+      const step = w / Math.cos(t); // vertical spacing of planks within a column
+      // Two columns of parallelograms with vertical ends, sloping up then down: ^ shapes.
+      return {
+        a: vec(2 * c, 0),
+        b: vec(0, step),
+        motif: [
+          { polygon: [vec(0, 0), vec(c, -rise), vec(c, -rise + step), vec(0, step)], protoTile: 0 },
+          { polygon: [vec(c, -rise), vec(2 * c, 0), vec(2 * c, step), vec(c, -rise + step)], protoTile: 1 },
+        ],
+      };
     }
   }
 }

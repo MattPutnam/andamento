@@ -13,6 +13,16 @@ import {
   rectPolygon,
   rectsOverlap,
   runningBond,
+  triangular,
+  rhombille,
+  octagonSquare,
+  trihexagonal,
+  rhombitrihexagonal,
+  cairo,
+  hopscotch,
+  pinwheel,
+  flemishBond,
+  chevron,
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
@@ -48,6 +58,17 @@ const specs: [string, TilingSpec][] = [
   ["hex pointy", hexagonal({ size: 60 })],
   ["hex flat", hexagonal({ size: 60, orientation: "flat" })],
   ["mondrian", mondrian({ minSize: 80, maxSize: 300, seed: 42 })],
+  ["triangular", triangular({ size: 80 })],
+  ["rhombille", rhombille({ size: 60 })],
+  ["octagonSquare", octagonSquare({ size: 40 })],
+  ["trihexagonal", trihexagonal({ size: 50 })],
+  ["rhombitrihexagonal", rhombitrihexagonal({ size: 40 })],
+  ["cairo", cairo({ size: 90 })],
+  ["hopscotch", hopscotch({ large: 120, small: 50 })],
+  ["pinwheel", pinwheel({ length: 120, width: 50 })],
+  ["flemishBond", flemishBond({ length: 120, height: 50 })],
+  ["chevron", chevron({ length: 140, width: 40 })],
+  ["chevron 30°", chevron({ length: 140, width: 40, angle: 30 })],
 ];
 
 describe.each(specs)("%s", (_name, tiling) => {
@@ -71,13 +92,16 @@ describe.each(specs)("%s", (_name, tiling) => {
     const gap = 10;
     const l = createLayout({ region: wall, tiling, gap });
     // Growing every cell by slightly less than half the gap must not create overlaps.
-    const grown = l.cells.map((c) => grow(c.polygon, gap / 2 - 0.01));
-    for (let i = 0; i < grown.length; i++) {
-      for (let j = i + 1; j < grown.length; j++) {
-        const inter = clipConvex(grown[i]!, grown[j]!);
-        expect(inter.length ? area(inter) : 0).toBeLessThan(1e-6);
+    // Every pair of cells whose boxes come within the gap must be at least `gap` apart.
+    const cs = l.cells;
+    let closest = Infinity;
+    for (let i = 0; i < cs.length; i++) {
+      for (let j = i + 1; j < cs.length; j++) {
+        if (!rectsOverlap(cs[i]!.bbox, cs[j]!.bbox, gap)) continue;
+        closest = Math.min(closest, polygonDistance(cs[i]!.polygon, cs[j]!.polygon));
       }
     }
+    expect(closest).toBeGreaterThan(gap - 1e-6);
   });
 
   it('"inside" keeps only whole tiles within the wall', () => {
@@ -88,23 +112,19 @@ describe.each(specs)("%s", (_name, tiling) => {
   });
 });
 
-/** Inverse of insetConvex for convex polygons (expand each edge outward). */
-function grow(p: { x: number; y: number }[], d: number) {
-  // Expanding = insetting the polygon by -d; emulate with a large clip box + half-planes.
-  const n = p.length;
-  const lines = p.map((a, i) => {
-    const b = p[(i + 1) % n]!;
-    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
-    const nx = dy / len, ny = -dx / len; // outward
-    return { a: { x: a.x + nx * d, y: a.y + ny * d }, dir: { x: dx, y: dy } };
-  });
-  return lines.map((l1, i) => {
-    const l0 = lines[(i + n - 1) % n]!;
-    const den = l0.dir.x * l1.dir.y - l0.dir.y * l1.dir.x;
-    if (Math.abs(den) < 1e-12) return l1.a;
-    const t = ((l1.a.x - l0.a.x) * l1.dir.y - (l1.a.y - l0.a.y) * l1.dir.x) / den;
-    return { x: l0.a.x + l0.dir.x * t, y: l0.a.y + l0.dir.y * t };
-  });
+type P = { x: number; y: number };
+function pointSegment(p: P, a: P, b: P) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+/** Minimum distance between two disjoint convex polygons. */
+function polygonDistance(p: P[], q: P[]) {
+  let d = Infinity;
+  for (const [s, t] of [[p, q], [q, p]] as const) {
+    for (const v of s) for (let i = 0; i < t.length; i++) d = Math.min(d, pointSegment(v, t[i]!, t[(i + 1) % t.length]!));
+  }
+  return d;
 }
 
 describe("layout options", () => {
@@ -230,5 +250,45 @@ describe("corner rounding", () => {
     expect(clip.split(",").length).toBeGreaterThan(20);
     expect(clip).not.toMatch(/[(,] ?0% 0%/); // the sharp corner is cut off
     expect(clip).toMatch(/^polygon\(0% 10%, /);
+  });
+});
+
+describe("new tiling shapes", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const shapesOf = (tiling: TilingSpec) => {
+    const l = createLayout({ region, tiling, edges: "inside" });
+    const out = new Map<number, number>();
+    for (const c of l.cells) out.set(c.protoTile, c.polygon.length);
+    return out;
+  };
+  const sides = (p: { x: number; y: number }[]) =>
+    p.map((v, i) => Math.hypot(p[(i + 1) % p.length]!.x - v.x, p[(i + 1) % p.length]!.y - v.y));
+
+  it("uses the expected polygons per prototile", () => {
+    expect([...shapesOf(triangular({ size: 80 }))]).toEqual(expect.arrayContaining([[0, 3], [1, 3]]));
+    expect(shapesOf(octagonSquare({ size: 40 })).get(0)).toBe(8);
+    expect(shapesOf(octagonSquare({ size: 40 })).get(1)).toBe(4);
+    const rth = shapesOf(rhombitrihexagonal({ size: 40 }));
+    expect([rth.get(0), rth.get(1), rth.get(2)]).toEqual([6, 4, 3]);
+    expect(shapesOf(cairo({ size: 90 })).get(0)).toBe(5);
+  });
+
+  it("gives every regular-polygon tiling equal edge lengths", () => {
+    for (const tiling of [triangular({ size: 50 }), rhombille({ size: 50 }), octagonSquare({ size: 50 }), trihexagonal({ size: 50 }), rhombitrihexagonal({ size: 50 })]) {
+      const l = createLayout({ region, tiling, edges: "inside" });
+      for (const c of l.cells) for (const e of sides(c.polygon)) expect(e).toBeCloseTo(50, 6);
+    }
+  });
+
+  it("makes Cairo pentagons equilateral", () => {
+    const l = createLayout({ region, tiling: cairo({ size: 90 }), edges: "inside" });
+    const e = sides(l.cells[0]!.polygon);
+    for (const x of e) expect(x).toBeCloseTo(e[0]!, 6);
+  });
+
+  it("validates parameters", () => {
+    expect(() => createLayout({ region, tiling: hopscotch({ large: 10, small: 20 }) })).toThrow(RangeError);
+    expect(() => createLayout({ region, tiling: pinwheel({ length: 10, width: 20 }) })).toThrow(RangeError);
+    expect(() => createLayout({ region, tiling: chevron({ length: 100, width: 20, angle: 90 }) })).toThrow(RangeError);
   });
 });

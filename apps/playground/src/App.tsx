@@ -63,6 +63,80 @@ const TILINGS: Record<TilingType, TilingDef> = {
     defaults: { size: 26, orientation: "pointy" },
     rotates: true,
   },
+  triangular: {
+    label: "Triangles",
+    params: [{ key: "size", label: "Edge length", min: 8, max: 100, step: 1 }],
+    defaults: { size: 34 },
+    rotates: true,
+  },
+  rhombille: {
+    label: "Rhombille",
+    params: [{ key: "size", label: "Edge length", min: 8, max: 100, step: 1 }],
+    defaults: { size: 22 },
+    rotates: true,
+  },
+  octagonSquare: {
+    label: "Octagons",
+    params: [{ key: "size", label: "Edge length", min: 8, max: 100, step: 1 }],
+    defaults: { size: 18 },
+    rotates: true,
+  },
+  trihexagonal: {
+    label: "Trihexagonal",
+    params: [{ key: "size", label: "Edge length", min: 8, max: 100, step: 1 }],
+    defaults: { size: 20 },
+    rotates: true,
+  },
+  rhombitrihexagonal: {
+    label: "Hex + squares",
+    params: [{ key: "size", label: "Edge length", min: 8, max: 100, step: 1 }],
+    defaults: { size: 14 },
+    rotates: true,
+  },
+  cairo: {
+    label: "Cairo",
+    params: [{ key: "size", label: "Grid size", min: 10, max: 120, step: 1 }],
+    defaults: { size: 40 },
+    rotates: true,
+  },
+  hopscotch: {
+    label: "Hopscotch",
+    params: [
+      { key: "large", label: "Large square", min: 10, max: 120, step: 1 },
+      { key: "small", label: "Small square", min: 5, max: 120, step: 1 },
+    ],
+    defaults: { large: 45, small: 22 },
+    rotates: true,
+  },
+  pinwheel: {
+    label: "Pinwheel",
+    params: [
+      { key: "length", label: "Length", min: 20, max: 160, step: 1 },
+      { key: "width", label: "Width", min: 10, max: 80, step: 1 },
+    ],
+    defaults: { length: 55, width: 25 },
+    rotates: true,
+  },
+  flemishBond: {
+    label: "Flemish bond",
+    params: [
+      { key: "length", label: "Stretcher", min: 10, max: 120, step: 1 },
+      { key: "header", label: "Header", min: 5, max: 80, step: 1 },
+      { key: "height", label: "Course height", min: 8, max: 80, step: 1 },
+    ],
+    defaults: { length: 40, header: 20, height: 18 },
+    rotates: true,
+  },
+  chevron: {
+    label: "Chevron",
+    params: [
+      { key: "length", label: "Length", min: 20, max: 160, step: 1 },
+      { key: "width", label: "Width", min: 8, max: 80, step: 1 },
+      { key: "angle", label: "Angle (°)", min: 15, max: 75, step: 1 },
+    ],
+    defaults: { length: 60, width: 20, angle: 45 },
+    rotates: true,
+  },
   mondrian: {
     label: "Mondrian",
     params: [
