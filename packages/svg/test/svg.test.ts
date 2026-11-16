@@ -15,7 +15,7 @@ describe("svg renderer", () => {
     expect(s.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"')).toBe(true);
     expect(s.match(/class="andamento-cell"/g)).toHaveLength(6);
     expect(s).toContain("<title>Wall &lt;1&gt;</title>");
-    expect(s).toContain('class="andamento-wall"');
+    expect(s).toContain('class="andamento-region"');
   });
 
   it("clips photos to cells, in reading order", () => {

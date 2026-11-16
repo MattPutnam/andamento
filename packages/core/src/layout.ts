@@ -18,20 +18,20 @@ import {
 import { generateTiles, type TilingSpec } from "./tilings";
 
 /**
- * How tiles at the edge of the wall are treated.
- * - "clip":     cut tiles to the wall outline (a full-bleed look).
- * - "inside":   keep only tiles that fit entirely inside the wall.
- * - "overflow": keep every tile that touches the wall, uncut.
+ * How tiles at the edge of the region are treated.
+ * - "clip":     cut tiles to the region outline (a full-bleed look).
+ * - "inside":   keep only tiles that fit entirely inside the region.
+ * - "overflow": keep every tile that touches the region, uncut.
  */
 export type EdgeMode = "clip" | "inside" | "overflow";
 
 export interface LayoutOptions {
-  /** The wall: a rectangle or any convex polygon, in your own units (cm, px, in…). */
+  /** The area to tile: a rectangle or any convex polygon, in your own units (cm, px, in…). */
   region: Rect | Polygon;
   tiling: TilingSpec;
   /** Space between neighbouring tiles. Defaults to 0. */
   gap?: number;
-  /** Empty border kept between the wall outline and the tiles. Defaults to 0. */
+  /** Empty border kept between the region outline and the tiles. Defaults to 0. */
   margin?: number;
   /** Pattern rotation in degrees (ignored by Mondrian). Defaults to 0. */
   rotation?: number;
@@ -51,7 +51,7 @@ export interface LayoutOptions {
 export interface Cell {
   /** Stable id derived from the tile's position in the pattern. */
   id: string;
-  /** Position in reading order (top-to-bottom, then left-to-right). Use it to assign photos. */
+  /** Position in reading order (top-to-bottom, then left-to-right). Use it to assign content to cells. */
   index: number;
   /** Visible shape: after gap and edge handling. */
   polygon: Polygon;
@@ -60,7 +60,7 @@ export interface Cell {
   bbox: Rect;
   centroid: Vec;
   area: number;
-  /** The tile crosses the wall outline (it was cut in "clip" mode, or sticks out in "overflow"). */
+  /** The tile crosses the region outline (it was cut in "clip" mode, or sticks out in "overflow"). */
   boundary: boolean;
   /** Which prototile this is a copy of (e.g. herringbone: 0 horizontal, 1 vertical). */
   protoTile: number;
@@ -69,9 +69,9 @@ export interface Cell {
 }
 
 export interface Layout {
-  /** The wall outline (before margin). */
+  /** The region outline (before margin). */
   region: Polygon;
-  /** Bounding box of the wall; a good SVG viewBox. */
+  /** Bounding box of the region; a good SVG viewBox. */
   bounds: Rect;
   cells: Cell[];
 }

@@ -6,19 +6,19 @@ export type ImageSource = readonly string[] | ((cell: Cell) => string | undefine
 export type FillSource = string | readonly string[] | ((cell: Cell) => string);
 
 export interface RenderOptions {
-  /** Photos: an array assigned in reading order, or a function per cell. */
+  /** Images: an array assigned in reading order, or a function per cell. */
   images?: ImageSource;
-  /** Reuse the images array from the start when there are more cells than photos. */
+  /** Reuse the images array from the start when there are more cells than images. */
   repeatImages?: boolean;
   /**
-   * Cell colour when there is no photo: a colour, a palette (neighbouring cells get
+   * Cell colour when there is no image: a colour, a palette (neighbouring cells get
    * different entries), or a function. Defaults to `defaultPalette`.
    */
   fill?: FillSource;
   /** Outline drawn on top of each cell. */
   stroke?: string;
   strokeWidth?: number;
-  /** Wall colour, painted over the whole region. Omit for transparent. */
+  /** Colour painted over the whole region. Omit for transparent. */
   background?: string;
   /** Prefix for generated element ids; set it when several layouts share a page. */
   idPrefix?: string;
@@ -48,7 +48,7 @@ export interface CellStyle {
   image?: string;
 }
 
-/** Resolve the fill colour and photo for every cell (shared by the SVG and React renderers). */
+/** Resolve the fill colour and image for every cell (shared by the SVG and React renderers). */
 export function resolveCellStyles(layout: Layout, opts: Pick<RenderOptions, "images" | "repeatImages" | "fill"> = {}): CellStyle[] {
   const fill = opts.fill ?? defaultPalette;
   let fillFor: (c: Cell) => string;
@@ -95,7 +95,7 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
   const children: SvgNode["children"] = [];
   if (opts.title) children.push(el("title", {}, [opts.title]));
   if (opts.background) {
-    children.push(el("path", { d: polygonToPath(layout.region, precision), fill: opts.background, class: "andamento-wall" }));
+    children.push(el("path", { d: polygonToPath(layout.region, precision), fill: opts.background, class: "andamento-region" }));
   }
 
   layout.cells.forEach((cell, i) => {

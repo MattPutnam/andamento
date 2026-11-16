@@ -1,7 +1,7 @@
-import { useMemo, useState, type ChangeEvent } from "react";
-import { createLayout, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
-import { renderToString } from "@andamento/svg";
-import { TileLayout } from "@andamento/react";
+import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
+import { colorCells, createLayout, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { defaultPalette, renderToString } from "@andamento/svg";
+import { TileLayout, coverStyle } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -77,6 +77,14 @@ const TILINGS: Record<TilingType, TilingDef> = {
   },
 };
 
+type Content = "photos" | "cards" | "colors";
+const CONTENT: [Content, string][] = [
+  ["photos", "Photos"],
+  ["cards", "Text cards"],
+  ["colors", "Plain colours"],
+];
+const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
+
 export function App() {
   const [type, setType] = useState<TilingType>("herringbone");
   const [params, setParams] = useState(() =>
@@ -88,9 +96,9 @@ export function App() {
   const [rotation, setRotation] = useState(0);
   const [edges, setEdges] = useState<EdgeMode>("clip");
   const [minFill, setMinFill] = useState(0.25);
-  const [showPhotos, setShowPhotos] = useState(true);
+  const [content, setContent] = useState<Content>("photos");
   const [uploads, setUploads] = useState<string[]>([]);
-  const [wallColor, setWallColor] = useState("#f4f1ea");
+  const [background, setBackground] = useState("#f4f1ea");
 
   const def = TILINGS[type];
   const tiling = { type, ...params[type] } as TilingSpec;
@@ -115,7 +123,22 @@ export function App() {
   }, [optionsKey]);
 
   const photos = useMemo(() => (uploads.length ? uploads : placeholderPhotos(60)), [uploads]);
-  const images = showPhotos ? photos : undefined;
+  const layout = "layout" in result ? result.layout : undefined;
+  const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
+  const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
+
+  // Any React content works as children: one child per tile, in reading order.
+  const children = layout?.cells.map((cell, i) => {
+    if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
+    if (content === "cards")
+      return (
+        <div key={i} className="card" style={{ background: colorOf(i) }}>
+          <strong>{i + 1}</strong>
+          <span>{CARD_WORDS[i % CARD_WORDS.length]}</span>
+        </div>
+      );
+    return null;
+  });
 
   const setParam = (key: string, value: number | string) => setParams((p) => ({ ...p, [type]: { ...p[type], [key]: value } }));
 
@@ -134,21 +157,19 @@ export function App() {
       ),
     );
     setUploads(urls);
-    setShowPhotos(true);
+    setContent("photos");
   };
 
   const download = () => {
-    if (!("layout" in result)) return;
-    const svg = renderToString(result.layout, {
-      images,
+    if (!layout) return;
+    const svg = renderToString(layout, {
+      images: content === "photos" ? photos : undefined,
       repeatImages: true,
-      background: wallColor,
-      width: `${wall.width}cm`,
-      height: `${wall.height}cm`,
+      background,
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    a.download = `photo-wall-${type}.svg`;
+    a.download = `andamento-${type}.svg`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -157,15 +178,15 @@ export function App() {
     <div className="app">
       <aside className="panel">
         <h1>Andamento</h1>
-        <p className="sub">Photo wall layouts</p>
+        <p className="sub">Tiling layouts with any content</p>
 
         <section>
-          <h2>Wall (cm)</h2>
+          <h2>Region</h2>
           <Slider label="Width" min={50} max={500} step={5} value={wall.width} onChange={(v) => setWall({ ...wall, width: v })} />
           <Slider label="Height" min={50} max={400} step={5} value={wall.height} onChange={(v) => setWall({ ...wall, height: v })} />
           <label className="row">
-            <span>Wall colour</span>
-            <input type="color" value={wallColor} onChange={(e) => setWallColor(e.target.value)} />
+            <span>Background</span>
+            <input type="color" value={background} onChange={(e) => setBackground(e.target.value)} />
           </label>
         </section>
 
@@ -200,7 +221,7 @@ export function App() {
           <label className="row">
             <span>Edge tiles</span>
             <select value={edges} onChange={(e) => setEdges(e.target.value as EdgeMode)}>
-              <option value="clip">Cut to wall</option>
+              <option value="clip">Cut to region</option>
               <option value="inside">Whole tiles only</option>
               <option value="overflow">Let them overhang</option>
             </select>
@@ -209,11 +230,14 @@ export function App() {
         </section>
 
         <section>
-          <h2>Photos</h2>
-          <label className="row">
-            <span>Show photos</span>
-            <input type="checkbox" checked={showPhotos} onChange={(e) => setShowPhotos(e.target.checked)} />
-          </label>
+          <h2>Content</h2>
+          <div className="chips">
+            {CONTENT.map(([k, label]) => (
+              <button key={k} className={k === content ? "chip on" : "chip"} onClick={() => setContent(k)}>
+                {label}
+              </button>
+            ))}
+          </div>
           <label className="upload">
             <input type="file" accept="image/*" multiple onChange={onUpload} />
             <span>{uploads.length ? `${uploads.length} photos loaded — replace…` : "Use your own photos…"}</span>
@@ -230,7 +254,7 @@ export function App() {
         <div className="toolbar">
           {"layout" in result ? (
             <span>
-              <strong>{result.layout.cells.length}</strong> frames · {result.layout.cells.filter((c) => c.boundary).length} at the edge
+              <strong>{result.layout.cells.length}</strong> tiles · {result.layout.cells.filter((c) => c.boundary).length} at the edge
             </span>
           ) : (
             <span className="error">{result.error}</span>
@@ -240,15 +264,18 @@ export function App() {
           </button>
         </div>
         <div className="canvas">
-          {"layout" in result && (
+          {layout && (
             <TileLayout
-              layout={result.layout}
-              images={images}
-              repeatImages
-              background={wallColor}
-              className="wall"
-              title={`${def.label} photo wall`}
-            />
+              layout={layout}
+              background={background}
+              className="region"
+              style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
+              cellClassName="tile"
+              cellStyle={content === "colors" ? (cell) => ({ background: colorOf(cell.index) }) : undefined}
+              aria-label={`${def.label} layout`}
+            >
+              {children}
+            </TileLayout>
           )}
         </div>
         <details className="code">

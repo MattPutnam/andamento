@@ -175,3 +175,19 @@ describe("layout options", () => {
     expect(area(insetConvex(rectPolygon(0, 0, 10, 10), 2))).toBeCloseTo(36);
   });
 });
+
+describe("cellCss", () => {
+  it("places cells as percentages of the bounds", async () => {
+    const { cellCss, boundsAspectRatio } = await import("@andamento/core");
+    const l = createLayout({ region: { x: 100, y: 50, width: 400, height: 200 }, tiling: grid({ width: 100 }) });
+    const c = l.cells.find((c) => c.index === 5)!; // second row, second column
+    expect(cellCss(c, l.bounds)).toEqual({
+      left: "25%",
+      top: "50%",
+      width: "25%",
+      height: "50%",
+      clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
+    });
+    expect(boundsAspectRatio(l)).toBe("400 / 200");
+  });
+});

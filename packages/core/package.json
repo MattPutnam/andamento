@@ -1,7 +1,7 @@
 {
   "name": "@andamento/core",
   "version": "0.1.0",
-  "description": "Framework-free tiling layouts: generate polygon cells that fill a wall.",
+  "description": "Framework-free tiling layouts: generate polygon cells that fill a region.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,19 +1,52 @@
 # Andamento
 
-Tiling layouts for photo walls, rendered as SVG.
+Tiling layouts: split a region into grid, brick, herringbone, basketweave, hexagon or
+Mondrian-style tiles, then put anything you like in each tile. Photo walls, image
+galleries, dashboards, card grids, decorative backgrounds.
 
 | Package | What it does |
 |---|---|
-| `@andamento/core` | Pure TypeScript, no DOM. Generates a pattern, applies gap/margin/edge rules, returns `Cell[]`. |
+| `@andamento/core` | Pure TypeScript, no DOM. Generates a pattern, applies gap/margin/edge rules, returns `Cell[]`. Includes CSS placement helpers for any framework. |
 | `@andamento/svg` | Renders a layout to an SVG string (`renderToString`) or DOM element (`renderToElement`). |
-| `@andamento/react` | `<TileLayout>` component, `useTileLayout()` hook, `<CellImage>`. |
+| `@andamento/react` | `<TileLayout>` (HTML, any children), `<SvgTileLayout>` (pure SVG), `useTileLayout()`. |
+
+## React: any content, clipped to the tiles
+
+```tsx
+import { TileLayout, coverStyle } from "@andamento/react";
+import { hexagonal } from "@andamento/core";
+
+<TileLayout
+  options={{ region: { x: 0, y: 0, width: 240, height: 150 }, tiling: hexagonal({ size: 26 }), gap: 2 }}
+  background="#f4f1ea"
+>
+  <img src="beach.jpg" alt="" style={coverStyle} />
+  <video src="clip.mp4" autoPlay muted loop style={coverStyle} />
+  <Card title="Anything" />
+  <button onClick={…}>Clickable</button>
+</TileLayout>
+```
+
+- Each top-level child fills one tile, in reading order (top-to-bottom, left-to-right).
+  `null`/`false` children are skipped; children beyond the number of tiles aren't rendered.
+- Tiles are absolutely positioned `<div>`s with a CSS `clip-path`, sized in percentages, so the
+  layout scales with the container's width (its height follows via `aspect-ratio`).
+- Clipping also applies to pointer events, so hover and clicks follow the tile shapes.
+- Children keep their state (video position, form input) when the layout options change.
+- Other props: `renderCell(cell)` instead of children, `fallback` for empty tiles,
+  `cellClassName` / `cellStyle` (fixed or per cell), plus any `<div>` attributes.
+
+Use `<SvgTileLayout>` when you need a single `<svg>` (export, print, embedding), with
+`images`, `fill`, `stroke` and an SVG-level `renderCell`.
+
+## Core
 
 ```ts
 import { createLayout, herringbone } from "@andamento/core";
 import { renderToString } from "@andamento/svg";
 
 const layout = createLayout({
-  region: { x: 0, y: 0, width: 240, height: 150 }, // the wall, in any unit
+  region: { x: 0, y: 0, width: 240, height: 150 }, // any unit; rectangle or convex polygon
   tiling: herringbone({ length: 60, width: 30 }),
   gap: 2,
   margin: 4,
@@ -22,18 +55,17 @@ const layout = createLayout({
   minFill: 0.25,   // drop edge slivers smaller than 25% of a tile
 });
 
-const svg = renderToString(layout, { images: photoUrls, background: "#f4f1ea" });
-```
-
-```tsx
-<TileLayout options={options} images={photoUrls} background="#f4f1ea" />
+const svg = renderToString(layout, { images: imageUrls, background: "#f4f1ea" });
 ```
 
 Patterns: `grid`, `runningBond`, `herringbone`, `basketweave`, `hexagonal`, `mondrian`.
 Every spec is a plain JSON object, so layouts can be saved and restored.
 
 Each `Cell` has `polygon` (visible shape), `original` (full pattern tile), `bbox`, `centroid`, `area`,
-`index` (reading order, used to assign photos), `boundary`, `protoTile` and `neighbors`.
+`index` (reading order), `boundary`, `protoTile` and `neighbors`.
+
+For other frameworks, `cellCss(cell, layout.bounds)` returns `{ left, top, width, height, clipPath }`
+as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ratio`.
 
 ## Development
 
@@ -41,12 +73,13 @@ Each `Cell` has `polygon` (visible shape), `original` (full pattern tile), `bbox
 npm install
 npm test          # vitest, all packages
 npm run build     # tsup → dist/ (ESM + CJS + .d.ts)
-npm run typecheck
+npm run typecheck # run after build: packages resolve each other through dist/
 npm run dev       # playground at http://localhost:5173
 ```
 
 ## Limitations
 
-- The wall must be a convex polygon (rectangles are the common case).
+- The region must be a convex polygon (rectangles are the common case).
 - Mondrian ignores `rotation` and `origin`.
-- Photos are fitted to each cell's bounding box (`object-fit: cover`); there's no focal-point control yet.
+- Content is laid out in each tile's bounding box and clipped; for hexagons and cut edge tiles,
+  keep important content near the centre.

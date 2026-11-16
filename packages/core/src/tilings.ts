@@ -240,7 +240,7 @@ function overlapsBox(p: Polygon, r: Rect): boolean {
 
 /**
  * Random recursive guillotine partition of the region's bounding box.
- * Rotation and origin are ignored: Mondrian layouts are always axis-aligned to the wall.
+ * Rotation and origin are ignored: Mondrian layouts are always axis-aligned to the region.
  */
 export function generateMondrian(spec: MondrianSpec, ctx: GenerateContext): RawTile[] {
   const min = positive("mondrian.minSize", spec.minSize);
