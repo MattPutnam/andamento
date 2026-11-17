@@ -38,6 +38,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   strokeWidth?: number;
   /** Color painted across the whole region, behind the cells. */
   background?: string;
+  /**
+   * One image across all the cells (a URL), cropped to cover the layout and clipped to the
+   * cells. The default cell rendering then skips `fill`; per-cell `images` go on top.
+   */
+  backdrop?: string;
   /** Replace the default cell rendering with SVG content. Rendered inside a <g> per cell. */
   renderCell?: (cell: Cell, ctx: SvgCellRenderContext) => ReactNode;
   /** Accessible title. */
@@ -62,6 +67,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     stroke,
     strokeWidth = 1,
     background,
+    backdrop,
     renderCell,
     title,
     ...svgProps
@@ -79,6 +85,25 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={title ? "img" : undefined} {...svgProps}>
       {title && <title>{title}</title>}
       {background && <path className="andamento-region" d={regionPath(layout)} fill={background} fillRule="evenodd" />}
+      {backdrop && (
+        <>
+          <clipPath id={`${prefix}-backdrop`}>
+            {layout.cells.map((cell) => (
+              <path key={cell.id} d={cellPath(layout, cell)} clipRule="evenodd" />
+            ))}
+          </clipPath>
+          <image
+            className="andamento-backdrop"
+            href={backdrop}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${prefix}-backdrop)`}
+          />
+        </>
+      )}
       {layout.cells.map((cell, i) => {
         const d = cellPath(layout, cell);
         const clipPathId = `${prefix}-clip-${cell.index}`;
@@ -96,7 +121,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
             <clipPath id={clipPathId}>
               <path d={d} clipRule="evenodd" />
             </clipPath>
-            {renderCell ? renderCell(cell, ctx) : <DefaultCell cell={cell} ctx={ctx} />}
+            {renderCell ? renderCell(cell, ctx) : <DefaultCell cell={cell} ctx={ctx} noFill={!!backdrop} />}
             {stroke && <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />}
           </g>
         );
@@ -105,10 +130,10 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   );
 }
 
-function DefaultCell({ cell, ctx }: { cell: Cell; ctx: SvgCellRenderContext }) {
+function DefaultCell({ cell, ctx, noFill }: { cell: Cell; ctx: SvgCellRenderContext; noFill: boolean }) {
   return (
     <>
-      <path d={ctx.path} fill={ctx.fill} fillRule="evenodd" />
+      {!noFill && <path d={ctx.path} fill={ctx.fill} fillRule="evenodd" />}
       {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} />}
     </>
   );

@@ -233,7 +233,7 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
   },
 };
 
-type Content = "photos" | "cards" | "colors";
+type Content = "photos" | "cards" | "colors" | "picture";
 
 type RegionShape = "rectangle" | "l" | "arch" | "stairs" | "hexagon";
 type HoleSet = "none" | "window-door" | "sockets" | "round";
@@ -306,6 +306,7 @@ const CONTENT: [Content, string][] = [
   ["photos", "Photos"],
   ["cards", "Text cards"],
   ["colors", "Plain colors"],
+  ["picture", "One picture"],
 ];
 const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
 
@@ -357,7 +358,8 @@ export function App() {
     minFill,
   };
 
-  const fitTo = fitTiles && itemCount > 0 && content !== "colors" ? itemCount : 0;
+  const itemsShown = content === "photos" || content === "cards";
+  const fitTo = fitTiles && itemCount > 0 && itemsShown ? itemCount : 0;
   const optionsKey = JSON.stringify(options);
   const result = useMemo((): { layout: Layout } | { error: string } => {
     try {
@@ -371,12 +373,14 @@ export function App() {
 
   const photos = useMemo(() => (uploads.length ? uploads : placeholderPhotos(60)), [uploads]);
   const layout = "layout" in result ? result.layout : undefined;
+  // "One picture": your first photo, or a wide placeholder, across all the tiles.
+  const picture = uploads[0] ?? photos[0]!;
   const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
 
   // Any React content works as children: one child per tile, in reading order.
   const numItems = layout ? (itemCount > 0 ? itemCount : layout.cells.length) : 0;
-  const children = Array.from({ length: content === "colors" ? 0 : numItems }, (_, i) => {
+  const children = Array.from({ length: itemsShown ? numItems : 0 }, (_, i) => {
     if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
     if (content === "cards")
       return (
@@ -416,6 +420,7 @@ export function App() {
       contentCells,
       placement,
       fill: content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill],
+      backdrop: content === "picture" ? picture : undefined,
       background,
     });
     const a = document.createElement("a");
@@ -557,7 +562,7 @@ export function App() {
               </button>
             ))}
           </div>
-          {content !== "colors" && (
+          {itemsShown && (
             <>
               <Slider label="Items (0 = every tile)" min={0} max={60} step={1} value={itemCount} onChange={setItemCount} />
               <label className="row">
@@ -629,6 +634,7 @@ export function App() {
               contentCells={contentCells}
               placement={placement}
               fill={content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill]}
+              backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
               aria-label={`${def.label} layout`}
             >
               {children}

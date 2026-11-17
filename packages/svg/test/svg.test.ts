@@ -48,3 +48,17 @@ describe("svg renderer", () => {
     expect(svg.querySelector("image")?.getAttribute("href")).toBe("a.jpg");
   });
 });
+
+describe("svg backdrop", () => {
+  it("draws one image clipped to every cell, after the background", async () => {
+    const { createLayout, grid } = await import("@andamento/core");
+    const { renderToString } = await import("@andamento/svg");
+    const layout = createLayout({ region: { x: 10, y: 20, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 4 });
+    const svg = renderToString(layout, { backdrop: "big.jpg", background: "#eee", idPrefix: "t" });
+    expect(svg).toContain('<image class="andamento-backdrop" href="big.jpg" x="10" y="20" width="300" height="200" preserveAspectRatio="xMidYMid slice" clip-path="url(#t-backdrop)"/>');
+    expect(svg.match(/<clipPath id="t-backdrop">/g)).toHaveLength(1);
+    expect(svg.indexOf("andamento-region")).toBeLessThan(svg.indexOf("andamento-backdrop"));
+    expect(svg).not.toMatch(/<path d="[^"]*" fill="#[0-9a-f]+"\/>/);
+    expect(renderToString(layout, { idPrefix: "t" })).toMatch(/<path d="[^"]*" fill="#[0-9a-f]+"\/>/);
+  });
+});

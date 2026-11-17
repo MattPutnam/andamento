@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  backdropCss,
   cellCss,
   contentSlots,
   regionCss,
@@ -74,6 +75,14 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * a tile; "nearest" gets as close as possible. Ignored with `layout` or `renderCell`.
    */
   fit?: FitProp;
+  /**
+   * One picture across all the tiles: rendered in every tile, sized and positioned to the
+   * whole layout, so each tile shows its own piece. Use an element that fills its box,
+   * e.g. `<img src=… style={coverStyle} />`. It sits behind the tile's content, and empty
+   * tiles show it instead of `fill`. (Each tile gets its own copy, so a video would play
+   * out of sync; images are loaded once.)
+   */
+  backdrop?: ReactNode;
   /** Content for empty tiles. */
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
@@ -104,6 +113,7 @@ export function TileLayout(props: TileLayoutProps) {
     placement,
     fill = neutralPalette,
     fit,
+    backdrop,
     fallback,
     cellClassName,
     cellStyle,
@@ -163,10 +173,17 @@ export function TileLayout(props: TileLayoutProps) {
               boxSizing: "border-box",
               overflow: "hidden",
               ...css,
-              ...(empty ? { background: fills[i] } : undefined),
+              ...(empty && backdrop == null ? { background: fills[i] } : undefined),
               ...resolve(cellStyle, cell, state),
             }}
           >
+            {backdrop != null && (
+              // z-index -1 puts it behind the content but inside the tile: the tile's
+              // clip-path makes it a stacking context.
+              <div aria-hidden style={{ position: "absolute", zIndex: -1, pointerEvents: "none", ...backdropCss(cell, layout) }}>
+                {backdrop}
+              </div>
+            )}
             {content}
           </div>
         );

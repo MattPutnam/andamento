@@ -28,6 +28,12 @@ export interface RenderOptions {
   strokeWidth?: number;
   /** Color painted over the whole region. Omit for transparent. */
   background?: string;
+  /**
+   * One image across all the cells (a URL): drawn once over the layout bounds (cropped to
+   * cover them) and clipped to the cells, so each cell shows its piece. Cells' `fill` isn't
+   * drawn; per-cell `images` still go on top.
+   */
+  backdrop?: string;
   /** Prefix for generated element ids; set it when several layouts share a page. */
   idPrefix?: string;
   /** Decimal places for coordinates. Defaults to 3. */
@@ -138,11 +144,29 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
     children.push(el("path", { d: regionPath(layout, precision), fill: opts.background, "fill-rule": "evenodd", class: "andamento-region" }));
   }
 
+  if (opts.backdrop) {
+    const clipId = `${prefix}-backdrop`;
+    const shapes = layout.cells.map((cell) => el("path", { d: cellPath(layout, cell, precision), "clip-rule": "evenodd" }));
+    children.push(el("clipPath", { id: clipId }, shapes));
+    children.push(
+      el("image", {
+        class: "andamento-backdrop",
+        href: opts.backdrop,
+        x: r(x),
+        y: r(y),
+        width: r(width),
+        height: r(height),
+        preserveAspectRatio: "xMidYMid slice",
+        "clip-path": `url(#${clipId})`,
+      }),
+    );
+  }
+
   layout.cells.forEach((cell, i) => {
     const d = cellPath(layout, cell, precision);
     const style = styles[i]!;
     const holed = !!cell.holes?.length;
-    const parts: SvgNode[] = [el("path", { d, fill: style.fill, "fill-rule": holed ? "evenodd" : undefined })];
+    const parts: SvgNode[] = opts.backdrop ? [] : [el("path", { d, fill: style.fill, "fill-rule": holed ? "evenodd" : undefined })];
     if (style.image) {
       const clipId = `${prefix}-clip-${cell.index}`;
       parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));

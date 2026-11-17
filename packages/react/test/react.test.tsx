@@ -195,6 +195,32 @@ describe("fill helpers and fit", () => {
   });
 });
 
+describe("backdrop: one picture across all tiles", () => {
+  it("puts a copy in every tile, sized to the layout and offset to line up", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={options} backdrop={<img src="wide.jpg" alt="" style={coverStyle} />}>
+        <b>first</b>
+      </TileLayout>,
+    );
+    expect(html.match(/src="wide.jpg"/g)).toHaveLength(6);
+    // Tile 1 spans x 105–195 of 300 (gap 10): the backdrop box starts 105/90 tile-widths to the left.
+    const tile1 = html.match(/<div[^>]*data-index="1"[^>]*>(.*?)<\/div><\/div>/)![1]!;
+    expect(tile1).toContain("left:-116.6667%;top:-5.5556%;width:333.3333%;height:222.2222%");
+    expect(tile1).toContain("z-index:-1");
+    // Empty tiles show the backdrop, not the fill; content still renders.
+    expect(html).not.toMatch(/data-empty=""[^>]*background:/);
+    expect(html).toContain("<b>first</b>");
+  });
+
+  it("draws one clipped image in SVG instead of cell fills", () => {
+    const html = renderToStaticMarkup(<SvgTileLayout options={options} backdrop="wide.jpg" images={["a.jpg"]} />);
+    expect(html.match(/<image[^>]*href="wide.jpg"/g)).toHaveLength(1);
+    expect(html).toMatch(/<clipPath id="[^"]*-backdrop">(<path [^>]*><\/path>){6}<\/clipPath>/);
+    expect(html).not.toMatch(/<path d="[^"]*" fill=/);
+    expect(html).toContain('href="a.jpg"'); // per-cell images still on top
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);

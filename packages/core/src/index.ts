@@ -17,7 +17,7 @@ export type { RoundedCorner } from "./rounding";
 export { createLayout, colorCells } from "./layout";
 export type { Cell, EdgeMode, Feature, Layout, LayoutOptions } from "./layout";
 export { mulberry32 } from "./random";
-export { boundsAspectRatio, cellCss, cssPolygon, regionCss } from "./css";
+export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss } from "./css";
 export type { CellCss } from "./css";
 export { contentSlots } from "./content";
 export type { ContentCells, ContentOptions, ContentPlacement } from "./content";

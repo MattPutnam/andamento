@@ -203,6 +203,23 @@ npm run typecheck # run after build: packages resolve each other through dist/
 npm run dev       # playground at http://localhost:5173
 ```
 
+### One picture across all tiles
+
+```tsx
+<TileLayout options={options} backdrop={<img src="mural.jpg" alt="" style={coverStyle} />} />
+```
+
+`backdrop` is rendered in every tile, sized and positioned to the whole layout, so the tiles
+together show it as one picture, each through its own window, with the gaps and cut-outs
+of the pattern in between. Any element that fills its box works; `coverStyle` crops an image
+to cover the layout. It sits behind each tile's content, so children (if any) appear on top and
+empty tiles show the picture instead of `fill`. Every tile holds its own copy: images load
+once, but a video would play out of sync in each tile.
+
+`<SvgTileLayout backdrop="mural.jpg">` and `renderToString(layout, { backdrop })` draw the
+image once, clipped to all the cells. For other renderers, `backdropCss(cell, layout)` gives
+the box to place inside each cell's element.
+
 ### Featured tiles
 
 ```ts

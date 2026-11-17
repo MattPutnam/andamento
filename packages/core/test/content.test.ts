@@ -65,3 +65,13 @@ describe("contentSlots", () => {
     expect(performance.now() - t).toBeLessThan(2000);
   });
 });
+
+describe("backdropCss", () => {
+  it("places a layout-sized box so every cell shows its own piece", async () => {
+    const { backdropCss } = await import("@andamento/core");
+    const l = createLayout({ region: { x: 0, y: 0, width: 400, height: 200 }, tiling: grid({ width: 100 }) });
+    expect(backdropCss(l.cells[0]!, l)).toEqual({ left: "0%", top: "0%", width: "400%", height: "200%" });
+    // Cell (2, 1): its box starts 200 right and 100 down, i.e. 2 and 1 cell-sizes.
+    expect(backdropCss(l.cells.find((c) => c.bbox.x === 200 && c.bbox.y === 100)!, l)).toEqual({ left: "-200%", top: "-100%", width: "400%", height: "200%" });
+  });
+});

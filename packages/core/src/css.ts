@@ -59,6 +59,25 @@ export function cellCss(cell: Cell, layout: Layout, precision = 4): CellCss {
   };
 }
 
+/**
+ * Placement, inside a cell's element (as positioned by `cellCss`), of a box covering the
+ * whole layout bounds. Put the same content (an image with `object-fit: cover`, say) in
+ * every cell at this placement and the cells together show it as one picture, each
+ * through its own window.
+ */
+export function backdropCss(cell: Cell, layout: Layout, precision = 4): Omit<CellCss, "clipPath"> {
+  const { bounds } = layout;
+  const b = cell.bbox;
+  const w = b.width || 1;
+  const h = b.height || 1;
+  return {
+    left: pct(((bounds.x - b.x) / w) * 100, precision),
+    top: pct(((bounds.y - b.y) / h) * 100, precision),
+    width: pct((bounds.width / w) * 100, precision),
+    height: pct((bounds.height / h) * 100, precision),
+  };
+}
+
 /** `polygon(...)` for the layout's region, with its holes, relative to the bounds. */
 export function regionCss(layout: Layout, precision = 4): string {
   return cssPolygon(layout.region, layout.bounds, precision, layout.holes);
