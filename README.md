@@ -127,7 +127,7 @@ region outline), `protoTile` and `neighbors` (ids of cells sharing an edge).
 For other frameworks, `cellCss(cell, layout)` returns `{ left, top, width, height, clipPath }`
 as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ratio`.
 
-Lower-level helpers are exported too, e.g. `colorCells` (neighbour-aware colour indices),
+Lower-level helpers are exported too, e.g. `colorCells` (neighbour-aware color indices),
 `insetPolygon`, `roundedPolygon`, `voronoiCells`, `delaunayTriangles` and `generateSubstitution`.
 
 ## Development

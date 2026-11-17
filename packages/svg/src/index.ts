@@ -11,14 +11,14 @@ export interface RenderOptions {
   /** Reuse the images array from the start when there are more cells than images. */
   repeatImages?: boolean;
   /**
-   * Cell colour when there is no image: a colour, a palette (neighbouring cells get
+   * Cell color when there is no image: a color, a palette (neighbouring cells get
    * different entries), or a function. Defaults to `defaultPalette`.
    */
   fill?: FillSource;
   /** Outline drawn on top of each cell. */
   stroke?: string;
   strokeWidth?: number;
-  /** Colour painted over the whole region. Omit for transparent. */
+  /** Color painted over the whole region. Omit for transparent. */
   background?: string;
   /** Prefix for generated element ids; set it when several layouts share a page. */
   idPrefix?: string;
@@ -64,7 +64,7 @@ export interface CellStyle {
   image?: string;
 }
 
-/** Resolve the fill colour and image for every cell (shared by the SVG and React renderers). */
+/** Resolve the fill color and image for every cell (shared by the SVG and React renderers). */
 export function resolveCellStyles(layout: Layout, opts: Pick<RenderOptions, "images" | "repeatImages" | "fill"> = {}): CellStyle[] {
   const fill = opts.fill ?? defaultPalette;
   let fillFor: (c: Cell) => string;

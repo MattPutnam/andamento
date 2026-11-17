@@ -29,9 +29,9 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
   cellClassName?: PerCell<string>;
-  /** Extra style for each tile wrapper (fixed or per cell), e.g. a background colour. */
+  /** Extra style for each tile wrapper (fixed or per cell), e.g. a background color. */
   cellStyle?: PerCell<CSSProperties>;
-  /** Colour painted across the whole region, visible through the gaps. */
+  /** Color painted across the whole region, visible through the gaps. */
   background?: string;
 }
 

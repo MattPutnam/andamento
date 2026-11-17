@@ -24,7 +24,7 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   fill?: FillSource;
   stroke?: string;
   strokeWidth?: number;
-  /** Colour painted across the whole region, behind the cells. */
+  /** Color painted across the whole region, behind the cells. */
   background?: string;
   /** Replace the default cell rendering with SVG content. Rendered inside a <g> per cell. */
   renderCell?: (cell: Cell, ctx: SvgCellRenderContext) => ReactNode;
@@ -33,7 +33,7 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
 }
 
 /**
- * Renders a tiling as a single <svg>: coloured cells, optionally with images clipped
+ * Renders a tiling as a single <svg>: colored cells, optionally with images clipped
  * to each cell. Use this when you need pure SVG (export, print, embedding in other SVG);
  * use <TileLayout> to put arbitrary HTML/React content in the tiles.
  */

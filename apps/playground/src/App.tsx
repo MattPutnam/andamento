@@ -237,7 +237,7 @@ type Content = "photos" | "cards" | "colors";
 const CONTENT: [Content, string][] = [
   ["photos", "Photos"],
   ["cards", "Text cards"],
-  ["colors", "Plain colours"],
+  ["colors", "Plain colors"],
 ];
 const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
 

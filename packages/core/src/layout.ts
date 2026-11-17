@@ -288,8 +288,8 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
 }
 
 /**
- * Greedy graph colouring over cell adjacency: neighbouring cells get different
- * colour indices. Handy for placeholder fills. Returns one index per cell (by cell.index).
+ * Greedy graph coloring over cell adjacency: neighbouring cells get different
+ * color indices. Handy for placeholder fills. Returns one index per cell (by cell.index).
  */
 export function colorCells(layout: Layout, colors: number): number[] {
   const byId = new Map(layout.cells.map((c) => [c.id, c.index]));
@@ -301,7 +301,7 @@ export function colorCells(layout: Layout, colors: number): number[] {
       if (k !== undefined && out[k]! >= 0) used.add(out[k]!);
     }
     let pick = 0;
-    // Rotate the starting colour so large single-colour runs are avoided.
+    // Rotate the starting color so large single-color runs are avoided.
     for (let s = 0; s < colors; s++) {
       const cand = (c.index + s) % colors;
       if (!used.has(cand)) {
