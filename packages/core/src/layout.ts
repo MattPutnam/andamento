@@ -54,6 +54,12 @@ export interface LayoutOptions {
    * describe the sharp-cornered shape.
    */
   cornerRadius?: number;
+  /**
+   * Scale the whole pattern (every tile size in the tiling spec) by this factor, about
+   * the pattern origin. Handy for fitting a tile count without knowing which size
+   * parameters a pattern has; see `fitCount`. Defaults to 1.
+   */
+  tileScale?: number;
   /** Safety cap on generated tiles. Defaults to 20000. */
   maxTiles?: number;
 }
@@ -110,12 +116,18 @@ export function createLayout(options: LayoutOptions): Layout {
   if (inner.length === 0) return { region, bounds, cornerRadius, cells: [] };
   const innerBox = bbox(inner);
 
-  const raw = generateTiles(options.tiling, {
-    region: inner,
+  const k = options.tileScale ?? 1;
+  if (!(k > 0) || !Number.isFinite(k)) throw new RangeError(`tileScale must be a positive number (got ${k})`);
+  const origin = options.origin ?? vec(bounds.x, bounds.y);
+  // Scaling the pattern by k = generating in a region shrunk by 1/k, then scaling back up.
+  const down = (v: Vec) => vec(v.x / k, v.y / k);
+  let raw = generateTiles(options.tiling, {
+    region: k === 1 ? inner : inner.map(down),
     rotation: options.rotation ?? 0,
-    origin: options.origin ?? vec(bounds.x, bounds.y),
+    origin: k === 1 ? origin : down(origin),
     maxTiles: options.maxTiles ?? 20000,
   });
+  if (k !== 1) raw = raw.map((t) => ({ ...t, polygon: t.polygon.map((v) => vec(v.x * k, v.y * k)) }));
 
   type Draft = Omit<Cell, "index" | "neighbors">;
   const drafts: Draft[] = [];

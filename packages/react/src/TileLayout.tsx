@@ -18,7 +18,7 @@ import {
   type LayoutOptions,
 } from "@andamento/core";
 import { neutralPalette, resolveFills, type FillSource } from "@andamento/svg";
-import { useResolvedLayout } from "./useTileLayout";
+import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 /** What a per-cell prop function is told about the cell besides its geometry. */
 export interface CellState {
@@ -68,6 +68,12 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * or a function per cell. Defaults to `neutralPalette`; use "transparent" for none.
    */
   fill?: FillSource;
+  /**
+   * Size the tiles to the children: scales the pattern so there are about as many tiles
+   * (counted by `contentCells`) as children. `true`/"atLeast" makes sure every child gets
+   * a tile; "nearest" gets as close as possible. Ignored with `layout` or `renderCell`.
+   */
+  fit?: FitProp;
   /** Content for empty tiles. */
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
@@ -97,6 +103,7 @@ export function TileLayout(props: TileLayoutProps) {
     contentCells,
     placement,
     fill = neutralPalette,
+    fit,
     fallback,
     cellClassName,
     cellStyle,
@@ -104,9 +111,9 @@ export function TileLayout(props: TileLayoutProps) {
     style,
     ...rest
   } = props;
-  const layout = useResolvedLayout("TileLayout", options, given);
-  const { bounds } = layout;
   const items = renderCell ? [] : Children.toArray(children);
+  const layout = useResolvedLayout("TileLayout", options, given, { fit: !renderCell && fit, count: items.length, cells: contentCells });
+  const { bounds } = layout;
   const count = renderCell ? Infinity : items.length;
   const slots = useMemo(
     () => contentSlots(layout, count, { cells: contentCells, placement }),

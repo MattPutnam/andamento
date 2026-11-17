@@ -61,6 +61,41 @@ import { hexagonal } from "@andamento/core";
 The core function behind this, `contentSlots(layout, count, { cells, placement })`, returns
 the item index per cell (or -1) for other renderers.
 
+#### Fill helpers
+
+`fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:
+
+```ts
+import { gradientFill, paletteFill, protoTileFill, randomFill } from "@andamento/core";
+
+fill={paletteFill(["#eee", "#ddd", "#ccc"])}               // neighbours differ (same as passing the array)
+fill={gradientFill(["#f6d365", "#fda085"], { angle: 45 })} // by position; also { shape: "radial" }
+fill={protoTileFill(["#e7e5e4", "#d6d3d1"])}               // by tile shape, e.g. herringbone's two directions
+fill={randomFill(["#eee", "#ddd", "#ccc"], 42)}            // stable per tile id across resizes
+```
+
+Gradients take hex colors and blend in OKLab, so the middle doesn't turn grey.
+
+#### Sizing tiles to your content
+
+```tsx
+<TileLayout options={options} fit contentCells="whole">
+  {photos.map((src) => <img key={src} src={src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+`fit` scales the pattern so there are about as many tiles as children (counted by
+`contentCells`): `true` or `"atLeast"` picks the largest tiles that still give every child a
+tile, and `"nearest"` gets as close as possible to the number of children. It's ignored with
+`layout` or `renderCell`. `<SvgTileLayout fit>` fits to the `images` array.
+
+Under the hood this is `fitCount(options, count, { cells, mode })` in core, which returns
+`{ options, layout, tileScale, count }`. It works for every pattern because it sets the new
+`tileScale` layout option, which scales the whole pattern rather than a pattern-specific size
+parameter. The tile count changes in steps, so the result can land slightly above `count`
+(typically by a few percent), especially for herringbone-like patterns and whole tiles.
+There's also a `useFitCount(options, count, fit)` hook.
+
 Use `<SvgTileLayout>` when you need a single `<svg>` (export, print, embedding), with
 `images`, `fill`, `stroke` and an SVG-level `renderCell`. It takes `contentCells` and
 `placement` too (they decide where the `images` array goes), and `renderToString` accepts the
@@ -81,6 +116,7 @@ const layout = createLayout({
   rotation: 0,
   edges: "clip",   // "clip" | "inside" | "overflow"
   minFill: 0.25,   // drop edge slivers smaller than 25% of a tile
+  tileScale: 1,    // scale the whole pattern (see fitCount)
 });
 
 const svg = renderToString(layout, { images: imageUrls, background: "#f4f1ea" });

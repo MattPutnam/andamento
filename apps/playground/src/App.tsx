@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
-import { colorCells, createLayout, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
-import { TileLayout, coverStyle, type ContentPlacement } from "@andamento/react";
+import { TileLayout, coverStyle, neutralPalette, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -234,6 +234,18 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
 };
 
 type Content = "photos" | "cards" | "colors";
+
+// Ways to color tiles without content, using the core fill helpers.
+const EMPTY_FILLS = {
+  neutral: neutralPalette,
+  palette: paletteFill(defaultPalette),
+  gradient: gradientFill(["#0a9396", "#e9d8a6", "#ee9b00"], { angle: 30 }),
+  radial: gradientFill(["#e9d8a6", "#94d2bd", "#005f73"], { shape: "radial" }),
+  shape: protoTileFill(["#d6d3d1", "#a8a29e", "#e7e5e4", "#78716c"]),
+  random: randomFill(["#e7e5e4", "#d6d3d1", "#c4bfba", "#f5f5f4"], 1),
+  transparent: "transparent",
+} satisfies Record<string, FillSource>;
+type EmptyFill = keyof typeof EMPTY_FILLS;
 const CONTENT: [Content, string][] = [
   ["photos", "Photos"],
   ["cards", "Text cards"],
@@ -267,6 +279,8 @@ export function App() {
   const [itemCount, setItemCount] = useState(0); // 0: one item per tile
   const [contentCells, setContentCells] = useState<"all" | "whole">("all");
   const [placement, setPlacement] = useState<ContentPlacement>("reading");
+  const [fitTiles, setFitTiles] = useState(false);
+  const [emptyFill, setEmptyFill] = useState<EmptyFill>("neutral");
 
   const def = TILINGS[type];
   const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
@@ -282,15 +296,17 @@ export function App() {
     minFill,
   };
 
+  const fitTo = fitTiles && itemCount > 0 && content !== "colors" ? itemCount : 0;
   const optionsKey = JSON.stringify(options);
   const result = useMemo((): { layout: Layout } | { error: string } => {
     try {
-      return { layout: createLayout(options) };
+      // fitCount scales the pattern so there are about `fitTo` tiles for content.
+      return { layout: fitTo ? fitCount(options, fitTo, { cells: contentCells }).layout : createLayout(options) };
     } catch (e) {
       return { error: (e as Error).message };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionsKey]);
+  }, [optionsKey, fitTo, contentCells]);
 
   const photos = useMemo(() => (uploads.length ? uploads : placeholderPhotos(60)), [uploads]);
   const layout = "layout" in result ? result.layout : undefined;
@@ -338,6 +354,7 @@ export function App() {
       repeatImages: itemCount === 0,
       contentCells,
       placement,
+      fill: content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill],
       background,
     });
     const a = document.createElement("a");
@@ -469,6 +486,22 @@ export function App() {
                   <option value="whole">Whole tiles only</option>
                 </select>
               </label>
+              {itemCount > 0 && (
+                <label className="row">
+                  <span>Fit tiles to items</span>
+                  <input type="checkbox" checked={fitTiles} onChange={(e) => setFitTiles(e.target.checked)} />
+                </label>
+              )}
+              <label className="row">
+                <span>Empty tiles</span>
+                <select value={emptyFill} onChange={(e) => setEmptyFill(e.target.value as EmptyFill)}>
+                  {Object.keys(EMPTY_FILLS).map((k) => (
+                    <option key={k} value={k}>
+                      {k[0]!.toUpperCase() + k.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="row">
                 <span>Placement</span>
                 <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)}>
@@ -514,7 +547,7 @@ export function App() {
               cellClassName="tile"
               contentCells={contentCells}
               placement={placement}
-              fill={content === "colors" ? defaultPalette : undefined}
+              fill={content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill]}
               aria-label={`${def.label} layout`}
             >
               {children}

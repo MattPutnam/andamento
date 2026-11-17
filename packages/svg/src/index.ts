@@ -1,4 +1,4 @@
-import { colorCells, contentSlots, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
+import { contentSlots, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
@@ -6,7 +6,8 @@ export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6
 export const neutralPalette = ["#e7e5e4", "#d6d3d1", "#f5f5f4", "#dedad6", "#ecebe9"];
 
 export type ImageSource = readonly string[] | ((cell: Cell) => string | undefined);
-export type FillSource = string | readonly string[] | ((cell: Cell) => string);
+/** A color, a palette (neighbouring cells get different entries), or a color per cell. */
+export type FillSource = string | readonly string[] | CellFill;
 
 export interface RenderOptions {
   /** Images: an array assigned in reading order, or a function per cell. */
@@ -79,10 +80,8 @@ export interface CellStyle {
  */
 export function resolveFills(layout: Layout, fill: FillSource): string[] {
   if (typeof fill === "string") return layout.cells.map(() => fill);
-  if (typeof fill === "function") return layout.cells.map(fill);
-  const palette = fill.length ? fill : defaultPalette;
-  const colors = colorCells(layout, palette.length);
-  return layout.cells.map((c) => palette[colors[c.index]!]!);
+  const f = typeof fill === "function" ? fill : paletteFill(fill.length ? fill : defaultPalette);
+  return layout.cells.map((c) => f(c, layout));
 }
 
 type StyleOptions = Pick<RenderOptions, "images" | "repeatImages" | "fill" | "contentCells" | "placement">;

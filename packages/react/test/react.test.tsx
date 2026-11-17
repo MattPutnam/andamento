@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { grid, hexagonal } from "@andamento/core";
+import { gradientFill, grid, hexagonal, protoTileFill } from "@andamento/core";
 import { SvgCellImage, SvgTileLayout, TileLayout, coverStyle, neutralPalette } from "@andamento/react";
 
 // 3 x 2 grid of 100-unit cells, 10-unit gap.
@@ -164,6 +164,34 @@ describe("<TileLayout> empty tiles and content placement", () => {
     expect(tile(reading, 0)[1]).toBe("<b>k</b>");
     expect(tile(centered, 0)[1]).toBe("");
     expect(centered.match(/<b>k<\/b>/g)).toHaveLength(1);
+  });
+});
+
+describe("fill helpers and fit", () => {
+  it("accepts core fill helpers", () => {
+    const html = renderToStaticMarkup(<TileLayout options={options} fill={gradientFill(["#000000", "#ffffff"])} />);
+    const colors = [...html.matchAll(/background:(#[0-9a-f]{6})/g)].map((m) => m[1]);
+    expect(colors).toHaveLength(6);
+    expect(colors[0]).toBe(colors[3]); // same column
+    expect(colors[0]).not.toBe(colors[2]);
+    const svg = renderToStaticMarkup(<SvgTileLayout options={options} fill={protoTileFill(["#123456"])} />);
+    expect(svg.match(/fill="#123456"/g)).toHaveLength(6);
+  });
+
+  it("sizes tiles to the children with fit", () => {
+    const big = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: hexagonal({ size: 5 }) };
+    const kids = Array.from({ length: 9 }, (_, i) => <i key={i}>k{i}</i>);
+    const html = renderToStaticMarkup(
+      <TileLayout options={big} fit contentCells="whole">
+        {kids}
+      </TileLayout>,
+    );
+    const whole = html.match(/<div[^>]*data-cell-id[^>]*>/g)!.filter((d) => !d.includes("data-boundary"));
+    expect(whole.length).toBeGreaterThanOrEqual(9);
+    expect(whole.length).toBeLessThan(14);
+    expect(html).toContain("k8");
+    const svg = renderToStaticMarkup(<SvgTileLayout options={big} fit images={["a", "b", "c"]} />);
+    expect(svg.match(/class="andamento-cell"/g)!.length).toBeLessThan(8);
   });
 });
 

@@ -1,7 +1,7 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
 import { cellPath, polygonToPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
-import { useResolvedLayout } from "./useTileLayout";
+import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
   /** `d` attribute of the cell outline. */
@@ -27,6 +27,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   contentCells?: ContentCells;
   /** Where images go when there are fewer than cells: "reading" (default), "center" or "spread". */
   placement?: ContentPlacement;
+  /**
+   * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
+   * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
+   */
+  fit?: FitProp;
   /** Cell color under (or instead of) images. Defaults to `defaultPalette`. */
   fill?: FillSource;
   stroke?: string;
@@ -52,6 +57,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     repeatImages,
     contentCells,
     placement,
+    fit,
     fill,
     stroke,
     strokeWidth = 1,
@@ -60,7 +66,8 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     title,
     ...svgProps
   } = props;
-  const layout = useResolvedLayout("SvgTileLayout", options, given);
+  const fitTo = Array.isArray(images) && !repeatImages ? images.length : 0;
+  const layout = useResolvedLayout("SvgTileLayout", options, given, { fit, count: fitTo, cells: contentCells });
   const prefix = "andamento" + useId().replace(/:/g, "");
   const styles = useMemo(
     () => resolveCellStyles(layout, { images, repeatImages, fill, contentCells, placement }),

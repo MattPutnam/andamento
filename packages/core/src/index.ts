@@ -19,3 +19,7 @@ export { boundsAspectRatio, cellCss, cssPolygon } from "./css";
 export type { CellCss } from "./css";
 export { contentSlots } from "./content";
 export type { ContentCells, ContentOptions, ContentPlacement } from "./content";
+export { gradientFill, paletteFill, protoTileFill, randomFill } from "./fills";
+export type { CellFill, GradientOptions } from "./fills";
+export { fitCount } from "./fit";
+export type { FitOptions, FitResult } from "./fit";
