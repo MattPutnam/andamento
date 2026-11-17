@@ -1,6 +1,6 @@
 import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import { mulberry32 } from "./random";
-import { generateAshlar, generateDelaunay, generateVoronoi } from "./procedural";
+import { generateAshlar, generateDelaunay, generateJigsaw, generateVoronoi } from "./procedural";
 import { generateSubstitution, penroseRhombs } from "./substitution";
 
 /*
@@ -120,6 +120,12 @@ export interface ChevronSpec {
   angle?: number;
 }
 
+export interface FishScaleSpec {
+  type: "fishScale";
+  /** Width of each scale. Scales overlap like roof shingles: rounded below, pointed on top. */
+  size: number;
+}
+
 export interface VoronoiSpec {
   type: "voronoi";
   /** Typical cell width: about one cell per size × size area. */
@@ -160,6 +166,14 @@ export interface PenroseSpec {
   size: number;
 }
 
+export interface JigsawSpec {
+  type: "jigsaw";
+  /** Target piece size; columns and rows are chosen so pieces fit the region exactly. */
+  size: number;
+  /** Seed for tab directions and positions. Defaults to 1. */
+  seed?: number;
+}
+
 export interface MondrianSpec {
   type: "mondrian";
   /** No side is cut shorter than this. */
@@ -190,10 +204,12 @@ export type TilingSpec =
   | PinwheelSpec
   | FlemishBondSpec
   | ChevronSpec
+  | FishScaleSpec
   | VoronoiSpec
   | DelaunaySpec
   | AshlarSpec
   | PenroseSpec
+  | JigsawSpec
   | MondrianSpec;
 
 export type TilingType = TilingSpec["type"];
@@ -216,6 +232,8 @@ export const hopscotch = (p: Omit<HopscotchSpec, "type">): HopscotchSpec => ({ t
 export const pinwheel = (p: Omit<PinwheelSpec, "type">): PinwheelSpec => ({ type: "pinwheel", ...p });
 export const flemishBond = (p: Omit<FlemishBondSpec, "type">): FlemishBondSpec => ({ type: "flemishBond", ...p });
 export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "chevron", ...p });
+export const fishScale = (p: Omit<FishScaleSpec, "type">): FishScaleSpec => ({ type: "fishScale", ...p });
+export const jigsaw = (p: Omit<JigsawSpec, "type">): JigsawSpec => ({ type: "jigsaw", ...p });
 export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "voronoi", ...p });
 export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
 export const ashlar = (p: Omit<AshlarSpec, "type">): AshlarSpec => ({ type: "ashlar", ...p });
@@ -267,11 +285,14 @@ function regular(n: number, r: number, startDeg: number): Polygon {
   return Array.from({ length: n }, (_, k) => polar(r, startDeg + (360 / n) * k));
 }
 
+/** Straight segments per quarter circle when curves are flattened. */
+const FISH_SCALE_STEPS = 12;
+
 /** Cairo bar half-length (as a fraction of the grid size) that makes all pentagon sides equal. */
 const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
-export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec;
+export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec;
 
 export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec>): PeriodicDefinition {
   switch (spec.type) {
@@ -479,6 +500,21 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
         ],
       };
     }
+    case "fishScale": {
+      const r = positive("fishScale.size", spec.size) / 2;
+      // Each scale: the lower half of a circle, topped by the lower arcs of the two scales
+      // above it, which meet in a point. Arcs are sampled at the same angles everywhere,
+      // so neighbouring scales share exactly the same boundary points.
+      const q = FISH_SCALE_STEPS;
+      const arc = (cx: number, cy: number, from: number, to: number, steps: number) =>
+        Array.from({ length: steps }, (_, k) => polar(r, from + ((to - from) * k) / steps)).map((v) => vec(cx + v.x, cy + v.y));
+      const scale: Polygon = [
+        ...arc(0, 0, 180, 0, 2 * q), // own rounded bottom, left to right
+        ...arc(r, -r, 90, 180, q), // up along the scale above-right
+        ...arc(-r, -r, 0, 90, q), // down along the scale above-left
+      ];
+      return { a: vec(2 * r, 0), b: vec(r, r), motif: [{ polygon: scale, protoTile: 0 }] };
+    }
     case "chevron": {
       const len = positive("chevron.length", spec.length);
       const w = positive("chevron.width", spec.width);
@@ -635,6 +671,8 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
       return generateDelaunay(spec, ctx);
     case "ashlar":
       return generateAshlar(spec, ctx);
+    case "jigsaw":
+      return generateJigsaw(spec, ctx);
     case "penrose":
       return generateSubstitution(penroseRhombs, positive("penrose.size", spec.size), ctx, "Penrose", "p");
   }

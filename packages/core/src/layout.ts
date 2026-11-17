@@ -15,6 +15,7 @@ import {
   type Rect,
   type Vec,
 } from "./geometry";
+import { insetPolygon } from "./offset";
 import { generateTiles, type TilingSpec } from "./tilings";
 
 /**
@@ -33,7 +34,7 @@ export interface LayoutOptions {
   gap?: number;
   /** Empty border kept between the region outline and the tiles. Defaults to 0. */
   margin?: number;
-  /** Pattern rotation in degrees (ignored by the random patterns: mondrian, voronoi, delaunay, ashlar). Defaults to 0. */
+  /** Pattern rotation in degrees (ignored by the random patterns: mondrian, voronoi, delaunay, ashlar, jigsaw). Defaults to 0. */
   rotation?: number;
   /**
    * Shifts the pattern (ignored by the random patterns). For penrose this is where the
@@ -125,7 +126,7 @@ export function createLayout(options: LayoutOptions): Layout {
     const original = ensurePositive(t.polygon);
     if (!rectsOverlap(bbox(original), innerBox)) continue;
     // Each tile gives up half the gap on every side, so neighbours end up `gap` apart.
-    const tile = gap > 0 ? insetConvex(original, gap / 2) : original;
+    const tile = gap <= 0 ? original : isConvex(original) ? insetConvex(original, gap / 2) : insetPolygon(original, gap / 2);
     if (tile.length === 0) continue;
     const full = area(tile);
 

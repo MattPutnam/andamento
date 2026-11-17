@@ -1,4 +1,5 @@
 export * from "./geometry";
+export { insetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
 export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
 export { generateSubstitution, penroseRhombs } from "./substitution";

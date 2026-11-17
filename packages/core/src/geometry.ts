@@ -7,7 +7,9 @@
  * - "Positive" orientation means a positive shoelace area. All internal polygons are
  *   normalised to positive orientation, so the interior is to the left of each edge
  *   in the shoelace sense and the inward normal of edge (dx, dy) is (-dy, dx).
- * - Clipping and insetting assume convex polygons (every built-in tile is convex).
+ * - `clipConvex` needs a convex clip polygon (the subject can be any simple polygon);
+ *   `insetConvex` needs a convex polygon and `containsPolygon` a convex `outer`. Non-convex tiles are inset
+ *   with `insetPolygon` (offset.ts).
  */
 
 export interface Vec {
@@ -174,7 +176,11 @@ export function cleanPolygon(p: Polygon, tol = 1e-9): Polygon {
   return out.length >= 3 && area(out) > tol * tol ? out : [];
 }
 
-/** Intersection of `subject` (any simple polygon) with a convex `clip` polygon. */
+/**
+ * Intersection of `subject` (any simple polygon) with a convex `clip` polygon.
+ * If a non-convex subject is cut into separate parts, they come back as one polygon
+ * joined by zero-width strips along the clip edge.
+ */
 export function clipConvex(subject: Polygon, clip: Polygon): Polygon {
   const c = ensurePositive(clip);
   let out = subject;

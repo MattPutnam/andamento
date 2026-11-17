@@ -1,8 +1,9 @@
 # Andamento
 
 Tiling layouts: split a region into grids, bricks, herringbone, chevron, hexagons, triangles,
-Cairo pentagons, Mondrian-style rectangles and more, then put anything you like in each tile. Photo walls, image
-galleries, dashboards, card grids, decorative backgrounds.
+Cairo pentagons, Penrose rhombs, jigsaw pieces, Mondrian-style rectangles and more, then put
+anything you like in each tile. Photo walls, image galleries, dashboards, card grids, decorative
+backgrounds.
 
 | Package | What it does |
 |---|---|
@@ -65,6 +66,7 @@ Patterns:
   `hopscotch` (two square sizes), `pinwheel`
 - Regular polygons: `hexagonal`, `triangular`, `rhombille` (tumbling blocks), `octagonSquare`,
   `trihexagonal`, `rhombitrihexagonal`
+- Curved and interlocking (non-convex tiles): `fishScale`, `jigsaw` (seeded tab directions)
 - Other: `cairo` (pentagons), `penrose` (thick and thin rhombs that never repeat; `origin`
   places the ten-fold star at the pattern's centre, so set it to the middle of the region)
 - Random, seeded (same `seed`, same layout): `voronoi` (irregular polygons, like crazy paving),
@@ -79,11 +81,15 @@ Every spec is a plain JSON object, so layouts can be saved and restored.
 `clip-path` polygon. `Cell.polygon`, `area` and `centroid` describe the sharp-cornered shape;
 `roundedPolygon(cell.polygon, layout.cornerRadius)` gives the rounded outline.
 
-Each `Cell` has `polygon` (visible shape), `original` (full pattern tile), `bbox`, `centroid`, `area`,
-`index` (reading order), `boundary`, `protoTile` and `neighbors`.
+Each `Cell` has `id` (stable within a pattern), `index` (reading order), `polygon` (visible
+shape), `original` (full pattern tile), `bbox`, `centroid`, `area`, `boundary` (crosses the
+region outline), `protoTile` and `neighbors` (ids of cells sharing an edge).
 
 For other frameworks, `cellCss(cell, layout)` returns `{ left, top, width, height, clipPath }`
 as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ratio`.
+
+Lower-level helpers are exported too, e.g. `colorCells` (neighbour-aware colour indices),
+`insetPolygon`, `roundedPolygon`, `voronoiCells`, `delaunayTriangles` and `generateSubstitution`.
 
 ## Development
 
@@ -97,7 +103,12 @@ npm run dev       # playground at http://localhost:5173
 
 ## Limitations
 
-- The region must be a convex polygon (rectangles are the common case).
-- The random patterns (`voronoi`, `delaunay`, `ashlar`, `mondrian`) ignore `rotation` and `origin`.
+- The region (the outline being tiled) must be a convex polygon; rectangles are the common
+  case. The tiles inside it can be any simple shape.
+- The random patterns (`voronoi`, `delaunay`, `ashlar`, `mondrian`, `jigsaw`) ignore `rotation` and `origin`.
+- Curved tiles are approximated with short straight segments. If `gap` is wider than a narrow
+  part of a tile (a jigsaw neck, say), that part is dropped and the largest remaining piece is
+  kept. If the region edge cuts a non-convex tile into separate parts, the cell stays a single
+  polygon with the parts joined by zero-width strips (its area is still correct).
 - Content is laid out in each tile's bounding box and clipped; for hexagons and cut edge tiles,
   keep important content near the centre.

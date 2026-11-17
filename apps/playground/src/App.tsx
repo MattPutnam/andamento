@@ -139,6 +139,21 @@ const TILINGS: Record<TilingType, TilingDef> = {
     defaults: { length: 60, width: 20, angle: 45 },
     rotates: true,
   },
+  fishScale: {
+    label: "Fish scale",
+    params: [{ key: "size", label: "Scale width", min: 10, max: 120, step: 1 }],
+    defaults: { size: 36 },
+    rotates: true,
+  },
+  jigsaw: {
+    label: "Jigsaw",
+    params: [
+      { key: "size", label: "Piece size", min: 12, max: 120, step: 1 },
+      { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
+    ],
+    defaults: { size: 30, seed: 1 },
+    rotates: false,
+  },
   voronoi: {
     label: "Voronoi",
     params: [

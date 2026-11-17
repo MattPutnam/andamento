@@ -1,6 +1,6 @@
 import { bbox, centroid, clipHalfPlane, rectPolygon, sub, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import { mulberry32 } from "./random";
-import type { AshlarSpec, DelaunaySpec, GenerateContext, RawTile, VoronoiSpec } from "./tilings";
+import type { AshlarSpec, DelaunaySpec, GenerateContext, JigsawSpec, RawTile, VoronoiSpec } from "./tilings";
 
 /*
  * Seeded, non-periodic generators. Like Mondrian they fill the bounding box of the
@@ -212,6 +212,83 @@ export function generateAshlar(spec: AshlarSpec, ctx: GenerateContext): RawTile[
     }
     prevSeams = seams;
     y += h;
+  }
+  return tiles;
+}
+
+/**
+ * Points of one jigsaw tab along the edge p → q (excluding p and q), bulging to the
+ * left of the direction of travel when `side` is 1 and to the right when it is -1.
+ * `unit` sets the tab's size; `at` (0–1) is where along the edge it sits.
+ */
+function tab(p: Vec, q: Vec, side: number, unit: number, at: number): Vec[] {
+  const len = Math.hypot(q.x - p.x, q.y - p.y);
+  const u = vec((q.x - p.x) / len, (q.y - p.y) / len);
+  const n = vec(u.y * side, -u.x * side);
+  const put = (along: number, out: number) => vec(p.x + u.x * along + n.x * out, p.y + u.y * along + n.y * out);
+  const c = len * at; // tab centre, along the edge
+  const head = 0.2 * unit; // head centre, out from the edge
+  const r = 0.12 * unit;
+  const neck = 0.9; // radians either side of "straight back at the edge" where the head meets the neck
+  const pts: Vec[] = [put(c - 0.12 * unit, 0)];
+  // Round the head the long way: from the neck on one side, out and around, to the other.
+  const steps = 18;
+  const start = -Math.PI / 2 - neck;
+  const sweep = -(2 * Math.PI - 2 * neck);
+  for (let k = 0; k <= steps; k++) {
+    const a = start + (sweep * k) / steps;
+    // Local frame: x along the edge, y outward (so -π/2 points back at the edge).
+    pts.push(put(c + r * Math.cos(a), head + r * Math.sin(a)));
+  }
+  pts.push(put(c + 0.12 * unit, 0));
+  return pts;
+}
+
+/**
+ * A jigsaw puzzle: a grid sized to fit the region's bounding box exactly, with a tab
+ * on every inner edge pointing randomly into one of the two pieces.
+ */
+export function generateJigsaw(spec: JigsawSpec, ctx: GenerateContext): RawTile[] {
+  const size = positive("jigsaw.size", spec.size);
+  const box = bbox(ctx.region);
+  const cols = Math.max(1, Math.round(box.width / size));
+  const rows = Math.max(1, Math.round(box.height / size));
+  checkCount("jigsaw", cols * rows, ctx);
+  const rng = mulberry32(spec.seed ?? 1);
+  const cw = box.width / cols;
+  const ch = box.height / rows;
+  const unit = Math.min(cw, ch);
+  const corner = (i: number, j: number) => vec(box.x + i * cw, box.y + j * ch);
+
+  // Shared edges, each stored once in a fixed direction: horizontal edges left → right,
+  // vertical edges top → bottom. Border edges stay straight.
+  const edge = (p: Vec, q: Vec, inner: boolean): Vec[] => (inner ? tab(p, q, rng() < 0.5 ? 1 : -1, unit, 0.42 + 0.16 * rng()) : []);
+  const horizontal: Vec[][][] = [];
+  for (let j = 0; j <= rows; j++) {
+    horizontal.push([]);
+    for (let i = 0; i < cols; i++) horizontal[j]!.push(edge(corner(i, j), corner(i + 1, j), j > 0 && j < rows));
+  }
+  const vertical: Vec[][][] = [];
+  for (let i = 0; i <= cols; i++) {
+    vertical.push([]);
+    for (let j = 0; j < rows; j++) vertical[i]!.push(edge(corner(i, j), corner(i, j + 1), i > 0 && i < cols));
+  }
+
+  const tiles: RawTile[] = [];
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const polygon = [
+        corner(i, j),
+        ...horizontal[j]![i]!,
+        corner(i + 1, j),
+        ...vertical[i + 1]![j]!,
+        corner(i + 1, j + 1),
+        ...[...horizontal[j + 1]![i]!].reverse(),
+        corner(i, j + 1),
+        ...[...vertical[i]![j]!].reverse(),
+      ];
+      tiles.push({ id: `j${i},${j}`, polygon, protoTile: 0 });
+    }
   }
   return tiles;
 }

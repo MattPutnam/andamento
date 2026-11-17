@@ -27,6 +27,11 @@ import {
   delaunay,
   ashlar,
   penrose,
+  fishScale,
+  jigsaw,
+  pointInPolygon,
+  isConvex,
+  bbox,
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
@@ -38,14 +43,37 @@ function totalArea(l: Layout) {
   return l.cells.reduce((s, c) => s + c.area, 0);
 }
 
+/** Overlap estimate for non-convex polygons: sample a grid over the shared bounding box. */
+function sampledOverlap(p: { x: number; y: number }[], q: { x: number; y: number }[]) {
+  const bp = bbox(p), bq = bbox(q);
+  const x0 = Math.max(bp.x, bq.x), x1 = Math.min(bp.x + bp.width, bq.x + bq.width);
+  const y0 = Math.max(bp.y, bq.y), y1 = Math.min(bp.y + bp.height, bq.y + bq.height);
+  if (x1 <= x0 || y1 <= y0) return 0;
+  const n = 40;
+  let hits = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      // Irrational offsets keep samples off grid-aligned edges.
+      const pt = { x: x0 + ((i + 0.5 + 0.1234567) / n) * (x1 - x0), y: y0 + ((j + 0.5 + 0.0987654) / n) * (y1 - y0) };
+      if (pointInPolygon(pt, p) && pointInPolygon(pt, q)) hits++;
+    }
+  }
+  return (hits / (n * n)) * (x1 - x0) * (y1 - y0);
+}
+
 function maxPairOverlap(l: Layout) {
   let worst = 0;
   const cs = l.cells;
   for (let i = 0; i < cs.length; i++) {
     for (let j = i + 1; j < cs.length; j++) {
-      if (!rectsOverlap(cs[i]!.bbox, cs[j]!.bbox)) continue;
-      const inter = clipConvex(cs[i]!.polygon, cs[j]!.polygon);
-      if (inter.length) worst = Math.max(worst, area(inter));
+      const a = cs[i]!, b = cs[j]!;
+      if (!rectsOverlap(a.bbox, b.bbox)) continue;
+      if (isConvex(a.polygon) && isConvex(b.polygon)) {
+        const inter = clipConvex(a.polygon, b.polygon);
+        if (inter.length) worst = Math.max(worst, area(inter));
+      } else {
+        worst = Math.max(worst, sampledOverlap(a.polygon, b.polygon));
+      }
     }
   }
   return worst;
@@ -79,6 +107,8 @@ const specs: [string, TilingSpec][] = [
   ["delaunay unrelaxed", delaunay({ size: 90, relax: 0 })],
   ["ashlar", ashlar({ height: 60, minLength: 50, maxLength: 160, seed: 5 })],
   ["penrose", penrose({ size: 60 })],
+  ["fishScale", fishScale({ size: 120 })],
+  ["jigsaw", jigsaw({ size: 110, seed: 2 })],
   ["penrose small", penrose({ size: 25 })],
   ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
@@ -411,5 +441,45 @@ describe("penrose", () => {
         expect(same!.centroid.y).toBeCloseTo(c.centroid.y, 6);
       }
     }
+  });
+});
+
+describe("non-convex tilings", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+
+  it("the sampled overlap check does catch overlaps", () => {
+    const l = createLayout({ region, tiling: jigsaw({ size: 200 }) });
+    const p = l.cells[5]!.polygon;
+    const shifted = p.map((v) => ({ x: v.x + 30, y: v.y + 10 }));
+    expect(sampledOverlap(p, shifted)).toBeGreaterThan(1000);
+  });
+
+  it("fish scales are all the same shape, each covering size²/2", () => {
+    const l = createLayout({ region, tiling: fishScale({ size: 100 }), edges: "inside" });
+    expect(l.cells.length).toBeGreaterThan(50);
+    for (const c of l.cells) {
+      expect(isConvex(c.polygon)).toBe(false);
+      expect(c.polygon).toHaveLength(48);
+      expect(c.area).toBeCloseTo(100 * 100 / 2, 6);
+    }
+  });
+
+  it("jigsaw pieces fit the region exactly, interlock and have four neighbours inside", () => {
+    const l = createLayout({ region, tiling: jigsaw({ size: 100, seed: 4 }) });
+    expect(l.cells).toHaveLength(70); // 10 × 7
+    expect(l.cells.every((c) => !c.boundary)).toBe(true);
+    const inner = l.cells.filter((c) => c.bbox.x > 50 && c.bbox.y > 50 && c.bbox.x + c.bbox.width < 950 && c.bbox.y + c.bbox.height < 650);
+    expect(inner.length).toBeGreaterThan(10);
+    for (const c of inner) {
+      expect(isConvex(c.polygon)).toBe(false);
+      expect(c.neighbors).toHaveLength(4);
+    }
+  });
+
+  it("keeps the gap around tabs", () => {
+    const l = createLayout({ region, tiling: jigsaw({ size: 100 }), gap: 6 });
+    // Necks are about 19 wide at size 100, so a 6 gap leaves every piece whole.
+    expect(l.cells).toHaveLength(70);
+    for (const c of l.cells) expect(c.area).toBeGreaterThan(5000);
   });
 });

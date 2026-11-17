@@ -4,7 +4,8 @@ import type { GenerateContext, RawTile } from "./tilings";
 /*
  * Substitution (subdivision) tilings: start from a patch of large pieces centred on
  * the origin, then repeatedly replace every piece with smaller pieces according to
- * fixed rules. Penrose, Ammann–Beenker and pinwheel tilings are all built this way.
+ * fixed rules. Penrose, Ammann–Beenker and Conway–Radin pinwheel tilings are built this
+ * way (the last is unrelated to the repeating `pinwheel` pattern).
  */
 
 /** A piece in a substitution system. `path` records how it was derived, which makes a stable id. */
