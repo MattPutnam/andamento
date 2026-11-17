@@ -175,3 +175,152 @@ export function pointInPolygon(pt: Vec, poly: Polygon): boolean {
   }
   return inside;
 }
+
+/**
+ * Intersection of a simple polygon (convex or not) with a convex `clip` polygon, as
+ * separate pieces. Unlike `clipConvex`, a subject that the clip edge cuts into several
+ * parts comes back as several clean polygons.
+ *
+ * The subject's outline is walked edge by edge; the stretches inside the clip region form
+ * chains that enter and leave through the clip outline. Each piece is a chain followed by
+ * a walk forward along the clip outline to wherever the next chain enters (both outlines
+ * have the same orientation, so "forward" stays on the inside).
+ */
+export function clipPolygonToConvex(subject: Polygon, clip: Polygon): Polygon[] {
+  const P = ensurePositive(subject);
+  const C = ensurePositive(clip);
+  const n = P.length;
+  const m = C.length;
+  if (n < 3 || m < 3) return [];
+  let scale = 0;
+  for (const v of C) scale = Math.max(scale, Math.abs(v.x), Math.abs(v.y));
+  const eps = 1e-12 * Math.max(1, scale);
+
+  // Inward normals of the clip edges.
+  const normals = C.map((a, i) => {
+    const b = C[(i + 1) % m]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return vec(-(b.y - a.y) / len, (b.x - a.x) / len);
+  });
+
+  /** Cyrus–Beck: the part [t0, t1] of segment a→b inside C, or null. */
+  const clipSegment = (a: Vec, b: Vec): [number, number] | null => {
+    let t0 = 0;
+    let t1 = 1;
+    for (let i = 0; i < m; i++) {
+      const c = C[i]!;
+      const nrm = normals[i]!;
+      const num = nrm.x * (a.x - c.x) + nrm.y * (a.y - c.y) + eps;
+      const den = nrm.x * (b.x - a.x) + nrm.y * (b.y - a.y);
+      if (Math.abs(den) < 1e-15) {
+        if (num < 0) return null;
+      } else if (den > 0) {
+        t0 = Math.max(t0, -num / den);
+      } else {
+        t1 = Math.min(t1, -num / den);
+      }
+      if (t0 > t1) return null;
+    }
+    return [t0, t1];
+  };
+
+  /** Position along the clip outline: edge index + fraction (0 ≤ s < m). */
+  const outlinePos = (p: Vec): number => {
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < m; i++) {
+      const a = C[i]!;
+      const b = C[(i + 1) % m]!;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      const d = Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+      if (d < bestD) {
+        bestD = d;
+        best = (i + t) % m;
+      }
+    }
+    return best;
+  };
+
+  // Chains of inside stretches. A chain continues across a vertex when one edge's inside
+  // part ends at the vertex and the next edge's starts there.
+  type Chain = { points: Vec[]; open: boolean; close: boolean };
+  const chains: Chain[] = [];
+  const at = (a: Vec, b: Vec, t: number) => vec(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+  const tiny = 1e-12;
+  let current: Chain | null = null;
+  for (let i = 0; i < n; i++) {
+    const a = P[i]!;
+    const b = P[(i + 1) % n]!;
+    const part = clipSegment(a, b);
+    if (!part) {
+      current = null;
+      continue;
+    }
+    const [t0, t1] = part;
+    if (current && t0 <= tiny) {
+      current.points.push(at(a, b, t1));
+    } else {
+      current = { points: [at(a, b, t0), at(a, b, t1)], open: t0 > tiny, close: false };
+      chains.push(current);
+    }
+    if (t1 < 1 - tiny) {
+      current.close = true;
+      current = null;
+    }
+  }
+  if (chains.length === 0) {
+    // No part of the outline is inside: either C lies within P, or they don't meet.
+    return pointInPolygon(C[0]!, P) ? [C] : [];
+  }
+  // The walk started mid-chain if the last chain runs into the first one.
+  if (chains.length > 1) {
+    const last = chains[chains.length - 1]!;
+    const first = chains[0]!;
+    if (!last.close && !first.open) {
+      first.points = [...last.points, ...first.points.slice(1)];
+      first.open = last.open;
+      chains.pop();
+    }
+  }
+  if (chains.length === 1 && !chains[0]!.open && !chains[0]!.close) return [P];
+
+  const entries = chains.map((c) => outlinePos(c.points[0]!));
+  const exits = chains.map((c) => outlinePos(c.points[c.points.length - 1]!));
+  const forward = (from: number, to: number) => ((to - from) % m + m) % m;
+
+  const used = new Array<boolean>(chains.length).fill(false);
+  const pieces: Polygon[] = [];
+  for (let start = 0; start < chains.length; start++) {
+    if (used[start]) continue;
+    const piece: Vec[] = [];
+    let k = start;
+    for (let guard = 0; guard <= chains.length; guard++) {
+      used[k] = true;
+      piece.push(...chains[k]!.points);
+      // Next chain to enter, walking forward along the clip outline from this exit.
+      const s = exits[k]!;
+      let next = -1;
+      let bestGap = Infinity;
+      for (let j = 0; j < chains.length; j++) {
+        const gap = forward(s, entries[j]!);
+        if (gap < bestGap - 1e-12) {
+          bestGap = gap;
+          next = j;
+        }
+      }
+      // Clip corners passed on the way.
+      for (let step = 1; step <= m; step++) {
+        const corner = (Math.floor(s) + step) % m;
+        if (forward(s, corner) > 0 && forward(s, corner) < bestGap) piece.push(C[corner]!);
+        else break;
+      }
+      if (next === start || used[next]) break;
+      k = next;
+    }
+    const clean = cleanPolygon(piece);
+    if (clean.length >= 3) pieces.push(clean);
+  }
+  return pieces;
+}

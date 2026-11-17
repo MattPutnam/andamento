@@ -193,6 +193,20 @@ const TILINGS: Record<TilingType, TilingDef> = {
     rotates: true,
     centred: true,
   },
+  hat: {
+    label: "Hat",
+    params: [{ key: "size", label: "Tile width", min: 10, max: 100, step: 1 }],
+    defaults: { size: 30 },
+    rotates: true,
+    centred: true,
+  },
+  spectre: {
+    label: "Spectre",
+    params: [{ key: "size", label: "Tile width", min: 10, max: 100, step: 1 }],
+    defaults: { size: 30 },
+    rotates: true,
+    centred: true,
+  },
   mondrian: {
     label: "Mondrian",
     params: [

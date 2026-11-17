@@ -1,8 +1,12 @@
 export * from "./geometry";
-export { insetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
+export { clipPolygonToConvex, insetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
 export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
 export { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
+export { HAT, hatSupertile, placedBounds } from "./hat";
+export type { HatLabel } from "./hat";
+export { SPECTRE, spectreSupertile } from "./spectre";
+export type { SpectreLabel } from "./spectre";
 export type { Piece, SubstitutionRule } from "./substitution";
 export { roundCorners, roundedPolygon } from "./rounding";
 export type { RoundedCorner } from "./rounding";

@@ -2,6 +2,8 @@ import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } 
 import { mulberry32 } from "./random";
 import { generateAshlar, generateDelaunay, generateJigsaw, generateVoronoi } from "./procedural";
 import { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
+import { HAT_WIDTH, hatsCovering, LABEL_INDEX } from "./hat";
+import { SPECTRE_LABEL_INDEX, SPECTRE_WIDTH, spectresCovering } from "./spectre";
 
 /*
  * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
@@ -171,6 +173,18 @@ export interface PenroseSpec {
   variant?: "rhombs" | "kitesAndDarts";
 }
 
+export interface HatSpec {
+  type: "hat";
+  /** Approximate width of each hat (its widest extent). */
+  size: number;
+}
+
+export interface SpectreSpec {
+  type: "spectre";
+  /** Approximate width of each spectre (its widest extent). */
+  size: number;
+}
+
 export interface JigsawSpec {
   type: "jigsaw";
   /** Target piece size; columns and rows are chosen so pieces fit the region exactly. */
@@ -214,6 +228,8 @@ export type TilingSpec =
   | DelaunaySpec
   | AshlarSpec
   | PenroseSpec
+  | HatSpec
+  | SpectreSpec
   | JigsawSpec
   | MondrianSpec;
 
@@ -238,6 +254,8 @@ export const pinwheel = (p: Omit<PinwheelSpec, "type">): PinwheelSpec => ({ type
 export const flemishBond = (p: Omit<FlemishBondSpec, "type">): FlemishBondSpec => ({ type: "flemishBond", ...p });
 export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "chevron", ...p });
 export const fishScale = (p: Omit<FishScaleSpec, "type">): FishScaleSpec => ({ type: "fishScale", ...p });
+export const hat = (p: Omit<HatSpec, "type">): HatSpec => ({ type: "hat", ...p });
+export const spectre = (p: Omit<SpectreSpec, "type">): SpectreSpec => ({ type: "spectre", ...p });
 export const jigsaw = (p: Omit<JigsawSpec, "type">): JigsawSpec => ({ type: "jigsaw", ...p });
 export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "voronoi", ...p });
 export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
@@ -299,7 +317,7 @@ const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
 export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec;
 
-export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec>): PeriodicDefinition {
+export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec>): PeriodicDefinition {
   switch (spec.type) {
     case "grid": {
       const w = positive("grid.width", spec.width);
@@ -678,10 +696,65 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
       return generateAshlar(spec, ctx);
     case "jigsaw":
       return generateJigsaw(spec, ctx);
+    case "hat":
+      return generateHat(positive("hat.size", spec.size), ctx);
+    case "spectre":
+      return generateSpectre(positive("spectre.size", spec.size), ctx);
     case "penrose":
       return spec.variant === "kitesAndDarts"
         ? generateSubstitution(penroseKitesAndDarts, positive("penrose.size", spec.size), ctx, "Penrose", "k")
         : generateSubstitution(penroseRhombs, positive("penrose.size", spec.size), ctx, "Penrose", "p");
   }
   return generatePeriodic(periodicDefinition(spec), ctx);
+}
+
+/**
+ * Shared plumbing for the monotile tilings: map the region into tile units around the
+ * pattern's fixed centre (`ctx.origin`), collect tiles there, and map them back.
+ */
+function generateMonotile(
+  size: number,
+  width: number,
+  ctx: GenerateContext,
+  prefix: string,
+  collect: (local: Polygon) => { polygon: Polygon; protoTile: number }[],
+): RawTile[] {
+  const k = size / width;
+  const theta = (ctx.rotation * Math.PI) / 180;
+  const local = transform(
+    ctx.region.map((v) => vec((v.x - ctx.origin.x) / k, (v.y - ctx.origin.y) / k)),
+    -theta,
+    vec(0, 0),
+  );
+  return collect(local).map((t) => {
+    let cx = 0;
+    let cy = 0;
+    for (const v of t.polygon) {
+      cx += v.x;
+      cy += v.y;
+    }
+    const n = t.polygon.length;
+    return {
+      // Position in the pattern (tile units × 100), so ids don't depend on the region.
+      id: `${prefix}${Math.round((cx / n) * 100)},${Math.round((cy / n) * 100)}`,
+      protoTile: t.protoTile,
+      polygon: transform(
+        t.polygon.map((v) => vec(v.x * k, v.y * k)),
+        theta,
+        ctx.origin,
+      ),
+    };
+  });
+}
+
+function generateHat(size: number, ctx: GenerateContext): RawTile[] {
+  return generateMonotile(size, HAT_WIDTH, ctx, "h", (local) => {
+    return hatsCovering(bbox(local), ctx.maxTiles).map((t) => ({ polygon: t.polygon, protoTile: LABEL_INDEX[t.label] }));
+  });
+}
+
+function generateSpectre(size: number, ctx: GenerateContext): RawTile[] {
+  return generateMonotile(size, SPECTRE_WIDTH, ctx, "s", (local) =>
+    spectresCovering(bbox(local), ctx.maxTiles).map((t) => ({ polygon: t.polygon, protoTile: SPECTRE_LABEL_INDEX[t.label] })),
+  );
 }

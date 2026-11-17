@@ -15,7 +15,7 @@ import {
   type Rect,
   type Vec,
 } from "./geometry";
-import { insetPolygon } from "./offset";
+import { clipPolygonToConvex, insetPolygon } from "./offset";
 import { generateTiles, type TilingSpec } from "./tilings";
 
 /**
@@ -125,34 +125,44 @@ export function createLayout(options: LayoutOptions): Layout {
   for (const t of raw) {
     const original = ensurePositive(t.polygon);
     if (!rectsOverlap(bbox(original), innerBox)) continue;
+    const convex = isConvex(original);
     // Each tile gives up half the gap on every side, so neighbours end up `gap` apart.
-    const tile = gap <= 0 ? original : isConvex(original) ? insetConvex(original, gap / 2) : insetPolygon(original, gap / 2);
+    const tile = gap <= 0 ? original : convex ? insetConvex(original, gap / 2) : insetPolygon(original, gap / 2);
     if (tile.length === 0) continue;
     const full = area(tile);
 
-    let polygon: Polygon;
+    let pieces: Polygon[];
     let boundary: boolean;
     if (edges === "inside") {
       if (!containsPolygon(inner, tile, tol)) continue;
-      polygon = tile;
+      pieces = [tile];
       boundary = false;
     } else {
-      const cut = clipConvex(tile, inner);
-      const visible = cut.length ? area(cut) : 0;
+      // The region edge can cut a non-convex tile into separate parts; those become
+      // separate cells, largest first.
+      const cut = convex
+        ? [clipConvex(tile, inner)]
+        : clipPolygonToConvex(tile, inner)
+            .filter((q) => area(q) > minArea)
+            .sort((a, b) => area(b) - area(a));
+      const visible = cut.reduce((sum, q) => sum + (q.length ? area(q) : 0), 0);
       if (visible <= minArea || visible < minFill * full) continue;
       boundary = visible < full - minArea;
-      polygon = edges === "clip" ? cut : tile;
+      pieces = edges === "overflow" ? [tile] : cut;
     }
 
-    drafts.push({
-      id: t.id,
-      polygon,
-      original,
-      bbox: bbox(polygon),
-      centroid: centroid(polygon),
-      area: area(polygon),
-      boundary,
-      protoTile: t.protoTile,
+    pieces.forEach((polygon, k) => {
+      drafts.push({
+        // Extra parts of a tile split by the region edge get "~1", "~2", ….
+        id: k === 0 ? t.id : `${t.id}~${k}`,
+        polygon,
+        original,
+        bbox: bbox(polygon),
+        centroid: centroid(polygon),
+        area: area(polygon),
+        boundary,
+        protoTile: t.protoTile,
+      });
     });
   }
 
@@ -184,6 +194,7 @@ function findNeighbors(polys: Polygon[], tol: number): number[][] {
       const j = order[oj]!;
       const bj = boxes[j]!;
       if (bj.x > bi.x + bi.width + tol) break;
+      if (polys[i] === polys[j]) continue; // two parts of one tile
       if (!rectsOverlap(bi, bj, tol)) continue;
       if (sharesEdge(polys[i]!, polys[j]!, tol)) {
         result[i]!.push(j);

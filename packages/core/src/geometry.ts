@@ -179,7 +179,8 @@ export function cleanPolygon(p: Polygon, tol = 1e-9): Polygon {
 /**
  * Intersection of `subject` (any simple polygon) with a convex `clip` polygon.
  * If a non-convex subject is cut into separate parts, they come back as one polygon
- * joined by zero-width strips along the clip edge.
+ * joined by zero-width strips along the clip edge; use `clipPolygonToConvex` to get
+ * the parts separately.
  */
 export function clipConvex(subject: Polygon, clip: Polygon): Polygon {
   const c = ensurePositive(clip);

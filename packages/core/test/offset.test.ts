@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { area, insetConvex, insetPolygon, rectPolygon, roundedPolygon, signedArea, type Polygon } from "@andamento/core";
+import { area, clipConvex, clipPolygonToConvex, insetConvex, insetPolygon, rectPolygon, roundedPolygon, signedArea, type Polygon } from "@andamento/core";
 
 const L: Polygon = [
   { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 0, y: 2 },
@@ -61,5 +61,46 @@ describe("roundedPolygon on concave corners", () => {
     const r = 0.2;
     // Five convex corners lose (1 - π/4)r², the one concave corner gains it.
     expect(area(roundedPolygon(L, r, Math.PI / 720))).toBeCloseTo(3 - 4 * (1 - Math.PI / 4) * r * r, 5);
+  });
+});
+
+describe("clipPolygonToConvex", () => {
+  // A U shape: two 1-wide arms joined along the bottom.
+  const U: Polygon = [
+    { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 3 }, { x: 0, y: 3 },
+  ];
+
+  it("returns separate pieces when the clip cuts a shape apart", () => {
+    // Keep only y < 1: the two arm tips, 1 × 1 each.
+    const pieces = clipPolygonToConvex(U, rectPolygon(-1, -1, 5, 2));
+    expect(pieces).toHaveLength(2);
+    for (const p of pieces) expect(area(p)).toBeCloseTo(1, 9);
+  });
+
+  it("keeps shapes whole when they stay connected", () => {
+    const pieces = clipPolygonToConvex(U, rectPolygon(-1, 0.5, 5, 10));
+    expect(pieces).toHaveLength(1);
+    expect(area(pieces[0]!)).toBeCloseTo(7 - 0.5 * 2, 9);
+  });
+
+  it("handles inside, outside and containing cases", () => {
+    expect(clipPolygonToConvex(U, rectPolygon(-1, -1, 10, 10))).toHaveLength(1);
+    expect(area(clipPolygonToConvex(U, rectPolygon(-1, -1, 10, 10))[0]!)).toBeCloseTo(7, 9);
+    expect(clipPolygonToConvex(U, rectPolygon(5, 5, 1, 1))).toEqual([]);
+    const inner = clipPolygonToConvex(U, rectPolygon(0.2, 2.2, 0.5, 0.5));
+    expect(inner).toHaveLength(1);
+    expect(area(inner[0]!)).toBeCloseTo(0.25, 9);
+  });
+
+  it("matches clipConvex area for many random cuts", () => {
+    const star: Polygon = Array.from({ length: 14 }, (_, k) => {
+      const r = k % 2 ? 1 : 2.5;
+      return { x: r * Math.cos((k * Math.PI) / 7), y: r * Math.sin((k * Math.PI) / 7) };
+    });
+    for (let i = 0; i < 40; i++) {
+      const box = rectPolygon(-3 + (i % 7) * 0.7, -3 + Math.floor(i / 7) * 0.9, 2.2, 1.7);
+      const total = clipPolygonToConvex(star, box).reduce((s, p) => s + area(p), 0);
+      expect(total).toBeCloseTo(area(clipConvex(star, box)), 9);
+    }
   });
 });

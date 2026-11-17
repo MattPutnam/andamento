@@ -27,6 +27,10 @@ import {
   delaunay,
   ashlar,
   penrose,
+  hat,
+  HAT,
+  spectre,
+  SPECTRE,
   fishScale,
   jigsaw,
   pointInPolygon,
@@ -111,6 +115,8 @@ const specs: [string, TilingSpec][] = [
   ["jigsaw", jigsaw({ size: 110, seed: 2 })],
   ["penrose small", penrose({ size: 25 })],
   ["penrose kites", penrose({ size: 70, variant: "kitesAndDarts" })],
+  ["hat", hat({ size: 90 })],
+  ["spectre", spectre({ size: 90 })],
   ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
 
@@ -141,6 +147,8 @@ describe.each(specs)("%s", (_name, tiling) => {
     for (let i = 0; i < cs.length; i++) {
       for (let j = i + 1; j < cs.length; j++) {
         if (!rectsOverlap(cs[i]!.bbox, cs[j]!.bbox, gap)) continue;
+        // Parts of one tile split by the region edge are separated by the outside, not a gap.
+        if (cs[i]!.id.split("~")[0] === cs[j]!.id.split("~")[0]) continue;
         closest = Math.min(closest, polygonDistance(cs[i]!.polygon, cs[j]!.polygon));
       }
     }
@@ -535,4 +543,122 @@ describe("penrose kites and darts", () => {
       expect(same!.centroid.x).toBeCloseTo(c.centroid.x, 6);
     }
   });
+});
+
+describe("hat", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const sides = (p: { x: number; y: number }[]) =>
+    p.map((a, i) => Math.hypot(p[(i + 1) % p.length]!.x - a.x, p[(i + 1) % p.length]!.y - a.y)).sort((a, b) => a - b);
+
+  it("uses only congruent copies of the hat, some of them reflected", () => {
+    const l = createLayout({ region, tiling: hat({ size: 60 }), edges: "inside" });
+    expect(l.cells.length).toBeGreaterThan(100);
+    const width = Math.max(...HAT.flatMap((a) => HAT.map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
+    const want = sides(HAT).map((x) => (x * 60) / width);
+    for (const c of l.cells) {
+      expect(c.polygon).toHaveLength(13);
+      sides(c.polygon).forEach((x, i) => expect(x).toBeCloseTo(want[i]!, 6));
+      expect(c.area).toBeCloseTo(l.cells[0]!.area, 6);
+    }
+    // Reflected hats are rare: about one in seven.
+    const reflected = l.cells.filter((c) => c.protoTile === 4).length;
+    expect(reflected / l.cells.length).toBeGreaterThan(0.08);
+    expect(reflected / l.cells.length).toBeLessThan(0.2);
+  });
+
+  it("shows more of the same pattern when the region grows", () => {
+    const small = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: hat({ size: 20 }), edges: "inside" });
+    const big = createLayout({ region: { x: 0, y: 0, width: 2400, height: 1600 }, tiling: hat({ size: 20 }), edges: "inside", maxTiles: 100000 });
+    const byId = new Map(big.cells.map((c) => [c.id, c]));
+    for (const c of small.cells) {
+      const same = byId.get(c.id);
+      expect(same, c.id).toBeDefined();
+      expect(same!.protoTile).toBe(c.protoTile);
+      expect(same!.centroid.x).toBeCloseTo(c.centroid.x, 6);
+      expect(same!.centroid.y).toBeCloseTo(c.centroid.y, 6);
+    }
+  });
+});
+
+describe("spectre", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const sides = (p: { x: number; y: number }[]) =>
+    p.map((a, i) => Math.hypot(p[(i + 1) % p.length]!.x - a.x, p[(i + 1) % p.length]!.y - a.y));
+  const signedArea = (p: { x: number; y: number }[]) => p.reduce((s, a, i) => s + a.x * p[(i + 1) % p.length]!.y - p[(i + 1) % p.length]!.x * a.y, 0) / 2;
+
+  it("uses only unreflected copies of Tile(1,1)", () => {
+    const l = createLayout({ region, tiling: spectre({ size: 60 }), edges: "inside" });
+    expect(l.cells.length).toBeGreaterThan(100);
+    const width = Math.max(...SPECTRE.flatMap((a) => SPECTRE.map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
+    const unit = 60 / width;
+    // Every edge has unit length; all tiles have the same handedness (checked on the
+    // original pattern tiles, before the layout normalises orientation).
+    for (const c of l.cells) {
+      expect(c.polygon).toHaveLength(14);
+      sides(c.polygon).forEach((x) => expect(x).toBeCloseTo(unit, 6));
+      expect(c.area).toBeCloseTo(l.cells[0]!.area, 6);
+    }
+    // Chirality: the turn sequence of each tile (starting anywhere) matches the spectre's.
+    const turns = (p: { x: number; y: number }[]) => {
+      const q = signedArea(p) < 0 ? [...p].reverse() : p;
+      return q.map((a, i) => {
+        const b = q[(i + 1) % q.length]!, c = q[(i + 2) % q.length]!;
+        return Math.round((Math.atan2((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x), (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y)) * 180) / Math.PI);
+      });
+    };
+    const ref = turns(SPECTRE).join(",");
+    const rotations = (t: number[]) => t.map((_, i) => [...t.slice(i), ...t.slice(0, i)].join(","));
+    const mirrored = turns(SPECTRE.map((v) => ({ x: -v.x, y: v.y })));
+    expect(rotations(mirrored)).not.toContain(ref); // the spectre really is chiral
+    const handed = new Set(l.cells.map((c) => rotations(turns(c.polygon)).includes(ref)));
+    expect(handed.size).toBe(1);
+  });
+
+  it("shows more of the same pattern when the region grows", () => {
+    const small = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: spectre({ size: 20 }), edges: "inside" });
+    const big = createLayout({ region: { x: 0, y: 0, width: 2400, height: 1600 }, tiling: spectre({ size: 20 }), edges: "inside", maxTiles: 100000 });
+    const byId = new Map(big.cells.map((c) => [c.id, c]));
+    for (const c of small.cells) {
+      const same = byId.get(c.id);
+      expect(same, c.id).toBeDefined();
+      expect(same!.protoTile).toBe(c.protoTile);
+      expect(same!.centroid.x).toBeCloseTo(c.centroid.x, 6);
+    }
+  });
+});
+
+describe("tiles split by the region edge", () => {
+  it("become separate cells sharing the tile's id", () => {
+    const l = createLayout({ region: { x: 0, y: 0, width: 1000, height: 700 }, tiling: spectre({ size: 90 }), gap: 10 });
+    const parts = l.cells.filter((c) => c.id.includes("~"));
+    expect(parts.length).toBeGreaterThan(0);
+    for (const p of parts) {
+      const main = l.cells.find((c) => c.id === p.id.split("~")[0]);
+      expect(main).toBeDefined();
+      expect(main!.area).toBeGreaterThanOrEqual(p.area);
+      expect(p.boundary).toBe(true);
+      expect(isConvex(p.polygon) || p.polygon.length >= 3).toBe(true);
+    }
+  });
+});
+
+describe("patterns grown from a fixed centre", () => {
+  // The region surrounds the pattern's centre, so it must grow in every direction.
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const origin = { x: 500, y: 350 };
+  const cases: [string, TilingSpec][] = [
+    ["hat", hat({ size: 45 })],
+    ["spectre", spectre({ size: 45 })],
+    ["penrose", penrose({ size: 30 })],
+    ["penrose kites", penrose({ size: 40, variant: "kitesAndDarts" })],
+  ];
+  for (const [name, tiling] of cases) {
+    for (const rotation of [0, 17]) {
+      it(`${name} covers the region exactly (rotation ${rotation})`, () => {
+        const l = createLayout({ region, tiling, origin, rotation });
+        expect(Math.abs(totalArea(l) - wallArea) / wallArea).toBeLessThan(1e-6);
+        expect(maxPairOverlap(l)).toBeLessThan(1e-6);
+      });
+    }
+  }
 });

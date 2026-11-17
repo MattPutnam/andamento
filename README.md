@@ -67,6 +67,9 @@ Patterns:
 - Regular polygons: `hexagonal`, `triangular`, `rhombille` (tumbling blocks), `octagonSquare`,
   `trihexagonal`, `rhombitrihexagonal`
 - Curved and interlocking (non-convex tiles): `fishScale`, `jigsaw` (seeded tab directions)
+- Aperiodic monotiles (a single shape that tiles without ever repeating): `hat` (about one hat
+  in seven is mirrored; `protoTile` 4) and `spectre` (no mirrored tiles). `size` is the tile's
+  width; `origin` is the pattern's fixed centre, as for `penrose`
 - Other: `cairo` (pentagons), `penrose` (a pattern that never repeats: thick and thin rhombs,
   or kites and darts with `variant: "kitesAndDarts"`; `origin` places the star at the pattern's
   centre, so set it to the middle of the region)
@@ -109,7 +112,14 @@ npm run dev       # playground at http://localhost:5173
 - The random patterns (`voronoi`, `delaunay`, `ashlar`, `mondrian`, `jigsaw`) ignore `rotation` and `origin`.
 - Curved tiles are approximated with short straight segments. If `gap` is wider than a narrow
   part of a tile (a jigsaw neck, say), that part is dropped and the largest remaining piece is
-  kept. If the region edge cuts a non-convex tile into separate parts, the cell stays a single
-  polygon with the parts joined by zero-width strips (its area is still correct).
+  kept. If the region edge cuts a non-convex tile into separate parts, each part becomes its
+  own cell: the largest keeps the tile's id, the others get `~1`, `~2`, ….
 - Content is laid out in each tile's bounding box and clipped; for hexagons and cut edge tiles,
   keep important content near the centre.
+
+## Credits
+
+The hat tiling's metatile construction is ported from
+[hatviz](https://github.com/isohedral/hatviz) by Craig S. Kaplan (BSD 3-Clause; the full
+notice is in `packages/core/src/hat.ts`). The hat and spectre are due to David Smith,
+Joseph Samuel Myers, Craig S. Kaplan and Chaim Goodman-Strauss (2023).
