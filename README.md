@@ -70,6 +70,11 @@ Patterns:
 - Aperiodic monotiles (a single shape that tiles without ever repeating): `hat` (about one hat
   in seven is mirrored; `protoTile` 4) and `spectre` (no mirrored tiles). `size` is the tile's
   width; `origin` is the pattern's fixed centre, as for `penrose`
+- Escher-style: `isohedral({ ih, size, params?, edges?, amount? })`, any of the 81 isohedral
+  types with freely shaped tiles. Edges are `"wave"` (default), `"straight"` or your own curves,
+  one per edge class; `isohedralInfo(ih)` lists the type's shape parameters and which edges
+  must be S-shaped (180° symmetric), U-shaped (mirror symmetric) or straight. `isohedralTypes`
+  lists the types. `protoTile` is the tile's orientation class within the pattern
 - Other: `cairo` (pentagons), `penrose` (a pattern that never repeats: thick and thin rhombs,
   or kites and darts with `variant: "kitesAndDarts"`; `origin` places the star at the pattern's
   centre, so set it to the middle of the region)
@@ -118,6 +123,9 @@ npm run dev       # playground at http://localhost:5173
   keep important content near the centre.
 
 ## Credits
+
+Isohedral tilings use [Tactile](https://github.com/isohedral/tactile-js) by Craig S. Kaplan
+(BSD 3-Clause), vendored in `packages/core/src/vendor/tactile.ts` with its notice.
 
 The hat tiling's metatile construction is ported from
 [hatviz](https://github.com/isohedral/hatviz) by Craig S. Kaplan (BSD 3-Clause; the full

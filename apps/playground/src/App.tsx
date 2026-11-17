@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
-import { colorCells, createLayout, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { colorCells, createLayout, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
 import { TileLayout, coverStyle } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
@@ -207,6 +207,15 @@ const TILINGS: Record<TilingType, TilingDef> = {
     rotates: true,
     centred: true,
   },
+  isohedral: {
+    label: "Escher (isohedral)",
+    params: [
+      { key: "size", label: "Tile width", min: 15, max: 150, step: 1 },
+      { key: "amount", label: "Edge curve", min: 0, max: 0.4, step: 0.01 },
+    ],
+    defaults: { ih: 41, size: 50, amount: 0.15, edges: "wave" },
+    rotates: true,
+  },
   mondrian: {
     label: "Mondrian",
     params: [
@@ -229,6 +238,14 @@ const CONTENT: [Content, string][] = [
 ];
 const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
 
+/** Isohedral playground params: shape parameters are stored as p0, p1, … next to ih. */
+function isohedralSpec(p: Record<string, number | string>) {
+  const ih = Number(p.ih);
+  const info = isohedralInfo(ih);
+  const shape = info.defaultParameters.map((d, i) => (p[`p${i}`] === undefined ? d : Number(p[`p${i}`])));
+  return { type: "isohedral", ih, size: Number(p.size), amount: Number(p.amount), edges: p.edges, params: shape };
+}
+
 export function App() {
   const [type, setType] = useState<TilingType>("herringbone");
   const [params, setParams] = useState(() =>
@@ -246,7 +263,7 @@ export function App() {
   const [background, setBackground] = useState("#f4f1ea");
 
   const def = TILINGS[type];
-  const tiling = { type, ...params[type] } as TilingSpec;
+  const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
   const options: LayoutOptions = {
     region: { x: 0, y: 0, width: wall.width, height: wall.height },
     tiling,
@@ -358,6 +375,44 @@ export function App() {
               </select>
             </label>
           )}
+          {type === "isohedral" && (
+            <>
+              <label className="row">
+                <span>Type</span>
+                <select
+                  value={String(params.isohedral.ih)}
+                  onChange={(e) =>
+                    // A new type has its own shape parameters: drop the old ones.
+                    setParams((p) => ({ ...p, isohedral: { size: p.isohedral.size, amount: p.isohedral.amount, edges: p.isohedral.edges, ih: Number(e.target.value) } }))
+                  }
+                >
+                  {isohedralTypes.map((ih) => (
+                    <option key={ih} value={ih}>
+                      IH{ih} ({isohedralInfo(ih).edgeKinds.join("")})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="row">
+                <span>Edges</span>
+                <select value={String(params.isohedral.edges)} onChange={(e) => setParam("edges", e.target.value)}>
+                  <option value="wave">Wave</option>
+                  <option value="straight">Straight</option>
+                </select>
+              </label>
+              {isohedralInfo(Number(params.isohedral.ih)).defaultParameters.map((d, i) => (
+                <Slider
+                  key={`${params.isohedral.ih}-${i}`}
+                  label={`Shape ${i + 1}`}
+                  min={Number((d - 0.5).toFixed(2))}
+                  max={Number((d + 0.5).toFixed(2))}
+                  step={0.01}
+                  value={params.isohedral[`p${i}`] === undefined ? d : Number(params.isohedral[`p${i}`])}
+                  onChange={(v) => setParam(`p${i}`, v)}
+                />
+              ))}
+            </>
+          )}
           {type === "penrose" && (
             <label className="row">
               <span>Tiles</span>
@@ -449,7 +504,7 @@ function Slider(props: { label: string; min: number; max: number; step: number; 
     <label className="slider">
       <span>
         {props.label}
-        <output>{props.value}</output>
+        <output>{Number(props.value.toFixed(3))}</output>
       </span>
       <input type="range" min={props.min} max={props.max} step={props.step} value={props.value} onChange={(e) => props.onChange(Number(e.target.value))} />
     </label>

@@ -3,6 +3,7 @@ import { mulberry32 } from "./random";
 import { generateAshlar, generateDelaunay, generateJigsaw, generateVoronoi } from "./procedural";
 import { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
 import { HAT_WIDTH, hatsCovering, LABEL_INDEX } from "./hat";
+import { generateIsohedral } from "./isohedral";
 import { SPECTRE_LABEL_INDEX, SPECTRE_WIDTH, spectresCovering } from "./spectre";
 
 /*
@@ -185,6 +186,27 @@ export interface SpectreSpec {
   size: number;
 }
 
+export interface IsohedralSpec {
+  type: "isohedral";
+  /** Isohedral type number (see `isohedralTypes`; 81 of the 93 types). */
+  ih: number;
+  /** Approximate tile width (its widest extent). */
+  size: number;
+  /** Shape parameters moving the tile's corners; see `isohedralInfo(ih)`. Defaults per type. */
+  params?: number[];
+  /**
+   * Edge curves: "wave" (default) or "straight", or one curve per edge class (see
+   * `isohedralInfo(ih).edgeKinds`) as points strictly between (0,0) and (1,0). Curves for
+   * "S" and "U" edges describe the first half of the edge; "I" edges are always straight.
+   */
+  edges?: "wave" | "straight" | Vec[][];
+  /**
+   * Height of the "wave" curves, as a fraction of each edge. Defaults to 0.15, lowered for
+   * the few types where that would make the tile overlap itself.
+   */
+  amount?: number;
+}
+
 export interface JigsawSpec {
   type: "jigsaw";
   /** Target piece size; columns and rows are chosen so pieces fit the region exactly. */
@@ -230,6 +252,7 @@ export type TilingSpec =
   | PenroseSpec
   | HatSpec
   | SpectreSpec
+  | IsohedralSpec
   | JigsawSpec
   | MondrianSpec;
 
@@ -256,6 +279,7 @@ export const chevron = (p: Omit<ChevronSpec, "type">): ChevronSpec => ({ type: "
 export const fishScale = (p: Omit<FishScaleSpec, "type">): FishScaleSpec => ({ type: "fishScale", ...p });
 export const hat = (p: Omit<HatSpec, "type">): HatSpec => ({ type: "hat", ...p });
 export const spectre = (p: Omit<SpectreSpec, "type">): SpectreSpec => ({ type: "spectre", ...p });
+export const isohedral = (p: Omit<IsohedralSpec, "type">): IsohedralSpec => ({ type: "isohedral", ...p });
 export const jigsaw = (p: Omit<JigsawSpec, "type">): JigsawSpec => ({ type: "jigsaw", ...p });
 export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "voronoi", ...p });
 export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
@@ -317,7 +341,7 @@ const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
 export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec;
 
-export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec>): PeriodicDefinition {
+export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec | IsohedralSpec>): PeriodicDefinition {
   switch (spec.type) {
     case "grid": {
       const w = positive("grid.width", spec.width);
@@ -698,6 +722,9 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
       return generateJigsaw(spec, ctx);
     case "hat":
       return generateHat(positive("hat.size", spec.size), ctx);
+    case "isohedral":
+      positive("isohedral.size", spec.size);
+      return generateIsohedral(spec, ctx);
     case "spectre":
       return generateSpectre(positive("spectre.size", spec.size), ctx);
     case "penrose":

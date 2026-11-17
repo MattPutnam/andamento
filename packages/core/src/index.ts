@@ -6,6 +6,8 @@ export { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./sub
 export { HAT, hatSupertile, placedBounds } from "./hat";
 export type { HatLabel } from "./hat";
 export { SPECTRE, spectreSupertile } from "./spectre";
+export { isohedralInfo, isohedralPrototile, isohedralTypes } from "./isohedral";
+export type { EdgeKind, IsohedralInfo } from "./isohedral";
 export type { SpectreLabel } from "./spectre";
 export type { Piece, SubstitutionRule } from "./substitution";
 export { roundCorners, roundedPolygon } from "./rounding";

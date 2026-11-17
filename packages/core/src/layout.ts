@@ -9,7 +9,6 @@ import {
   isConvex,
   rectPolygon,
   rectsOverlap,
-  sharesEdge,
   vec,
   type Polygon,
   type Rect,
@@ -173,7 +172,11 @@ export function createLayout(options: LayoutOptions): Layout {
     return Math.abs(dy) > rowTol ? dy : p.centroid.x - q.centroid.x;
   });
 
-  const neighbors = findNeighbors(drafts.map((d) => d.original), Math.max(tol * 10, 1e-9));
+  const neighbors = findNeighbors(
+    drafts.map((d) => d.original),
+    drafts.map((d) => !d.id.includes("~")),
+    Math.max(tol * 10, 1e-9),
+  );
   const cells: Cell[] = drafts.map((d, index) => ({
     ...d,
     index,
@@ -182,26 +185,97 @@ export function createLayout(options: LayoutOptions): Layout {
   return { region, bounds, cornerRadius, cells };
 }
 
-/** Edge-adjacency between polygons, using a sweep over x-sorted bounding boxes. */
-function findNeighbors(polys: Polygon[], tol: number): number[][] {
-  const boxes = polys.map((p) => bbox(p));
-  const order = polys.map((_, i) => i).sort((a, b) => boxes[a]!.x - boxes[b]!.x);
-  const result: number[][] = polys.map(() => []);
-  for (let oi = 0; oi < order.length; oi++) {
-    const i = order[oi]!;
-    const bi = boxes[i]!;
-    for (let oj = oi + 1; oj < order.length; oj++) {
-      const j = order[oj]!;
-      const bj = boxes[j]!;
-      if (bj.x > bi.x + bi.width + tol) break;
-      if (polys[i] === polys[j]) continue; // two parts of one tile
-      if (!rectsOverlap(bi, bj, tol)) continue;
-      if (sharesEdge(polys[i]!, polys[j]!, tol)) {
-        result[i]!.push(j);
-        result[j]!.push(i);
+/**
+ * Edge-adjacency between polygons: two share an edge if they have overlapping boundary
+ * segments on the same line (which also catches T-junctions, where one tile's edge runs
+ * along part of another's). Edges are bucketed by their line, so the work grows with the
+ * number of edges rather than with pairs of nearby tiles × their edges.
+ */
+function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): number[][] {
+  // Line of each edge: direction angle in [0, π) and signed offset from the origin.
+  const angleStep = 1e-6;
+  const offsetStep = Math.max(tol * 10, 1e-9);
+  type Seg = { poly: number; t0: number; t1: number };
+  const near = (v: number): number[] => {
+    const k = Math.round(v);
+    const frac = v - k; // in [-0.5, 0.5]
+    if (frac > 0.49) return [k, k + 1];
+    if (frac < -0.49) return [k, k - 1];
+    return [k];
+  };
+  const buckets = new Map<string, Seg[]>();
+  // Parts of one tile (split by the region edge) share the same original; its main part
+  // (the one without a "~n" suffix) stands for the tile.
+  const owners = new Map<Polygon, number>();
+  polys.forEach((p, i) => {
+    if (primary[i] || !owners.has(p)) owners.set(p, i);
+  });
+  polys.forEach((p, i) => {
+    if (owners.get(p) !== i) return;
+    for (let k = 0; k < p.length; k++) {
+      const a = p[k]!;
+      const b = p[(k + 1) % p.length]!;
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len <= tol) continue;
+      let ux = (b.x - a.x) / len;
+      let uy = (b.y - a.y) / len;
+      if (uy < 0 || (uy === 0 && ux < 0)) {
+        ux = -ux;
+        uy = -uy;
+      }
+      // Directions just short of 180° are the same lines as those just past 0°.
+      if (Math.atan2(uy, ux) > Math.PI - angleStep) {
+        ux = -ux;
+        uy = -uy;
+      }
+      const ta = ux * a.x + uy * a.y;
+      const tb = ux * b.x + uy * b.y;
+      const seg = { poly: i, t0: Math.min(ta, tb), t1: Math.max(ta, tb) };
+      // Bucket by line. A value close to a rounding boundary also goes into the bucket on
+      // the other side, so the same line computed with slightly different rounding still meets.
+      const angles = near(Math.atan2(uy, ux) / angleStep);
+      const offsets = near((ux * a.y - uy * a.x) / offsetStep);
+      for (const ka of angles) {
+        for (const ko of offsets) {
+          const key = `${ka},${ko}`;
+          const list = buckets.get(key);
+          if (list) list.push(seg);
+          else buckets.set(key, [seg]);
+        }
       }
     }
+  });
+
+  const pairs = new Set<string>();
+  const result: number[][] = polys.map(() => []);
+  const link = (i: number, j: number) => {
+    const key = i < j ? `${i},${j}` : `${j},${i}`;
+    if (pairs.has(key)) return;
+    pairs.add(key);
+    result[i]!.push(j);
+    result[j]!.push(i);
+  };
+  for (const segs of buckets.values()) {
+    // Sweep along the line: only segments whose intervals overlap are compared. (In a
+    // lattice a whole row of tiles can put edges on one line, so pairwise would be slow.)
+    segs.sort((a, b) => a.t0 - b.t0);
+    const active: Seg[] = [];
+    for (const s of segs) {
+      for (let k = active.length - 1; k >= 0; k--) {
+        if (active[k]!.t1 <= s.t0 + tol) active.splice(k, 1);
+      }
+      for (const o of active) {
+        if (o.poly !== s.poly && Math.min(s.t1, o.t1) - Math.max(s.t0, o.t0) > tol) link(s.poly, o.poly);
+      }
+      active.push(s);
+    }
   }
+  // Parts of one tile get the same neighbours as the tile.
+  polys.forEach((p, i) => {
+    const owner = owners.get(p)!;
+    if (owner !== i) result[i] = [...result[owner]!];
+  });
+  for (const list of result) list.sort((a, b) => a - b);
   return result;
 }
 

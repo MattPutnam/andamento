@@ -662,3 +662,93 @@ describe("patterns grown from a fixed centre", () => {
     }
   }
 });
+
+describe("isohedral", () => {
+  const region = { x: 0, y: 0, width: 600, height: 400 };
+
+  it("tiles the region exactly for every type, straight and curved", async () => {
+    const { isohedral, isohedralTypes } = await import("@andamento/core");
+    expect(isohedralTypes).toHaveLength(81);
+    const failures: string[] = [];
+    for (const ih of isohedralTypes) {
+      for (const edges of ["straight", "wave"] as const) {
+        const l = createLayout({ region, tiling: isohedral({ ih, size: 90, edges }), rotation: 20 });
+        const covered = Math.abs(totalArea(l) - 600 * 400) / (600 * 400);
+        const overlap = maxPairOverlap(l);
+        if (covered > 1e-6 || overlap > 1e-3) failures.push(`IH${ih} ${edges}: coverage ${covered.toExponential(1)}, overlap ${overlap.toFixed(3)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("uses congruent tiles and stable lattice ids", async () => {
+    const { isohedral } = await import("@andamento/core");
+    const tiling = isohedral({ ih: 41, size: 60 });
+    const l = createLayout({ region, tiling, edges: "inside" });
+    for (const c of l.cells) expect(c.area).toBeCloseTo(l.cells[0]!.area, 6);
+    const big = createLayout({ region: { x: 0, y: 0, width: 1200, height: 800 }, tiling, edges: "inside" });
+    const ids = new Set(big.cells.map((c) => c.id));
+    for (const c of l.cells) expect(ids.has(c.id)).toBe(true);
+  });
+
+  it("keeps curved tiles a full gap apart", async () => {
+    const { isohedral } = await import("@andamento/core");
+    for (const ih of [1, 28, 41, 84]) {
+      const gap = 6;
+      const l = createLayout({ region, tiling: isohedral({ ih, size: 90 }), gap, rotation: 10 });
+      let closest = Infinity;
+      for (let i = 0; i < l.cells.length; i++) {
+        for (let j = i + 1; j < l.cells.length; j++) {
+          const a = l.cells[i]!, b = l.cells[j]!;
+          if (a.id.split("~")[0] === b.id.split("~")[0] || !rectsOverlap(a.bbox, b.bbox, gap)) continue;
+          closest = Math.min(closest, polygonDistance(a.polygon, b.polygon));
+        }
+      }
+      expect(closest, `IH${ih}`).toBeGreaterThan(gap - 1e-6);
+    }
+  });
+
+  it("accepts custom curves and validates input", async () => {
+    const { isohedral, isohedralInfo } = await import("@andamento/core");
+    const info = isohedralInfo(1);
+    expect(info.edgeKinds).toEqual(["J", "J", "J"]);
+    const curve = [{ x: 0.3, y: 0.15 }, { x: 0.6, y: -0.1 }];
+    const l = createLayout({ region, tiling: isohedral({ ih: 1, size: 80, edges: [curve, curve, []] }) });
+    expect(Math.abs(totalArea(l) - 600 * 400) / (600 * 400)).toBeLessThan(1e-6);
+    expect(() => createLayout({ region, tiling: isohedral({ ih: 19, size: 80 }) })).toThrow(RangeError);
+    expect(() => createLayout({ region, tiling: isohedral({ ih: 1, size: 80, params: [1] }) })).toThrow(/parameters/);
+    expect(() => createLayout({ region, tiling: isohedral({ ih: 1, size: 80, amount: 3 }) })).toThrow(/overlap/);
+  });
+});
+
+describe("neighbours", () => {
+  it("match a brute-force shared-edge check", async () => {
+    const { sharesEdge, isohedral } = await import("@andamento/core");
+    const region = { x: 0, y: 0, width: 700, height: 500 };
+    for (const tiling of [
+      grid({ width: 90, height: 60 }),
+      runningBond({ width: 120, height: 50 }),
+      herringbone({ length: 120, width: 60 }),
+      hexagonal({ size: 50 }),
+      penrose({ size: 60 }),
+      fishScale({ size: 100 }),
+      jigsaw({ size: 100 }),
+      hat({ size: 70 }),
+      isohedral({ ih: 84, size: 90 }),
+      isohedral({ ih: 1, size: 90 }),
+    ]) {
+      const l = createLayout({ region, tiling, rotation: 13 });
+      const tol = Math.max(1e-7 * 700 * 10, 1e-9);
+      const byId = new Map(l.cells.map((c) => [c.id, c]));
+      for (const c of l.cells) {
+        if (c.id.includes("~")) continue;
+        const expected = l.cells
+          .filter((o) => o !== c && !o.id.includes("~") && o.original !== c.original && sharesEdge(c.original, o.original, tol))
+          .map((o) => o.id)
+          .sort();
+        expect([...c.neighbors].filter((id) => !id.includes("~")).sort(), `${tiling.type} ${c.id}`).toEqual(expected);
+        for (const n of c.neighbors) expect(byId.has(n)).toBe(true);
+      }
+    }
+  });
+});
