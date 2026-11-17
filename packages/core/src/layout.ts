@@ -71,8 +71,32 @@ export interface LayoutOptions {
    * parameters a pattern has; see `fitCount`. Defaults to 1.
    */
   tileScale?: number;
+  /**
+   * Featured tiles: groups of neighbouring tiles merged into one bigger cell, e.g. for a
+   * hero image. Merging happens before the gap and edge handling, so a featured cell gets
+   * the same gap all round as any other. See `Feature`.
+   */
+  features?: Feature[];
   /** Safety cap on generated tiles. Defaults to 20000. */
   maxTiles?: number;
+}
+
+/**
+ * A featured tile: `tiles` neighbouring tiles merged into one cell. The group grows from
+ * the tile nearest `at`, adding whichever neighbour keeps it most compact (so 4 grid tiles
+ * make a 2 × 2 square, 7 hexagons a flower), and prefers tiles not cut by the region edge.
+ * Features don't share tiles: a later one grows from the nearest tile still free.
+ */
+export interface Feature {
+  /** How many tiles to merge. Defaults to 4. Fewer are merged if the group runs out of room. */
+  tiles?: number;
+  /** Where the group starts, in region units. Defaults to the middle of the region. */
+  at?: Vec;
+  /**
+   * Exact tile ids to merge instead (from a layout without features; ids are stable).
+   * Overrides `tiles` and `at`. Tiles that aren't in the layout or are already taken are skipped.
+   */
+  ids?: string[];
 }
 
 export interface Cell {
@@ -98,6 +122,10 @@ export interface Cell {
   protoTile: number;
   /** Ids of cells that share an edge with this one in the underlying pattern. */
   neighbors: string[];
+  /** For a featured cell: its position in `features`. Featured cells get content first. */
+  featured?: number;
+  /** For a featured cell: ids of the tiles merged into it. */
+  merged?: string[];
 }
 
 export interface Layout {
@@ -183,13 +211,12 @@ export function createLayout(options: LayoutOptions): Layout {
   const drafts: Draft[] = [];
   const minArea = tol * scaleRef;
 
-  for (const t of raw) {
-    const original = ensurePositive(t.polygon);
-    if (!rectsOverlap(bbox(original), innerBox)) continue;
+  /** Gap, edge handling and clipping for one pattern tile; its visible piece(s) as drafts. */
+  const place = (original: Polygon, id: string, protoTile: number): Draft[] => {
     const convex = isConvex(original);
     // Each tile gives up half the gap on every side, so neighbours end up `gap` apart.
     const tile = gap <= 0 ? original : convex ? insetConvex(original, gap / 2) : insetPolygon(original, gap / 2);
-    if (tile.length === 0) continue;
+    if (tile.length === 0) return [];
     const full = area(tile);
 
     let pieces: Shape[];
@@ -215,14 +242,14 @@ export function createLayout(options: LayoutOptions): Layout {
       const visible = cut.reduce((sum, q) => sum + shapeArea(q), 0);
       boundary = visible < full - minArea;
       if (edges === "inside") {
-        if (boundary || cut.length !== 1 || cut[0]!.holes.length > 0) continue;
+        if (boundary || cut.length !== 1 || cut[0]!.holes.length > 0) return [];
         pieces = [{ outer: tile, holes: [] }];
       } else {
-        if (visible <= minArea || visible < minFill * full) continue;
+        if (visible <= minArea || visible < minFill * full) return [];
         pieces = edges === "overflow" ? [{ outer: tile, holes: [] }] : cut;
       }
     } else if (edges === "inside") {
-      if (!containsPolygon(inner, tile, tol)) continue;
+      if (!containsPolygon(inner, tile, tol)) return [];
       pieces = [{ outer: tile, holes: [] }];
       boundary = false;
     } else {
@@ -234,16 +261,16 @@ export function createLayout(options: LayoutOptions): Layout {
             .filter((q) => area(q) > minArea)
             .sort((a, b) => area(b) - area(a));
       const visible = cut.reduce((sum, q) => sum + (q.length ? area(q) : 0), 0);
-      if (visible <= minArea || visible < minFill * full) continue;
+      if (visible <= minArea || visible < minFill * full) return [];
       boundary = visible < full - minArea;
       pieces = (edges === "overflow" ? [tile] : cut).map((outer) => ({ outer, holes: [] }));
     }
 
-    pieces.forEach((shape, k) => {
+    return pieces.map((shape, k) => {
       const withHoles = shape.holes.length > 0;
-      drafts.push({
+      return {
         // Extra parts of a tile split by the region edge get "~1", "~2", ….
-        id: k === 0 ? t.id : `${t.id}~${k}`,
+        id: k === 0 ? id : `${id}~${k}`,
         polygon: shape.outer,
         ...(withHoles ? { holes: shape.holes.map((h) => ensurePositive(h)) } : {}),
         original,
@@ -251,10 +278,28 @@ export function createLayout(options: LayoutOptions): Layout {
         centroid: withHoles ? shapeCentroid(shape) : centroid(shape.outer),
         area: withHoles ? shapeArea(shape) : area(shape.outer),
         boundary,
-        protoTile: t.protoTile,
-      });
+        protoTile,
+      };
     });
+  };
+
+  for (const t of raw) {
+    const original = ensurePositive(t.polygon);
+    if (!rectsOverlap(bbox(original), innerBox)) continue;
+    drafts.push(...place(original, t.id, t.protoTile));
   }
+
+  if (options.features?.length) {
+    const merged = mergeFeatures(drafts, options.features, region, scaleRef, Math.max(tol * 10, 1e-9));
+    for (const m of merged) {
+      const keep = new Set(m.members);
+      const pieces = place(m.polygon, `feature${m.feature}`, m.protoTile).map((d) => ({ ...d, featured: m.feature, merged: m.members }));
+      // Drop the merged tiles (and any extra parts of them) and add the featured cell.
+      for (let i = drafts.length - 1; i >= 0; i--) if (keep.has(drafts[i]!.id.split("~")[0]!)) drafts.splice(i, 1);
+      drafts.push(...pieces);
+    }
+  }
+
 
   // Reading order: rows top-to-bottom, then left-to-right.
   const rowTol = 1e-6 * scaleRef;
@@ -274,6 +319,81 @@ export function createLayout(options: LayoutOptions): Layout {
     neighbors: neighbors[index]!.map((k) => drafts[k]!.id),
   }));
   return { region, holes, bounds, cornerRadius, cells };
+}
+
+type FeatureDraft = { id: string; original: Polygon; boundary: boolean; protoTile: number };
+
+/**
+ * Choose the tile groups for `features` among the laid-out tiles, and merge each group's
+ * pattern tiles into one outline. Groups that would merge into something other than a
+ * single outline without holes (a ring, say) are left unmerged.
+ */
+function mergeFeatures(
+  drafts: FeatureDraft[],
+  features: Feature[],
+  region: Polygon,
+  scale: number,
+  tol: number,
+): { feature: number; members: string[]; polygon: Polygon; protoTile: number }[] {
+  // Whole tiles only (not the extra parts of a split one), with their pattern geometry.
+  const tiles = drafts.filter((d) => !d.id.includes("~"));
+  const index = new Map(tiles.map((t, i) => [t.id, i]));
+  const adj = findNeighbors(tiles.map((t) => t.original), tiles.map(() => true), tol);
+  const cx = tiles.map((t) => centroid(t.original));
+  const ar = tiles.map((t) => area(t.original));
+  const taken = new Uint8Array(tiles.length);
+  const middle = centroid(region);
+  const out: { feature: number; members: string[]; polygon: Polygon; protoTile: number }[] = [];
+
+  features.forEach((f, k) => {
+    let group: number[];
+    if (f.ids) {
+      group = f.ids.map((id) => index.get(id)).filter((i): i is number => i !== undefined && !taken[i]);
+    } else {
+      const want = Math.max(1, Math.floor(f.tiles ?? 4));
+      const at = f.at ?? middle;
+      // Score: uncut tiles first, then distance to `to`, then distance to `at` (which keeps
+      // the group centred on `at` when several tiles are equally compact); then the earlier tile.
+      const eps = 1e-9 * scale * scale;
+      const d2 = (i: number, p: Vec) => (cx[i]!.x - p.x) ** 2 + (cx[i]!.y - p.y) ** 2;
+      const better = (i: number, j: number, to: Vec) => {
+        if (tiles[i]!.boundary !== tiles[j]!.boundary) return !tiles[i]!.boundary;
+        const a = d2(i, to) - d2(j, to);
+        if (Math.abs(a) > eps) return a < 0;
+        const b = d2(i, at) - d2(j, at);
+        if (Math.abs(b) > eps) return b < 0;
+        return i < j;
+      };
+      let seed = -1;
+      for (let i = 0; i < tiles.length; i++) if (!taken[i] && (seed < 0 || better(i, seed, at))) seed = i;
+      if (seed < 0) return;
+      group = [seed];
+      const inGroup = new Set(group);
+      while (group.length < want) {
+        // The group's centre (area-weighted), and the free neighbour nearest it.
+        let sx = 0, sy = 0, sw = 0;
+        for (const i of group) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; }
+        const c = vec(sx / sw, sy / sw);
+        let pick = -1;
+        for (const i of group) {
+          for (const j of adj[i]!) if (!taken[j] && !inGroup.has(j) && (pick < 0 || better(j, pick, c))) pick = j;
+        }
+        if (pick < 0) break;
+        group.push(pick);
+        inGroup.add(pick);
+      }
+    }
+    if (group.length === 0) return;
+    for (const i of group) taken[i] = 1;
+    const polys = group.map((i) => tiles[i]!.original);
+    const union = group.length === 1 ? [{ outer: polys[0]!, holes: [] }] : overlay(polys, (p) => polys.some((q) => pointInPolygon(p, q)), scale);
+    if (union.length !== 1 || union[0]!.holes.length > 0) {
+      for (const i of group) taken[i] = 0;
+      return;
+    }
+    out.push({ feature: k, members: group.map((i) => tiles[i]!.id), polygon: union[0]!.outer, protoTile: tiles[group[0]!]!.protoTile });
+  });
+  return out;
 }
 
 /**

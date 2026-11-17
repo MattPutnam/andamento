@@ -24,16 +24,27 @@ export interface ContentOptions {
 }
 
 /**
- * Assign `count` content items to cells. Returns one entry per cell (by `cell.index`):
+ * Assign `count` content items to cells. Featured cells (see `LayoutOptions.features`)
+ * take the first items, in feature order; the rest follow `placement`, in reading order.
+ * Returns one entry per cell (by `cell.index`):
  * the index of the item it holds, or -1 for an empty cell. Pass `Infinity` to number
  * every cell that may hold content.
  */
 export function contentSlots(layout: Layout, count: number, options: ContentOptions = {}): number[] {
   const { cells = "all", placement = "reading" } = options;
   const accept = cells === "all" ? () => true : cells === "whole" ? (c: Cell) => !c.boundary : cells;
+  const out: number[] = new Array(layout.cells.length).fill(-1);
+  const total = Math.max(0, Math.floor(count));
+  // Featured cells come first, in `features` order (the first item goes to the first feature).
+  const featured = layout.cells
+    .filter((c) => c.featured !== undefined && accept(c))
+    .sort((a, b) => a.featured! - b.featured! || a.index - b.index)
+    .slice(0, total);
+  featured.forEach((c, k) => (out[c.index] = k));
+
   // layout.cells is in reading order, so filtering keeps it.
-  const eligible = layout.cells.filter((c) => accept(c));
-  const n = Math.max(0, Math.min(Math.floor(count), eligible.length));
+  const eligible = layout.cells.filter((c) => out[c.index] === -1 && accept(c));
+  const n = Math.max(0, Math.min(total - featured.length, eligible.length));
 
   let chosen: Cell[];
   if (n === eligible.length) chosen = eligible;
@@ -41,8 +52,7 @@ export function contentSlots(layout: Layout, count: number, options: ContentOpti
   else if (placement === "spread") chosen = spread(eligible, n);
   else chosen = eligible.slice(0, n);
 
-  const out: number[] = new Array(layout.cells.length).fill(-1);
-  chosen.sort((a, b) => a.index - b.index).forEach((c, k) => (out[c.index] = k));
+  chosen.sort((a, b) => a.index - b.index).forEach((c, k) => (out[c.index] = featured.length + k));
   return out;
 }
 

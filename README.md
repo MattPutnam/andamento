@@ -203,6 +203,29 @@ npm run typecheck # run after build: packages resolve each other through dist/
 npm run dev       # playground at http://localhost:5173
 ```
 
+### Featured tiles
+
+```ts
+createLayout({
+  region,
+  tiling: hexagonal({ size: 30 }),
+  features: [{ tiles: 7 }, { tiles: 3, at: { x: 40, y: 30 } }],
+});
+```
+
+Each feature merges `tiles` neighbouring tiles into one bigger cell, for a hero image or a
+highlighted item. The group grows from the tile nearest `at` (default: the middle of the
+region), adding whichever neighbour keeps it most compact, so 4 grid tiles make a 2 × 2
+square and 7 hexagons a flower; it prefers tiles the region edge doesn't cut. Features never
+share tiles. To pick the tiles yourself, pass `ids` (tile ids are stable, so read them from a
+layout without features).
+
+Merging happens before the gap and edge handling, so a featured cell gets the same gap all
+round and is cut, rounded and given neighbours like any other. Featured cells have
+`featured` (their position in `features`) and `merged` (the ids of the tiles inside), and
+take the first content: `<TileLayout>`'s first child goes to the first feature, and so on;
+the rest follow `placement` as usual.
+
 ### Region shapes and holes
 
 The region can be any simple polygon: an L-shaped wall, the space under stairs, an arch

@@ -325,6 +325,7 @@ export function App() {
   const [wall, setWall] = useState({ width: 240, height: 150 });
   const [shape, setShape] = useState<RegionShape>("rectangle");
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
+  const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -345,6 +346,7 @@ export function App() {
   const options: LayoutOptions = {
     region: regionShape(shape, wall.width, wall.height),
     ...(holeSet !== "none" ? { holes: holesFor(holeSet, wall.width, wall.height) } : {}),
+    ...(featureTiles > 0 ? { features: [{ tiles: featureTiles }] } : {}),
     tiling,
     gap,
     margin,
@@ -534,6 +536,7 @@ export function App() {
           <Slider label="Gap" min={0} max={10} step={0.5} value={gap} onChange={setGap} />
           <Slider label="Margin" min={0} max={30} step={1} value={margin} onChange={setMargin} />
           <Slider label="Corner radius" min={0} max={20} step={0.5} value={cornerRadius} onChange={setCornerRadius} />
+          <Slider label="Featured tile (tiles merged)" min={0} max={12} step={1} value={featureTiles} onChange={setFeatureTiles} />
           <label className="row">
             <span>Edge tiles</span>
             <select value={edges} onChange={(e) => setEdges(e.target.value as EdgeMode)}>
