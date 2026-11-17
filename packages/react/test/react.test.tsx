@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { grid, hexagonal } from "@andamento/core";
-import { SvgCellImage, SvgTileLayout, TileLayout, coverStyle } from "@andamento/react";
+import { SvgCellImage, SvgTileLayout, TileLayout, coverStyle, neutralPalette } from "@andamento/react";
 
 // 3 x 2 grid of 100-unit cells, 10-unit gap.
 const options = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 10 };
@@ -81,6 +81,92 @@ describe("<TileLayout> (HTML, arbitrary children)", () => {
   });
 });
 
+describe("<TileLayout> empty tiles and content placement", () => {
+  // 3 x 2 grid of 100-unit cells in a 250-wide region: the right column is cut.
+  const cut = { region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }) };
+  const tile = (html: string, index: number) => html.match(new RegExp(`<div[^>]*data-index="${index}"[^>]*>(.*?)</div>`))!;
+
+  it("colors empty tiles with a neutral palette by default", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={options}>
+        <b>one</b>
+      </TileLayout>,
+    );
+    const backgrounds = [...html.matchAll(/data-empty=""[^>]*background:([^;"]+)/g)].map((m) => m[1]);
+    expect(backgrounds).toHaveLength(5);
+    expect(backgrounds.every((b) => neutralPalette.includes(b!))).toBe(true);
+    // Neighbours differ.
+    expect(backgrounds[0]).not.toBe(backgrounds[1]); // tiles 1 and 2
+    // The filled tile gets no fill.
+    expect(tile(html, 0)[0]).not.toContain("background");
+  });
+
+  it("accepts a color, a function, or transparent", () => {
+    const red = renderToStaticMarkup(<TileLayout options={options} fill="red" />);
+    expect(red.match(/background:red/g)).toHaveLength(6);
+    const fn = renderToStaticMarkup(<TileLayout options={options} fill={(c) => (c.index ? "blue" : "green")} />);
+    expect(fn.match(/background:blue/g)).toHaveLength(5);
+    const none = renderToStaticMarkup(<TileLayout options={options} fill="transparent" />);
+    expect(none.match(/background:transparent/g)).toHaveLength(6);
+  });
+
+  it("marks cut tiles and keeps children out of them with contentCells: whole", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={cut} contentCells="whole">
+        <b>a</b>
+        <b>b</b>
+        <b>c</b>
+        <b>d</b>
+      </TileLayout>,
+    );
+    expect(html.match(/data-boundary=""/g)).toHaveLength(2);
+    expect(tile(html, 0)[1]).toBe("<b>a</b>");
+    expect(tile(html, 1)[1]).toBe("<b>b</b>");
+    expect(tile(html, 2)[0]).toContain("data-boundary");
+    expect(tile(html, 2)[0]).toContain("data-empty");
+    expect(tile(html, 3)[1]).toBe("<b>c</b>");
+    expect(tile(html, 4)[1]).toBe("<b>d</b>");
+    expect(tile(html, 5)[1]).toBe("");
+  });
+
+  it("places children with placement and tells per-cell props the state", () => {
+    const big = { region: { x: 0, y: 0, width: 500, height: 500 }, tiling: grid({ width: 100 }) };
+    const html = renderToStaticMarkup(
+      <TileLayout
+        options={big}
+        placement="center"
+        cellClassName={(_, s) => (s.empty ? "empty" : `slot-${s.slot}`)}
+        fallback={(_, s) => (s.empty ? <i>-</i> : null)}
+      >
+        <b>middle</b>
+      </TileLayout>,
+    );
+    expect(tile(html, 12)[0]).toContain('class="slot-0"');
+    expect(tile(html, 12)[1]).toBe("<b>middle</b>");
+    expect(html.match(/class="empty"/g)).toHaveLength(24);
+    expect(html.match(/<i>-<\/i>/g)).toHaveLength(24);
+  });
+
+  it("numbers allowed cells for renderCell and treats null as empty", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={cut} contentCells="whole" renderCell={(_, { slot }) => (slot >= 0 && slot < 3 ? <b>{slot}</b> : null)} fill="gray" />,
+    );
+    expect(tile(html, 0)[1]).toBe("<b>0</b>");
+    expect(tile(html, 3)[1]).toBe("<b>2</b>");
+    expect(html.match(/data-empty=""/g)).toHaveLength(3);
+    expect(html.match(/background:gray/g)).toHaveLength(3);
+  });
+
+  it("moves the same child to a different tile with placement", () => {
+    const one = <b key="k">k</b>;
+    const reading = renderToStaticMarkup(<TileLayout options={options}>{[one]}</TileLayout>);
+    const centered = renderToStaticMarkup(<TileLayout options={options} placement="center">{[one]}</TileLayout>);
+    expect(tile(reading, 0)[1]).toBe("<b>k</b>");
+    expect(tile(centered, 0)[1]).toBe("");
+    expect(centered.match(/<b>k<\/b>/g)).toHaveLength(1);
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);
@@ -100,5 +186,14 @@ describe("<SvgTileLayout>", () => {
     expect(html).toContain('href="p0.jpg"');
     expect(html).toContain('opacity="0.5"');
     expect(html).not.toMatch(/<path d="[^"]*" fill=/);
+  });
+
+  it("places images with contentCells and placement, and marks empty and cut cells", () => {
+    const cut = { region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }) };
+    const html = renderToStaticMarkup(<SvgTileLayout options={cut} images={["a.jpg", "b.jpg", "c.jpg"]} contentCells="whole" />);
+    const groups = [...html.matchAll(/<g class="andamento-cell"([^>]*)>(.*?)<\/g>/g)];
+    expect(groups.map((g) => g[2]!.match(/href="(\w)\.jpg"/)?.[1] ?? "-")).toEqual(["a", "b", "-", "c", "-", "-"]);
+    expect(groups.filter((g) => g[1]!.includes("data-boundary")).map((g) => g[1]!.match(/data-index="(\d)"/)![1])).toEqual(["2", "5"]);
+    expect(groups.filter((g) => g[1]!.includes("data-empty"))).toHaveLength(3);
   });
 });

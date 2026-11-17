@@ -17,3 +17,5 @@ export type { Cell, EdgeMode, Layout, LayoutOptions } from "./layout";
 export { mulberry32 } from "./random";
 export { boundsAspectRatio, cellCss, cssPolygon } from "./css";
 export type { CellCss } from "./css";
+export { contentSlots } from "./content";
+export type { ContentCells, ContentOptions, ContentPlacement } from "./content";

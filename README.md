@@ -34,11 +34,37 @@ import { hexagonal } from "@andamento/core";
   layout scales with the container's width (its height follows via `aspect-ratio`).
 - Clipping also applies to pointer events, so hover and clicks follow the tile shapes.
 - Children keep their state (video position, form input) when the layout options change.
-- Other props: `renderCell(cell)` instead of children, `fallback` for empty tiles,
+- Other props: `renderCell(cell, { slot })` instead of children, `fallback` for empty tiles,
   `cellClassName` / `cellStyle` (fixed or per cell), plus any `<div>` attributes.
 
+### Fewer children than tiles, and cut tiles
+
+```tsx
+<TileLayout options={options} contentCells="whole" placement="center" fill={["#eee", "#ddd", "#e6e2dc"]}>
+  {photos.map((src) => <img key={src} src={src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+- `contentCells`: which tiles may hold children. `"all"` (default), `"whole"` (skip tiles cut
+  by the region outline, so content is never cropped by the edge), or `(cell) => boolean`.
+- `placement`: where children go when there are fewer than tiles. `"reading"` (default)
+  packs them from the top left, `"center"` clusters them in the middle, `"spread"` spaces them
+  evenly. Children always run in reading order across the tiles chosen.
+- `fill`: color of empty tiles. A color, a palette (neighbouring tiles get different
+  entries), or `(cell) => color`. Defaults to `neutralPalette`, soft greys that keep the pattern
+  visible; `fill="transparent"` hides empty tiles.
+- Per-cell functions (`fallback`, `cellClassName`, `cellStyle`) get a second argument,
+  `{ empty, slot }`: whether the tile has content, and the index of the child it holds.
+- Tile wrappers carry `data-empty` and `data-boundary` attributes, for plain CSS:
+  `[data-andamento] [data-empty] { opacity: 0.5 }`.
+
+The core function behind this, `contentSlots(layout, count, { cells, placement })`, returns
+the item index per cell (or -1) for other renderers.
+
 Use `<SvgTileLayout>` when you need a single `<svg>` (export, print, embedding), with
-`images`, `fill`, `stroke` and an SVG-level `renderCell`.
+`images`, `fill`, `stroke` and an SVG-level `renderCell`. It takes `contentCells` and
+`placement` too (they decide where the `images` array goes), and `renderToString` accepts the
+same options.
 
 ## Core
 

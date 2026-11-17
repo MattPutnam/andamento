@@ -1,5 +1,5 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
-import type { Cell, Layout, LayoutOptions } from "@andamento/core";
+import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
 import { cellPath, polygonToPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
 import { useResolvedLayout } from "./useTileLayout";
 
@@ -13,6 +13,8 @@ export interface SvgCellRenderContext {
   /** The fill/image the default renderer would have used. */
   fill: string;
   image?: string;
+  /** Which item of `images` the cell shows (-1 if none or if `images` is a function). */
+  slot: number;
 }
 
 export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "children" | "fill" | "stroke" | "strokeWidth"> {
@@ -21,6 +23,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   layout?: Layout;
   images?: ImageSource;
   repeatImages?: boolean;
+  /** Which cells may hold an image from the `images` array: "all" (default), "whole" or a test. */
+  contentCells?: ContentCells;
+  /** Where images go when there are fewer than cells: "reading" (default), "center" or "spread". */
+  placement?: ContentPlacement;
+  /** Cell color under (or instead of) images. Defaults to `defaultPalette`. */
   fill?: FillSource;
   stroke?: string;
   strokeWidth?: number;
@@ -43,6 +50,8 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     layout: given,
     images,
     repeatImages,
+    contentCells,
+    placement,
     fill,
     stroke,
     strokeWidth = 1,
@@ -53,7 +62,10 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   } = props;
   const layout = useResolvedLayout("SvgTileLayout", options, given);
   const prefix = "andamento" + useId().replace(/:/g, "");
-  const styles = useMemo(() => resolveCellStyles(layout, { images, repeatImages, fill }), [layout, images, repeatImages, fill]);
+  const styles = useMemo(
+    () => resolveCellStyles(layout, { images, repeatImages, fill, contentCells, placement }),
+    [layout, images, repeatImages, fill, contentCells, placement],
+  );
   const { x, y, width, height } = layout.bounds;
 
   return (
@@ -66,7 +78,14 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
         const style = styles[i]!;
         const ctx: SvgCellRenderContext = { path: d, clipPathId, clipPath: `url(#${clipPathId})`, ...style };
         return (
-          <g key={cell.id} className="andamento-cell" data-cell-id={cell.id} data-index={cell.index}>
+          <g
+            key={cell.id}
+            className="andamento-cell"
+            data-cell-id={cell.id}
+            data-index={cell.index}
+            data-empty={style.image ? undefined : ""}
+            data-boundary={cell.boundary ? "" : undefined}
+          >
             <clipPath id={clipPathId}>
               <path d={d} />
             </clipPath>

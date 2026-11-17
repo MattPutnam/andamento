@@ -1,6 +1,9 @@
-import { colorCells, roundCorners, type Cell, type Layout, type Polygon } from "@andamento/core";
+import { colorCells, contentSlots, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
+
+/** Soft neutrals for tiles without content: visible as tiles, but quiet next to photos. */
+export const neutralPalette = ["#e7e5e4", "#d6d3d1", "#f5f5f4", "#dedad6", "#ecebe9"];
 
 export type ImageSource = readonly string[] | ((cell: Cell) => string | undefined);
 export type FillSource = string | readonly string[] | ((cell: Cell) => string);
@@ -10,6 +13,10 @@ export interface RenderOptions {
   images?: ImageSource;
   /** Reuse the images array from the start when there are more cells than images. */
   repeatImages?: boolean;
+  /** Which cells may hold an image from the `images` array (default "all"). */
+  contentCells?: ContentCells;
+  /** Where the images go when there are fewer than cells (default "reading"). */
+  placement?: ContentPlacement;
   /**
    * Cell color when there is no image: a color, a palette (neighbouring cells get
    * different entries), or a function. Defaults to `defaultPalette`.
@@ -62,30 +69,40 @@ export function cellPath(layout: Layout, cell: Cell, precision = 3): string {
 export interface CellStyle {
   fill: string;
   image?: string;
+  /** Which item of `images` the cell shows (-1 if none or if `images` is a function). */
+  slot: number;
 }
 
+/**
+ * Fill color per cell (by `cell.index`): a color, a palette (neighbouring cells get
+ * different entries), or a function.
+ */
+export function resolveFills(layout: Layout, fill: FillSource): string[] {
+  if (typeof fill === "string") return layout.cells.map(() => fill);
+  if (typeof fill === "function") return layout.cells.map(fill);
+  const palette = fill.length ? fill : defaultPalette;
+  const colors = colorCells(layout, palette.length);
+  return layout.cells.map((c) => palette[colors[c.index]!]!);
+}
+
+type StyleOptions = Pick<RenderOptions, "images" | "repeatImages" | "fill" | "contentCells" | "placement">;
+
 /** Resolve the fill color and image for every cell (shared by the SVG and React renderers). */
-export function resolveCellStyles(layout: Layout, opts: Pick<RenderOptions, "images" | "repeatImages" | "fill"> = {}): CellStyle[] {
-  const fill = opts.fill ?? defaultPalette;
-  let fillFor: (c: Cell) => string;
-  if (typeof fill === "string") fillFor = () => fill;
-  else if (typeof fill === "function") fillFor = fill;
-  else {
-    const palette = fill.length ? fill : defaultPalette;
-    const colors = colorCells(layout, palette.length);
-    fillFor = (c) => palette[colors[c.index]!]!;
-  }
-
+export function resolveCellStyles(layout: Layout, opts: StyleOptions = {}): CellStyle[] {
+  const fills = resolveFills(layout, opts.fill ?? defaultPalette);
   const images = opts.images;
-  const imageFor = (c: Cell): string | undefined => {
-    if (!images) return undefined;
-    if (typeof images === "function") return images(c);
-    if (images.length === 0) return undefined;
-    if (c.index < images.length) return images[c.index];
-    return opts.repeatImages ? images[c.index % images.length] : undefined;
-  };
-
-  return layout.cells.map((c) => ({ fill: fillFor(c), image: imageFor(c) }));
+  let slots: number[] = layout.cells.map(() => -1);
+  if (Array.isArray(images) && images.length > 0) {
+    const count = opts.repeatImages ? Infinity : images.length;
+    slots = contentSlots(layout, count, { cells: opts.contentCells, placement: opts.placement });
+  }
+  return layout.cells.map((c, i) => {
+    const slot = slots[i]!;
+    let image: string | undefined;
+    if (typeof images === "function") image = images(c);
+    else if (images && slot >= 0) image = images[slot % images.length];
+    return { fill: fills[i]!, image, slot };
+  });
 }
 
 /** Minimal element tree, serialisable to a string or built into DOM nodes. */
@@ -136,7 +153,19 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
     if (opts.stroke) {
       parts.push(el("path", { d, fill: "none", stroke: opts.stroke, "stroke-width": opts.strokeWidth ?? 1 }));
     }
-    children.push(el("g", { class: "andamento-cell", "data-cell-id": cell.id, "data-index": cell.index }, parts));
+    children.push(
+      el(
+        "g",
+        {
+          class: "andamento-cell",
+          "data-cell-id": cell.id,
+          "data-index": cell.index,
+          "data-empty": style.image ? undefined : "",
+          "data-boundary": cell.boundary ? "" : undefined,
+        },
+        parts,
+      ),
+    );
   });
 
   return el(

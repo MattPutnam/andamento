@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
-import { TileLayout, coverStyle } from "@andamento/react";
+import { TileLayout, coverStyle, type ContentPlacement } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -264,6 +264,9 @@ export function App() {
   const [content, setContent] = useState<Content>("photos");
   const [uploads, setUploads] = useState<string[]>([]);
   const [background, setBackground] = useState("#f4f1ea");
+  const [itemCount, setItemCount] = useState(0); // 0: one item per tile
+  const [contentCells, setContentCells] = useState<"all" | "whole">("all");
+  const [placement, setPlacement] = useState<ContentPlacement>("reading");
 
   const def = TILINGS[type];
   const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
@@ -295,7 +298,8 @@ export function App() {
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
 
   // Any React content works as children: one child per tile, in reading order.
-  const children = layout?.cells.map((cell, i) => {
+  const numItems = layout ? (itemCount > 0 ? itemCount : layout.cells.length) : 0;
+  const children = Array.from({ length: content === "colors" ? 0 : numItems }, (_, i) => {
     if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
     if (content === "cards")
       return (
@@ -330,8 +334,10 @@ export function App() {
   const download = () => {
     if (!layout) return;
     const svg = renderToString(layout, {
-      images: content === "photos" ? photos : undefined,
-      repeatImages: true,
+      images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
+      repeatImages: itemCount === 0,
+      contentCells,
+      placement,
       background,
     });
     const a = document.createElement("a");
@@ -453,6 +459,26 @@ export function App() {
               </button>
             ))}
           </div>
+          {content !== "colors" && (
+            <>
+              <Slider label="Items (0 = every tile)" min={0} max={60} step={1} value={itemCount} onChange={setItemCount} />
+              <label className="row">
+                <span>Content in</span>
+                <select value={contentCells} onChange={(e) => setContentCells(e.target.value as "all" | "whole")}>
+                  <option value="all">All tiles</option>
+                  <option value="whole">Whole tiles only</option>
+                </select>
+              </label>
+              <label className="row">
+                <span>Placement</span>
+                <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)}>
+                  <option value="reading">Reading order</option>
+                  <option value="center">Centre</option>
+                  <option value="spread">Spread out</option>
+                </select>
+              </label>
+            </>
+          )}
           <label className="upload">
             <input type="file" accept="image/*" multiple onChange={onUpload} />
             <span>{uploads.length ? `${uploads.length} photos loaded — replace…` : "Use your own photos…"}</span>
@@ -486,7 +512,9 @@ export function App() {
               className="region"
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
               cellClassName="tile"
-              cellStyle={content === "colors" ? (cell) => ({ background: colorOf(cell.index) }) : undefined}
+              contentCells={contentCells}
+              placement={placement}
+              fill={content === "colors" ? defaultPalette : undefined}
               aria-label={`${def.label} layout`}
             >
               {children}

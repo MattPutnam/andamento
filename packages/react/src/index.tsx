@@ -1,6 +1,8 @@
 export { TileLayout, coverStyle } from "./TileLayout";
-export type { TileLayoutProps } from "./TileLayout";
+export type { CellState, TileLayoutProps } from "./TileLayout";
 export { SvgTileLayout, SvgCellImage } from "./SvgTileLayout";
 export type { SvgTileLayoutProps, SvgCellImageProps, SvgCellRenderContext } from "./SvgTileLayout";
 export { useTileLayout } from "./useTileLayout";
-export type { Cell, Layout, LayoutOptions } from "@andamento/core";
+export type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
+export { defaultPalette, neutralPalette } from "@andamento/svg";
+export type { FillSource } from "@andamento/svg";
