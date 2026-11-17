@@ -21,7 +21,7 @@ export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss } from "
 export type { CellCss } from "./css";
 export { contentSlots } from "./content";
 export type { ContentCells, ContentOptions, ContentPlacement } from "./content";
-export { gradientFill, paletteFill, protoTileFill, randomFill } from "./fills";
-export type { CellFill, GradientOptions } from "./fills";
+export { gradientFill, imageFill, loadImagePixels, paletteFill, protoTileFill, randomFill } from "./fills";
+export type { CellFill, GradientOptions, ImageFillOptions, Pixels } from "./fills";
 export { fitCount } from "./fit";
 export type { FitOptions, FitResult } from "./fit";

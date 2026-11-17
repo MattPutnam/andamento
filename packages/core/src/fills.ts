@@ -1,4 +1,5 @@
 import { colorCells, type Cell, type Layout } from "./layout";
+import { pointInPolygon } from "./offset";
 import { mulberry32 } from "./random";
 
 /**
@@ -93,9 +94,9 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-function parseHex(s: string): Triple {
+function parseHex(s: string, who = "gradientFill"): Triple {
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s.trim());
-  if (!m) throw new RangeError(`gradientFill needs hex colors like "#e9d8a6" (got ${JSON.stringify(s)})`);
+  if (!m) throw new RangeError(`${who} needs hex colors like "#e9d8a6" (got ${JSON.stringify(s)})`);
   const h = m[1]!.length === 3 ? [...m[1]!].map((c) => c + c).join("") : m[1]!;
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as Triple;
 }
@@ -128,4 +129,132 @@ function oklabToSrgb([L, a, b]: Triple): Triple {
     -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
     -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
   ].map((v) => fromLinear(Math.max(0, v))) as Triple;
+}
+
+/** Pixels as RGBA bytes, row by row: what a canvas's `getImageData` returns. */
+export interface Pixels {
+  width: number;
+  height: number;
+  data: ArrayLike<number>;
+}
+
+export interface ImageFillOptions {
+  /**
+   * How the image is laid over the layout bounds: "cover" (default; cropped to fill them,
+   * centred, like the `backdrop` prop), "contain" (whole image, centred) or "stretch".
+   */
+  fit?: "cover" | "contain" | "stretch";
+  /**
+   * Snap each tile's color to the nearest of these hex colors (judged in OKLab), as if
+   * choosing from a box of real mosaic tiles. Omit for the exact average.
+   */
+  palette?: readonly string[];
+  /** Color for tiles with no image under them (with "contain", or a transparent image). */
+  fallback?: string;
+  /** Most pixels sampled per tile; more is smoother but slower. Defaults to 256. */
+  samples?: number;
+}
+
+/**
+ * Color each tile with the average color of the image under it, for a mosaic. Averages are
+ * taken in linear light (as the eye would mix the colors from a distance) and weighted by
+ * alpha. Colors are computed once per layout, on first use.
+ *
+ * `pixels` is plain RGBA data, so this works anywhere; in a browser, `loadImagePixels` gets
+ * it from a URL.
+ */
+export function imageFill(pixels: Pixels, options: ImageFillOptions = {}): CellFill {
+  const { fit = "cover", fallback = "#d6d3d1", samples = 256 } = options;
+  const palette = options.palette?.map((c) => ({ hex: toHex(parseHex(c, "imageFill")), lab: srgbToOklab(parseHex(c, "imageFill")) }));
+  const lin = Array.from({ length: 256 }, (_, i) => toLinear(i / 255));
+  const { width: iw, height: ih, data } = pixels;
+  const cache = new WeakMap<Layout, string[]>();
+
+  const colorsFor = (layout: Layout): string[] => {
+    const b = layout.bounds;
+    // Layout point → image pixel: x' = (x - b.x) * sx + ox.
+    let sx = iw / (b.width || 1), sy = ih / (b.height || 1);
+    if (fit !== "stretch") {
+      const k = fit === "cover" ? Math.min(sx, sy) : Math.max(sx, sy);
+      sx = sy = k;
+    }
+    const ox = (iw - b.width * sx) / 2, oy = (ih - b.height * sy) / 2;
+
+    return layout.cells.map((cell) => {
+      const bb = cell.bbox;
+      const pxW = bb.width * sx, pxH = bb.height * sy;
+      // Sample a grid over the cell's box, at most `samples` points, at least 1 pixel apart.
+      const step = Math.max(1, Math.sqrt((pxW * pxH) / Math.max(1, samples)));
+      let r = 0, g = 0, bl = 0, w = 0;
+      const add = (x: number, y: number) => {
+        const px = Math.floor((x - b.x) * sx + ox), py = Math.floor((y - b.y) * sy + oy);
+        if (px < 0 || py < 0 || px >= iw || py >= ih) return;
+        const i = (py * iw + px) * 4;
+        const a = data[i + 3]! / 255;
+        if (a <= 0) return;
+        r += lin[data[i]!]! * a;
+        g += lin[data[i + 1]!]! * a;
+        bl += lin[data[i + 2]!]! * a;
+        w += a;
+      };
+      const inside = (x: number, y: number) =>
+        pointInPolygon({ x, y }, cell.polygon) && !(cell.holes ?? []).some((h) => pointInPolygon({ x, y }, h));
+      const nx = Math.max(1, Math.round(pxW / step)), ny = Math.max(1, Math.round(pxH / step));
+      for (let i = 0; i < nx; i++) {
+        for (let j = 0; j < ny; j++) {
+          const x = bb.x + ((i + 0.5) / nx) * bb.width, y = bb.y + ((j + 0.5) / ny) * bb.height;
+          if (inside(x, y)) add(x, y);
+        }
+      }
+      // A tile too thin for the grid to land in: use its centre.
+      if (w === 0) add(cell.centroid.x, cell.centroid.y);
+      if (w === 0) return fallback;
+      const avg: Triple = [fromLinear(r / w), fromLinear(g / w), fromLinear(bl / w)];
+      if (!palette?.length) return toHex(avg);
+      const lab = srgbToOklab(avg);
+      let best = palette[0]!, bd = Infinity;
+      for (const p of palette) {
+        const d = (p.lab[0] - lab[0]) ** 2 + (p.lab[1] - lab[1]) ** 2 + (p.lab[2] - lab[2]) ** 2;
+        if (d < bd) { bd = d; best = p; }
+      }
+      return best.hex;
+    });
+  };
+
+  return (cell, layout) => {
+    let colors = cache.get(layout);
+    if (!colors) {
+      colors = colorsFor(layout);
+      cache.set(layout, colors);
+    }
+    return colors[cell.index] ?? fallback;
+  };
+}
+
+/**
+ * Browser helper: load an image and read its pixels, scaled down so the longer side is at
+ * most `maxSize` (plenty for averaging, and fast). The image must be same-origin, a data
+ * URL, or served with CORS headers; otherwise the browser refuses to read its pixels.
+ */
+export async function loadImagePixels(src: string, maxSize = 256): Promise<Pixels> {
+  const doc = (globalThis as { document?: Document }).document;
+  if (!doc) throw new Error("loadImagePixels needs a browser; elsewhere, decode the image yourself and pass its RGBA pixels");
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.decoding = "async";
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error(`Couldn't load image ${src.slice(0, 80)}`));
+    img.src = src;
+  });
+  const k = Math.min(1, maxSize / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const w = Math.max(1, Math.round((img.naturalWidth || maxSize) * k));
+  const h = Math.max(1, Math.round((img.naturalHeight || maxSize) * k));
+  const canvas = doc.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("loadImagePixels: no 2D canvas available");
+  ctx.drawImage(img, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
 }

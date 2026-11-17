@@ -7,6 +7,8 @@ import {
   herringbone,
   hexagonal,
   hat,
+  imageFill,
+  loadImagePixels,
   paletteFill,
   protoTileFill,
   randomFill,
@@ -113,5 +115,71 @@ describe("fitCount", () => {
     const r = fitCount({ region, tiling: grid({ width: 50 }), maxTiles: 3000 }, 2000);
     expect(r.count).toBeGreaterThanOrEqual(2000);
     expect(() => fitCount({ region, tiling: grid({ width: 50 }) }, 0)).toThrow(RangeError);
+  });
+});
+
+describe("imageFill", () => {
+  // A 4 × 2 image: columns green, red, blue, yellow.
+  const cols = [[0, 255, 0], [255, 0, 0], [0, 0, 255], [255, 255, 0]];
+  const pixels = {
+    width: 4,
+    height: 2,
+    data: Uint8ClampedArray.from({ length: 4 * 2 * 4 }, (_, i) => {
+      const px = (i >> 2) % 4;
+      return i % 4 === 3 ? 255 : cols[px]![i % 4]!;
+    }),
+  };
+  const square = createLayout({ region: { x: 0, y: 0, width: 100, height: 100 }, tiling: grid({ width: 50 }) });
+  const colorsOf = (f: ReturnType<typeof imageFill>, l = square) => l.cells.map((c) => f(c, l));
+
+  it("covers the layout by default, cropping the image's sides", () => {
+    // The square shows the middle two columns: red on the left, blue on the right.
+    expect(colorsOf(imageFill(pixels))).toEqual(["#ff0000", "#0000ff", "#ff0000", "#0000ff"]);
+  });
+
+  it("averages in linear light, and can stretch", () => {
+    // Stretched, each tile covers two columns. Green + red mixed in linear light: 0.5 → #bc.
+    expect(colorsOf(imageFill(pixels, { fit: "stretch" }))).toEqual(["#bcbc00", "#bcbcbc", "#bcbc00", "#bcbcbc"]);
+  });
+
+  it("uses the fallback where the image doesn't reach", () => {
+    // Contained, the 4:2 image spans the square's width and its middle half vertically.
+    const tall = createLayout({ region: { x: 0, y: 0, width: 100, height: 100 }, tiling: grid({ width: 100, height: 20 }) });
+    const c = colorsOf(imageFill(pixels, { fit: "contain", fallback: "#123456" }), tall);
+    expect(c[0]).toBe("#123456");
+    expect(c[4]).toBe("#123456");
+    expect(c[2]).not.toBe("#123456");
+  });
+
+  it("weights by alpha and skips transparent pixels", () => {
+    const half = { width: 2, height: 1, data: Uint8ClampedArray.from([255, 0, 0, 255, 0, 0, 255, 0]) };
+    const one = createLayout({ region: { x: 0, y: 0, width: 100, height: 50 }, tiling: grid({ width: 100, height: 50 }) });
+    expect(colorsOf(imageFill(half), one)).toEqual(["#ff0000"]);
+  });
+
+  it("snaps to a palette", () => {
+    const f = imageFill(pixels, { palette: ["#ee1111", "#1111ee", "#ffffff"] });
+    expect(colorsOf(f)).toEqual(["#ee1111", "#1111ee", "#ee1111", "#1111ee"]);
+    expect(() => imageFill(pixels, { palette: ["red"] })).toThrow(/imageFill needs hex/);
+  });
+
+  it("follows the cell shape, holes included, and caches per layout", () => {
+    const l = createLayout({ region: { x: 0, y: 0, width: 100, height: 100 }, tiling: grid({ width: 100 }), holes: [{ x: 50, y: 0, width: 50, height: 100 }] });
+    // Only the left half is tiled: it's all red under "cover".
+    const f = imageFill(pixels, { samples: 64 });
+    expect(colorsOf(f, l)).toEqual(["#ff0000"]);
+    expect(f(l.cells[0]!, l)).toBe("#ff0000");
+  });
+
+  it("is fast on a big layout", () => {
+    const big = { width: 256, height: 180, data: Uint8ClampedArray.from({ length: 256 * 180 * 4 }, (_, i) => (i * 7919) % 256) };
+    const l = createLayout({ region: { x: 0, y: 0, width: 1000, height: 700 }, tiling: hexagonal({ size: 8 }) });
+    const t = performance.now();
+    colorsOf(imageFill(big), l);
+    expect(performance.now() - t).toBeLessThan(2000);
+  });
+
+  it("loadImagePixels needs a browser", async () => {
+    await expect(loadImagePixels("x.png")).rejects.toThrow(/browser/);
   });
 });

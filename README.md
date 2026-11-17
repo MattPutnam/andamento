@@ -76,6 +76,19 @@ fill={randomFill(["#eee", "#ddd", "#ccc"], 42)}            // stable per tile id
 
 Gradients take hex colors and blend in OKLab, so the middle doesn't turn grey.
 
+`imageFill(pixels, { fit, palette, fallback, samples })` colors each tile with the average
+color of an image under it, for a mosaic. `pixels` is RGBA data (`{ width, height, data }`,
+e.g. a canvas `ImageData`); the image covers the layout like `backdrop` does (`fit: "cover"`,
+or `"contain"` / `"stretch"`). Averages are taken in linear light, the way colors mix by eye,
+and `palette` snaps each tile to the nearest of a set of colors, like choosing from a box of
+real tiles. In a browser, `loadImagePixels(url)` reads an image's pixels (it must be
+same-origin, a data URL, or CORS-enabled), and in React:
+
+```tsx
+const fill = useImageFill("portrait.jpg", { palette: tileColors }); // undefined while loading
+<SvgTileLayout options={options} fill={fill} />
+```
+
 #### Sizing tiles to your content
 
 ```tsx

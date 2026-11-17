@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
-import { TileLayout, coverStyle, neutralPalette, type ContentPlacement, type FillSource } from "@andamento/react";
+import { TileLayout, coverStyle, neutralPalette, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -233,7 +233,7 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
   },
 };
 
-type Content = "photos" | "cards" | "colors" | "picture";
+type Content = "photos" | "cards" | "colors" | "picture" | "mosaic";
 
 type RegionShape = "rectangle" | "l" | "arch" | "stairs" | "hexagon";
 type HoleSet = "none" | "window-door" | "sockets" | "round";
@@ -302,11 +302,15 @@ const EMPTY_FILLS = {
   transparent: "transparent",
 } satisfies Record<string, FillSource>;
 type EmptyFill = keyof typeof EMPTY_FILLS;
+
+// A box of mosaic tile colors for the "Limited tile colors" option.
+const MOSAIC_PALETTE = ["#f4f1ea", "#e9d8a6", "#c9a66b", "#8c5a3c", "#94d2bd", "#0a9396", "#005f73", "#e5989b", "#b5838d", "#6d6875", "#9b2226", "#2b2d42"];
 const CONTENT: [Content, string][] = [
   ["photos", "Photos"],
   ["cards", "Text cards"],
   ["colors", "Plain colors"],
   ["picture", "One picture"],
+  ["mosaic", "Mosaic"],
 ];
 const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
 
@@ -327,6 +331,7 @@ export function App() {
   const [shape, setShape] = useState<RegionShape>("rectangle");
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
   const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
+  const [mosaicPalette, setMosaicPalette] = useState(false);
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -375,6 +380,9 @@ export function App() {
   const layout = "layout" in result ? result.layout : undefined;
   // "One picture": your first photo, or a wide placeholder, across all the tiles.
   const picture = uploads[0] ?? photos[0]!;
+  // "Mosaic": each tile takes the average color of the picture under it.
+  const mosaic = useImageFill(content === "mosaic" ? picture : undefined, { palette: mosaicPalette ? MOSAIC_PALETTE : undefined });
+  const cellFill = content === "colors" ? defaultPalette : content === "mosaic" ? (mosaic ?? neutralPalette) : EMPTY_FILLS[emptyFill];
   const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
 
@@ -419,7 +427,7 @@ export function App() {
       repeatImages: itemCount === 0,
       contentCells,
       placement,
-      fill: content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill],
+      fill: cellFill,
       backdrop: content === "picture" ? picture : undefined,
       background,
     });
@@ -562,6 +570,12 @@ export function App() {
               </button>
             ))}
           </div>
+          {content === "mosaic" && (
+            <label className="row">
+              <span>Limited tile colors</span>
+              <input type="checkbox" checked={mosaicPalette} onChange={(e) => setMosaicPalette(e.target.checked)} />
+            </label>
+          )}
           {itemsShown && (
             <>
               <Slider label="Items (0 = every tile)" min={0} max={60} step={1} value={itemCount} onChange={setItemCount} />
@@ -633,7 +647,7 @@ export function App() {
               cellClassName="tile"
               contentCells={contentCells}
               placement={placement}
-              fill={content === "colors" ? defaultPalette : EMPTY_FILLS[emptyFill]}
+              fill={cellFill}
               backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
               aria-label={`${def.label} layout`}
             >
