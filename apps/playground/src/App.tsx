@@ -189,7 +189,7 @@ const TILINGS: Record<TilingType, TilingDef> = {
   penrose: {
     label: "Penrose",
     params: [{ key: "size", label: "Edge length", min: 6, max: 80, step: 1 }],
-    defaults: { size: 22 },
+    defaults: { size: 22, variant: "rhombs" },
     rotates: true,
     centred: true,
   },
@@ -344,7 +344,16 @@ export function App() {
               </select>
             </label>
           )}
-          {def.rotates && <Slider label="Rotation (°)" min={-90} max={90} step={1} value={rotation} onChange={setRotation} />}
+          {type === "penrose" && (
+            <label className="row">
+              <span>Tiles</span>
+              <select value={String(params.penrose.variant)} onChange={(e) => setParam("variant", e.target.value)}>
+                <option value="rhombs">Rhombs</option>
+                <option value="kitesAndDarts">Kites and darts</option>
+              </select>
+            </label>
+          )}
+          {def.rotates &&<Slider label="Rotation (°)" min={-90} max={90} step={1} value={rotation} onChange={setRotation} />}
         </section>
 
         <section>

@@ -110,6 +110,7 @@ const specs: [string, TilingSpec][] = [
   ["fishScale", fishScale({ size: 120 })],
   ["jigsaw", jigsaw({ size: 110, seed: 2 })],
   ["penrose small", penrose({ size: 25 })],
+  ["penrose kites", penrose({ size: 70, variant: "kitesAndDarts" })],
   ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
 
@@ -481,5 +482,57 @@ describe("non-convex tilings", () => {
     // Necks are about 19 wide at size 100, so a 6 gap leaves every piece whole.
     expect(l.cells).toHaveLength(70);
     for (const c of l.cells) expect(c.area).toBeGreaterThan(5000);
+  });
+});
+
+describe("penrose kites and darts", () => {
+  const region = { x: 0, y: 0, width: 1000, height: 700 };
+  const corners = (p: { x: number; y: number }[]) =>
+    p.map((a, i) => {
+      const b = p[(i + 3) % 4]!, c = p[(i + 1) % 4]!;
+      const u = { x: b.x - a.x, y: b.y - a.y }, w = { x: c.x - a.x, y: c.y - a.y };
+      const turn = (Math.atan2(u.x * w.y - u.y * w.x, u.x * w.x + u.y * w.y) * 180) / Math.PI;
+      return turn;
+    });
+
+  it("makes kites (72/72/144/72) and darts (72/36/216/36) with long edge = size", () => {
+    const l = createLayout({ region, tiling: penrose({ size: 50, variant: "kitesAndDarts" }), edges: "inside" });
+    expect(l.cells.length).toBeGreaterThan(100);
+    for (const c of l.cells) {
+      expect(c.polygon).toHaveLength(4);
+      const sides = c.polygon.map((a, i) => Math.hypot(c.polygon[(i + 1) % 4]!.x - a.x, c.polygon[(i + 1) % 4]!.y - a.y));
+      expect(Math.max(...sides)).toBeCloseTo(50, 6);
+      expect(Math.min(...sides)).toBeCloseTo(50 / ((1 + Math.sqrt(5)) / 2), 6);
+      // Interior angles: the same sign as the polygon's orientation means convex.
+      const turns = corners(c.polygon);
+      const sign = Math.sign(turns.reduce((s, t) => s + Math.sign(t), 0));
+      const interior = turns.map((t) => (Math.sign(t) === sign ? Math.abs(t) : 360 - Math.abs(t))).sort((a, b) => a - b);
+      if (c.protoTile === 0) {
+        expect(isConvex(c.polygon)).toBe(true);
+        interior.forEach((a, i) => expect(a).toBeCloseTo([72, 72, 72, 144][i]!, 6));
+      } else {
+        expect(isConvex(c.polygon)).toBe(false);
+        interior.forEach((a, i) => expect(a).toBeCloseTo([36, 36, 72, 216][i]!, 6));
+      }
+    }
+  });
+
+  it("has about φ kites per dart", () => {
+    const l = createLayout({ region, tiling: penrose({ size: 15, variant: "kitesAndDarts" }), edges: "inside" });
+    const kites = l.cells.filter((c) => c.protoTile === 0).length;
+    expect(kites / (l.cells.length - kites)).toBeCloseTo((1 + Math.sqrt(5)) / 2, 1);
+  });
+
+  it("shows more of the same pattern when the region grows", () => {
+    const tiling = penrose({ size: 20, variant: "kitesAndDarts" });
+    const small = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling, edges: "inside" });
+    const big = createLayout({ region: { x: 0, y: 0, width: 2000, height: 1300 }, tiling, edges: "inside" });
+    const byId = new Map(big.cells.map((c) => [c.id, c]));
+    for (const c of small.cells) {
+      const same = byId.get(c.id);
+      expect(same, c.id).toBeDefined();
+      expect(same!.protoTile).toBe(c.protoTile);
+      expect(same!.centroid.x).toBeCloseTo(c.centroid.x, 6);
+    }
   });
 });

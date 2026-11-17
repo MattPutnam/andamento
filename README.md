@@ -67,8 +67,9 @@ Patterns:
 - Regular polygons: `hexagonal`, `triangular`, `rhombille` (tumbling blocks), `octagonSquare`,
   `trihexagonal`, `rhombitrihexagonal`
 - Curved and interlocking (non-convex tiles): `fishScale`, `jigsaw` (seeded tab directions)
-- Other: `cairo` (pentagons), `penrose` (thick and thin rhombs that never repeat; `origin`
-  places the ten-fold star at the pattern's centre, so set it to the middle of the region)
+- Other: `cairo` (pentagons), `penrose` (a pattern that never repeats: thick and thin rhombs,
+  or kites and darts with `variant: "kitesAndDarts"`; `origin` places the star at the pattern's
+  centre, so set it to the middle of the region)
 - Random, seeded (same `seed`, same layout): `voronoi` (irregular polygons, like crazy paving),
   `delaunay` (random triangles), `ashlar` (stone courses of random lengths), `mondrian`
   (random rectangles). `relax` controls how even Voronoi cells and triangles are.

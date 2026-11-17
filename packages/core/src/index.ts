@@ -2,7 +2,7 @@ export * from "./geometry";
 export { insetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
 export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
-export { generateSubstitution, penroseRhombs } from "./substitution";
+export { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
 export type { Piece, SubstitutionRule } from "./substitution";
 export { roundCorners, roundedPolygon } from "./rounding";
 export type { RoundedCorner } from "./rounding";

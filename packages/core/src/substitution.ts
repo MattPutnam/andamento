@@ -174,3 +174,64 @@ export const penroseRhombs: SubstitutionRule = {
     return tiles;
   },
 };
+
+/** Join mirror-image half-tiles that share their axis (points[0]–points[1]) into whole tiles. */
+function joinAlongAxis(pieces: Piece[], tolerance: number, protoTile: (kind: number) => number): RawTile[] {
+  const byAxis = new Map<string, Piece[]>();
+  for (const p of pieces) {
+    // Directed: mirror twins share the same tip *and* the same axis end. Two halves that
+    // merely touch along the same segment the other way round are not a pair.
+    const q = (v: Vec) => `${Math.round(v.x / tolerance)},${Math.round(v.y / tolerance)}`;
+    const key = `${p.kind}:${q(p.points[0]!)}>${q(p.points[1]!)}`;
+    const list = byAxis.get(key);
+    if (list) list.push(p);
+    else byAxis.set(key, [p]);
+  }
+  const tiles: RawTile[] = [];
+  for (const pair of byAxis.values()) {
+    if (pair.length !== 2) continue; // half-tiles on the patch outline, outside the region
+    const [p, q] = pair[0]!.path < pair[1]!.path ? [pair[0]!, pair[1]!] : [pair[1]!, pair[0]!];
+    const [tip, axis, side] = p.points;
+    tiles.push({ id: p.path, polygon: [tip!, side!, axis!, q.points[2]!], protoTile: protoTile(p.kind) });
+  }
+  return tiles;
+}
+
+/**
+ * Penrose P2 (kites and darts) via half-tiles. Points are [tip, axis end, side corner]:
+ * - kind 0, half-kite: 36° at the tip, legs tip–axis and tip–side of length φ (long sides).
+ * - kind 1, half-dart: 36° at the tip and side, 108° at the axis end (the dart's reflex corner).
+ * Mirror-image halves sharing the axis form one kite (convex) or dart (non-convex).
+ */
+export const penroseKitesAndDarts: SubstitutionRule = {
+  // A "sun" of five kites meeting at their tips.
+  seed: Array.from({ length: 10 }, (_, i) => {
+    const axis = Math.floor(i / 2) * 72;
+    const side = axis + (i % 2 === 0 ? 36 : -36);
+    const at = (deg: number) => vec(PHI * Math.cos((deg * Math.PI) / 180), PHI * Math.sin((deg * Math.PI) / 180));
+    return { kind: 0, points: [vec(0, 0), at(axis), at(side)] };
+  }),
+  coverRadius: PHI * Math.cos(Math.PI / 10), // the sun is a decagon of radius φ
+  edge: PHI, // long side of kites and darts
+  factor: PHI,
+  period: 4,
+  subdivide({ kind, points: [tip, axis, side] }) {
+    if (kind === 0) {
+      // x on the axis, 1 from the tip; w on the long side, 1 from the side corner. The two
+      // new half-kites are mirror twins sharing the axis side → x; the half-dart sits at the tip.
+      const x = lerp(tip!, axis!, 1 / PHI);
+      const w = lerp(side!, tip!, 1 / PHI);
+      return [
+        { kind: 0, points: [side!, x, axis!] },
+        { kind: 0, points: [side!, x, w] },
+        { kind: 1, points: [tip!, w, x] },
+      ];
+    }
+    const z = lerp(tip!, side!, 1 / PHI);
+    return [
+      { kind: 0, points: [tip!, axis!, z] },
+      { kind: 1, points: [side!, z, axis!] },
+    ];
+  },
+  assemble: (pieces, tolerance) => joinAlongAxis(pieces, tolerance, (kind) => kind),
+};

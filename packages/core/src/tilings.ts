@@ -1,7 +1,7 @@
 import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import { mulberry32 } from "./random";
 import { generateAshlar, generateDelaunay, generateJigsaw, generateVoronoi } from "./procedural";
-import { generateSubstitution, penroseRhombs } from "./substitution";
+import { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
 
 /*
  * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
@@ -162,8 +162,13 @@ export interface AshlarSpec {
 
 export interface PenroseSpec {
   type: "penrose";
-  /** Edge length of the rhombs. */
+  /** Edge length of the rhombs, or the long edge of the kites and darts. */
   size: number;
+  /**
+   * "rhombs" (P3: thick and thin rhombs, all convex) or "kitesAndDarts" (P2: convex kites
+   * and non-convex darts). Defaults to "rhombs".
+   */
+  variant?: "rhombs" | "kitesAndDarts";
 }
 
 export interface JigsawSpec {
@@ -674,7 +679,9 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
     case "jigsaw":
       return generateJigsaw(spec, ctx);
     case "penrose":
-      return generateSubstitution(penroseRhombs, positive("penrose.size", spec.size), ctx, "Penrose", "p");
+      return spec.variant === "kitesAndDarts"
+        ? generateSubstitution(penroseKitesAndDarts, positive("penrose.size", spec.size), ctx, "Penrose", "k")
+        : generateSubstitution(penroseRhombs, positive("penrose.size", spec.size), ctx, "Penrose", "p");
   }
   return generatePeriodic(periodicDefinition(spec), ctx);
 }
