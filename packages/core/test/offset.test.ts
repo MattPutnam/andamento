@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { area, clipConvex, clipPolygonToConvex, insetConvex, insetPolygon, rectPolygon, roundedPolygon, signedArea, type Polygon } from "@andamento/core";
+import {
+  area,
+  clipConvex,
+  clipPolygonToConvex,
+  createLayout,
+  fishScale,
+  hat,
+  insetConvex,
+  insetPolygon,
+  isohedral,
+  jigsaw,
+  rectPolygon,
+  roundedPolygon,
+  signedArea,
+  spectre,
+  splitSelfIntersections,
+  type Polygon,
+} from "@andamento/core";
 
 const L: Polygon = [
   { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 0, y: 2 },
@@ -102,5 +119,79 @@ describe("clipPolygonToConvex", () => {
       const total = clipPolygonToConvex(star, box).reduce((s, p) => s + area(p), 0);
       expect(total).toBeCloseTo(area(clipConvex(star, box)), 9);
     }
+  });
+});
+
+/** The original (pre-heap) inset, kept as a reference: recomputes every edge per event. */
+function referenceInset(poly: Polygon, distance: number): Polygon {
+  type Line = { p: { x: number; y: number }; u: { x: number; y: number }; n: { x: number; y: number } };
+  const join = (l0: Line, l1: Line, t: number) => {
+    const a = { x: l0.p.x + l0.n.x * t, y: l0.p.y + l0.n.y * t };
+    const b = { x: l1.p.x + l1.n.x * t, y: l1.p.y + l1.n.y * t };
+    const den = l0.u.x * l1.u.y - l0.u.y * l1.u.x;
+    if (Math.abs(den) < 1e-12) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const s = ((b.x - a.x) * l1.u.y - (b.y - a.y) * l1.u.x) / den;
+    return { x: a.x + l0.u.x * s, y: a.y + l0.u.y * s };
+  };
+  const edgeLength = (lines: Line[], k: number, t: number) => {
+    const n = lines.length;
+    const s = join(lines[(k - 1 + n) % n]!, lines[k]!, t);
+    const e = join(lines[k]!, lines[(k + 1) % n]!, t);
+    return (e.x - s.x) * lines[k]!.u.x + (e.y - s.y) * lines[k]!.u.y;
+  };
+  const p = signedArea(poly) < 0 ? [...poly].reverse() : poly;
+  let lines: Line[] = [];
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i]!, b = p[(i + 1) % p.length]!;
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len === 0) continue;
+    const u = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    lines.push({ p: a, u, n: { x: -u.y, y: u.x } });
+  }
+  let t = 0;
+  while (lines.length >= 3) {
+    let first = -1, firstT = Infinity;
+    for (let k = 0; k < lines.length; k++) {
+      const now = edgeLength(lines, k, t), then = edgeLength(lines, k, distance);
+      if (then >= 0) continue;
+      const tc = now <= 0 ? t : t + ((distance - t) * now) / (now - then);
+      if (tc < firstT) { firstT = tc; first = k; }
+    }
+    if (first < 0) break;
+    t = Math.min(distance, Math.max(t, firstT));
+    lines = lines.filter((_, k) => k !== first);
+  }
+  if (lines.length < 3) return [];
+  const outline = lines.map((l, k) => join(lines[(k - 1 + lines.length) % lines.length]!, l, distance));
+  const pieces = splitSelfIntersections(outline).filter((q) => signedArea(q) > 0);
+  if (pieces.length === 0) return [];
+  return pieces.reduce((best, q) => (area(q) > area(best) ? q : best));
+}
+
+describe("insetPolygon matches the reference algorithm", () => {
+  it("on curved, interlocking and aperiodic tiles", () => {
+    const region = { x: 0, y: 0, width: 400, height: 300 };
+    const shapes: Polygon[] = [];
+    for (const tiling of [isohedral({ ih: 84, size: 60 }), isohedral({ ih: 1, size: 60 }), isohedral({ ih: 41, size: 60, amount: 0.3 }), jigsaw({ size: 60 }), fishScale({ size: 60 }), spectre({ size: 60 }), hat({ size: 60 })]) {
+      const l = createLayout({ region, tiling, edges: "inside" });
+      shapes.push(...l.cells.slice(0, 6).map((c) => c.original));
+    }
+    // Stars with many short edges.
+    for (let n = 5; n <= 40; n += 7) {
+      shapes.push(Array.from({ length: 2 * n }, (_, k) => {
+        const r = k % 2 ? 10 : 25 + (k % 3);
+        return { x: r * Math.cos((k * Math.PI) / n), y: r * Math.sin((k * Math.PI) / n) };
+      }));
+    }
+    let compared = 0;
+    for (const shape of shapes) {
+      for (const d of [0.5, 2, 5, 9]) {
+        const a = insetPolygon(shape, d);
+        const b = referenceInset(shape, d);
+        expect(area(a)).toBeCloseTo(area(b), 6);
+        compared++;
+      }
+    }
+    expect(compared).toBeGreaterThan(150);
   });
 });

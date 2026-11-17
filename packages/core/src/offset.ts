@@ -17,34 +17,6 @@ import { area, cleanPolygon, ensurePositive, signedArea, vec, type Polygon, type
  *   is kept.
  */
 
-interface Line {
-  /** A point on the original edge and its unit direction / inward normal. */
-  p: Vec;
-  u: Vec;
-  n: Vec;
-}
-
-/** Intersection of two edge lines after moving both inward by `t`. */
-function join(l0: Line, l1: Line, t: number): Vec {
-  const a = vec(l0.p.x + l0.n.x * t, l0.p.y + l0.n.y * t);
-  const b = vec(l1.p.x + l1.n.x * t, l1.p.y + l1.n.y * t);
-  const den = l0.u.x * l1.u.y - l0.u.y * l1.u.x;
-  if (Math.abs(den) < 1e-12) {
-    // Parallel: the same line continuing (or a hairpin); meet halfway.
-    return vec((a.x + b.x) / 2, (a.y + b.y) / 2);
-  }
-  const s = ((b.x - a.x) * l1.u.y - (b.y - a.y) * l1.u.x) / den;
-  return vec(a.x + l0.u.x * s, a.y + l0.u.y * s);
-}
-
-/** Signed length of edge k between its joins, at offset t. */
-function edgeLength(lines: Line[], k: number, t: number): number {
-  const n = lines.length;
-  const start = join(lines[(k - 1 + n) % n]!, lines[k]!, t);
-  const end = join(lines[k]!, lines[(k + 1) % n]!, t);
-  return (end.x - start.x) * lines[k]!.u.x + (end.y - start.y) * lines[k]!.u.y;
-}
-
 /**
  * Shrink a simple polygon (convex or not) by moving every edge inward by `distance`.
  * Returns [] if nothing is left. If the shape splits, the largest piece is returned.
@@ -54,40 +26,128 @@ export function insetPolygon(poly: Polygon, distance: number): Polygon {
   if (p.length < 3) return [];
   if (distance <= 0) return p;
 
-  let lines: Line[] = [];
+  // Edge lines as flat arrays: a point on the edge, its unit direction and inward normal.
+  const px: number[] = [], py: number[] = [], ux: number[] = [], uy: number[] = [];
   for (let i = 0; i < p.length; i++) {
     const a = p[i]!;
     const b = p[(i + 1) % p.length]!;
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     if (len === 0) continue;
-    const u = vec((b.x - a.x) / len, (b.y - a.y) / len);
-    lines.push({ p: a, u, n: vec(-u.y, u.x) });
+    px.push(a.x);
+    py.push(a.y);
+    ux.push((b.x - a.x) / len);
+    uy.push((b.y - a.y) / len);
   }
+  const n = px.length;
+  if (n < 3) return [];
 
-  // Edge events: repeatedly drop the edge that collapses first, until none does
-  // before reaching `distance`. Lengths change linearly with t between events, so
-  // each edge's collapse time follows from its lengths at two offsets.
-  let t = 0;
-  while (lines.length >= 3) {
-    let first = -1;
-    let firstT = Infinity;
-    for (let k = 0; k < lines.length; k++) {
-      const now = edgeLength(lines, k, t);
-      const then = edgeLength(lines, k, distance);
-      if (then >= 0) continue;
-      const tc = now <= 0 ? t : t + ((distance - t) * now) / (now - then);
-      if (tc < firstT) {
-        firstT = tc;
-        first = k;
+  // Join of line i with the following line j at offset t (written to jx, jy). Parallel
+  // lines (the same line continuing, or a hairpin) meet halfway.
+  let jx = 0;
+  let jy = 0;
+  const join = (i: number, j: number, t: number) => {
+    // Inward normal of a direction (x, y) is (-y, x).
+    const ax = px[i]! - uy[i]! * t, ay = py[i]! + ux[i]! * t;
+    const bx = px[j]! - uy[j]! * t, by = py[j]! + ux[j]! * t;
+    const den = ux[i]! * uy[j]! - uy[i]! * ux[j]!;
+    if (Math.abs(den) < 1e-12) {
+      jx = (ax + bx) / 2;
+      jy = (ay + by) / 2;
+      return;
+    }
+    const s = ((bx - ax) * uy[j]! - (by - ay) * ux[j]!) / den;
+    jx = ax + ux[i]! * s;
+    jy = ay + uy[i]! * s;
+  };
+
+  // Doubly linked ring of the edges still present.
+  const prev = Array.from({ length: n }, (_, k) => (k - 1 + n) % n);
+  const next = Array.from({ length: n }, (_, k) => (k + 1) % n);
+  const alive = new Array<boolean>(n).fill(true);
+  const version = new Array<number>(n).fill(0);
+  let count = n;
+
+  /** Signed length of edge k between its current neighbours' joins, at offset t. */
+  const lengthAt = (k: number, t: number) => {
+    join(prev[k]!, k, t);
+    const sx = jx, sy = jy;
+    join(k, next[k]!, t);
+    return (jx - sx) * ux[k]! + (jy - sy) * uy[k]!;
+  };
+  /** When edge k shrinks to nothing (Infinity if not before `distance`), from time t. */
+  const collapseTime = (k: number, t: number) => {
+    const now = lengthAt(k, t);
+    const then = lengthAt(k, distance);
+    if (then >= 0) return Infinity;
+    return now <= 0 ? t : t + ((distance - t) * now) / (now - then);
+  };
+
+  // Edge events: drop edges in the order they collapse. Between events, lengths change
+  // linearly with t, and a collapse only changes its two neighbours' collapse times, so
+  // those are kept in a heap ordered by (time, edge index) and updated locally.
+  type Event = { time: number; edge: number; version: number };
+  const heap: Event[] = [];
+  const before = (a: Event, b: Event) => a.time < b.time || (a.time === b.time && a.edge < b.edge);
+  const push = (e: Event) => {
+    heap.push(e);
+    for (let i = heap.length - 1; i > 0; ) {
+      const parent = (i - 1) >> 1;
+      if (!before(heap[i]!, heap[parent]!)) break;
+      [heap[i], heap[parent]] = [heap[parent]!, heap[i]!];
+      i = parent;
+    }
+  };
+  const pop = (): Event => {
+    const top = heap[0]!;
+    const last = heap.pop()!;
+    if (heap.length > 0) {
+      heap[0] = last;
+      for (let i = 0; ; ) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < heap.length && before(heap[l]!, heap[m]!)) m = l;
+        if (r < heap.length && before(heap[r]!, heap[m]!)) m = r;
+        if (m === i) break;
+        [heap[i], heap[m]] = [heap[m]!, heap[i]!];
+        i = m;
       }
     }
-    if (first < 0) break;
-    t = Math.min(distance, Math.max(t, firstT));
-    lines = lines.filter((_, k) => k !== first);
-  }
-  if (lines.length < 3) return [];
+    return top;
+  };
+  const schedule = (k: number, t: number) => {
+    version[k]!++;
+    const time = collapseTime(k, t);
+    if (time < Infinity) push({ time, edge: k, version: version[k]! });
+  };
 
-  const outline = lines.map((l, k) => join(lines[(k - 1 + lines.length) % lines.length]!, l, distance));
+  for (let k = 0; k < n; k++) schedule(k, 0);
+  let t = 0;
+  while (heap.length > 0 && count >= 3) {
+    const e = pop();
+    if (!alive[e.edge] || e.version !== version[e.edge]) continue; // stale
+    t = Math.min(distance, Math.max(t, e.time));
+    const k = e.edge;
+    alive[k] = false;
+    count--;
+    const a = prev[k]!, b = next[k]!;
+    next[a] = b;
+    prev[b] = a;
+    if (count >= 3) {
+      schedule(a, t);
+      schedule(b, t);
+    }
+  }
+  if (count < 3) return [];
+
+  const outline: Vec[] = [];
+  let start = 0;
+  while (!alive[start]) start++;
+  let k = start;
+  do {
+    join(prev[k]!, k, distance);
+    outline.push(vec(jx, jy));
+    k = next[k]!;
+  } while (k !== start);
   const pieces = splitSelfIntersections(outline).filter((q) => signedArea(q) > 0);
   if (pieces.length === 0) return [];
   let best = pieces[0]!;

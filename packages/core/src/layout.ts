@@ -196,14 +196,17 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
   const angleStep = 1e-6;
   const offsetStep = Math.max(tol * 10, 1e-9);
   type Seg = { poly: number; t0: number; t1: number };
-  const near = (v: number): number[] => {
-    const k = Math.round(v);
-    const frac = v - k; // in [-0.5, 0.5]
-    if (frac > 0.49) return [k, k + 1];
-    if (frac < -0.49) return [k, k - 1];
-    return [k];
+  // Buckets keyed by a number packing (angle, offset) exactly; offsets are measured from a
+  // point near the tiles so they stay small. Anything beyond the packable range (tiles
+  // absurdly far away) falls back to string keys.
+  const buckets = new Map<number | string, Seg[]>();
+  const add = (ka: number, ko: number, seg: Seg) => {
+    const key = Math.abs(ko) < 2 ** 30 ? (ka + 2) * 2 ** 31 + (ko + 2 ** 30) : `${ka},${ko}`;
+    const list = buckets.get(key);
+    if (list) list.push(seg);
+    else buckets.set(key, [seg]);
   };
-  const buckets = new Map<string, Seg[]>();
+  const ref = polys.find((p) => p.length > 0)?.[0] ?? { x: 0, y: 0 };
   // Parts of one tile (split by the region edge) share the same original; its main part
   // (the one without a "~n" suffix) stands for the tile.
   const owners = new Map<Polygon, number>();
@@ -224,24 +227,29 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
         uy = -uy;
       }
       // Directions just short of 180° are the same lines as those just past 0°.
-      if (Math.atan2(uy, ux) > Math.PI - angleStep) {
+      let angle = Math.atan2(uy, ux);
+      if (angle > Math.PI - angleStep) {
         ux = -ux;
         uy = -uy;
+        angle = Math.atan2(uy, ux);
       }
-      const ta = ux * a.x + uy * a.y;
-      const tb = ux * b.x + uy * b.y;
+      const ax = a.x - ref.x, ay = a.y - ref.y;
+      const ta = ux * ax + uy * ay;
+      const tb = ux * (b.x - ref.x) + uy * (b.y - ref.y);
       const seg = { poly: i, t0: Math.min(ta, tb), t1: Math.max(ta, tb) };
       // Bucket by line. A value close to a rounding boundary also goes into the bucket on
       // the other side, so the same line computed with slightly different rounding still meets.
-      const angles = near(Math.atan2(uy, ux) / angleStep);
-      const offsets = near((ux * a.y - uy * a.x) / offsetStep);
-      for (const ka of angles) {
-        for (const ko of offsets) {
-          const key = `${ka},${ko}`;
-          const list = buckets.get(key);
-          if (list) list.push(seg);
-          else buckets.set(key, [seg]);
-        }
+      const va = angle / angleStep;
+      const vo = (ux * ay - uy * ax) / offsetStep;
+      const ka = Math.round(va);
+      const ko = Math.round(vo);
+      const ea = va - ka > 0.49 ? 1 : va - ka < -0.49 ? -1 : 0;
+      const eo = vo - ko > 0.49 ? 1 : vo - ko < -0.49 ? -1 : 0;
+      add(ka, ko, seg);
+      if (eo) add(ka, ko + eo, seg);
+      if (ea) {
+        add(ka + ea, ko, seg);
+        if (eo) add(ka + ea, ko + eo, seg);
       }
     }
   });
