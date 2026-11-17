@@ -21,7 +21,10 @@ interface TilingDef {
   centred?: boolean;
 }
 
-const TILINGS: Record<TilingType, TilingDef> = {
+/** Built-in patterns shown in the playground (custom "periodic" and "tiles" specs are code-only). */
+type PlaygroundTiling = Exclude<TilingType, "periodic" | "tiles">;
+
+const TILINGS: Record<PlaygroundTiling, TilingDef> = {
   grid: {
     label: "Grid",
     params: [
@@ -247,9 +250,9 @@ function isohedralSpec(p: Record<string, number | string>) {
 }
 
 export function App() {
-  const [type, setType] = useState<TilingType>("herringbone");
+  const [type, setType] = useState<PlaygroundTiling>("herringbone");
   const [params, setParams] = useState(() =>
-    Object.fromEntries(Object.entries(TILINGS).map(([k, d]) => [k, { ...d.defaults }])) as Record<TilingType, Record<string, number | string>>,
+    Object.fromEntries(Object.entries(TILINGS).map(([k, d]) => [k, { ...d.defaults }])) as Record<PlaygroundTiling, Record<string, number | string>>,
   );
   const [wall, setWall] = useState({ width: 240, height: 150 });
   const [gap, setGap] = useState(2);
@@ -357,7 +360,7 @@ export function App() {
         <section>
           <h2>Pattern</h2>
           <div className="chips">
-            {(Object.keys(TILINGS) as TilingType[]).map((t) => (
+            {(Object.keys(TILINGS) as PlaygroundTiling[]).map((t) => (
               <button key={t} className={t === type ? "chip on" : "chip"} onClick={() => setType(t)}>
                 {TILINGS[t].label}
               </button>

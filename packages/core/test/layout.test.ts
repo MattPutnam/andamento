@@ -31,6 +31,10 @@ import {
   HAT,
   spectre,
   SPECTRE,
+  periodic,
+  periodicDefinition,
+  tiles,
+  checkPeriodic,
   fishScale,
   jigsaw,
   pointInPolygon,
@@ -117,6 +121,10 @@ const specs: [string, TilingSpec][] = [
   ["penrose kites", penrose({ size: 70, variant: "kitesAndDarts" })],
   ["hat", hat({ size: 90 })],
   ["spectre", spectre({ size: 90 })],
+  ["periodic (L-trominoes)", periodic({ a: { x: 150, y: 0 }, b: { x: 50, y: 100 }, motif: [
+    { polygon: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 100 }] },
+    { polygon: [{ x: 100, y: 0 }, { x: 150, y: 0 }, { x: 150, y: 100 }, { x: 50, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 50 }] },
+  ] })],
   ["ashlar varied", ashlar({ height: 60, minLength: 40, maxLength: 120, heightVariation: 0.5 })],
 ];
 
@@ -750,5 +758,63 @@ describe("neighbours", () => {
         for (const n of c.neighbors) expect(byId.has(n)).toBe(true);
       }
     }
+  });
+});
+
+describe("custom tilings", () => {
+  // Two L-trominoes (non-convex) filling a 3 × 2 block, in units of 50.
+  const u = 50;
+  const L1 = [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]].map(([x, y]) => ({ x: x! * u, y: y! * u }));
+  const L2 = [[2, 0], [3, 0], [3, 2], [1, 2], [1, 1], [2, 1]].map(([x, y]) => ({ x: x! * u, y: y! * u }));
+  const trominoes = periodic({ a: { x: 3 * u, y: 0 }, b: { x: u, y: 2 * u }, motif: [{ polygon: L1 }, { polygon: L2, protoTile: 7 }] });
+
+  it("periodic: a hand-made motif fills the region at any rotation", () => {
+    for (const rotation of [0, 25]) {
+      const l = createLayout({ region: wall, tiling: trominoes, rotation, gap: 4 });
+      const exact = createLayout({ region: wall, tiling: trominoes, rotation });
+      expect(Math.abs(totalArea(exact) - wallArea) / wallArea).toBeLessThan(1e-6);
+      expect(maxPairOverlap(exact)).toBeLessThan(1e-6);
+      expect(new Set(l.cells.map((c) => c.protoTile))).toEqual(new Set([0, 7]));
+      expect(l.cells.some((c) => !isConvex(c.polygon))).toBe(true);
+    }
+  });
+
+  it("periodic: reproduces a built-in pattern", () => {
+    const viaPeriodic = createLayout({ region: wall, tiling: periodic({ a: { x: 90, y: 0 }, b: { x: 0, y: 60 }, motif: [{ polygon: rectPolygon(0, 0, 90, 60) }] }) });
+    const builtIn = createLayout({ region: wall, tiling: grid({ width: 90, height: 60 }) });
+    expect(viaPeriodic.cells.map((c) => [c.id, c.area])).toEqual(builtIn.cells.map((c) => [c.id, c.area]));
+  });
+
+  it("checkPeriodic accepts valid motifs and reports gaps, overlaps and self-intersections", () => {
+    const good = checkPeriodic(trominoes);
+    expect(good.ok).toBe(true);
+    expect(good.motifArea).toBeCloseTo(good.cellArea, 9);
+
+    const missing = checkPeriodic({ ...trominoes, motif: [{ polygon: L1 }] });
+    expect(missing.ok).toBe(false);
+    expect(missing.gaps).toBeCloseTo(0.5, 1);
+
+    const doubled = checkPeriodic({ ...trominoes, motif: [...trominoes.motif, { polygon: L1 }] });
+    expect(doubled.overlaps).toBeCloseTo(0.5, 1);
+
+    const bowtie = [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 0 }, { x: 0, y: 1 }];
+    expect(checkPeriodic({ ...trominoes, motif: [...trominoes.motif, { polygon: bowtie }] }).selfIntersecting).toEqual([2]);
+
+    // Built-in definitions pass too (a skewed lattice and a three-tile motif).
+    expect(checkPeriodic(periodicDefinition(herringbone({ length: 120, width: 40 }))).ok).toBe(true);
+    expect(checkPeriodic(periodicDefinition(rhombitrihexagonal({ size: 20 }))).ok).toBe(true);
+  });
+
+  it("tiles: explicit polygons go through the usual pipeline", () => {
+    const l = createLayout({
+      region: { x: 0, y: 0, width: 200, height: 100 },
+      tiling: tiles({ tiles: [{ polygon: rectPolygon(0, 0, 120, 100), id: "big", protoTile: 2 }, { polygon: rectPolygon(120, 0, 120, 100) }] }),
+      gap: 10,
+    });
+    expect(l.cells.map((c) => c.id)).toEqual(["big", "t1"]);
+    expect(l.cells[0]!.protoTile).toBe(2);
+    expect(l.cells[0]!.area).toBeCloseTo(110 * 90, 6); // gap 10: every side gives up 5
+    expect(l.cells[1]!.boundary).toBe(true); // cut by the region edge at x = 200
+    expect(l.cells[0]!.neighbors).toEqual(["t1"]);
   });
 });

@@ -1,4 +1,5 @@
-import { bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
+import { area, bbox, rectPolygon, transform, vec, type Polygon, type Rect, type Vec } from "./geometry";
+import { pointInPolygon, splitSelfIntersections } from "./offset";
 import { mulberry32 } from "./random";
 import { generateAshlar, generateDelaunay, generateJigsaw, generateVoronoi } from "./procedural";
 import { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
@@ -215,6 +216,29 @@ export interface JigsawSpec {
   seed?: number;
 }
 
+/**
+ * A custom repeating tiling: the motif's polygons are copied to every point i·a + j·b.
+ * Coordinates are in region units. Nothing checks that the copies fit together; use
+ * `checkPeriodic` while designing one. Polygons may be non-convex but must be simple.
+ */
+export interface PeriodicSpec {
+  type: "periodic";
+  a: Vec;
+  b: Vec;
+  /** Tiles of one lattice cell. `protoTile` defaults to the tile's position in this list. */
+  motif: { polygon: Polygon; protoTile?: number }[];
+}
+
+/**
+ * Explicit tiles, used as given (in region units): nothing is generated, and `rotation`
+ * and `origin` are ignored. The usual gap, margin, edge, rounding and neighbour handling
+ * applies. Ids default to "t0", "t1", …; given ids must be unique.
+ */
+export interface TilesSpec {
+  type: "tiles";
+  tiles: { polygon: Polygon; id?: string; protoTile?: number }[];
+}
+
 export interface MondrianSpec {
   type: "mondrian";
   /** No side is cut shorter than this. */
@@ -254,6 +278,8 @@ export type TilingSpec =
   | SpectreSpec
   | IsohedralSpec
   | JigsawSpec
+  | PeriodicSpec
+  | TilesSpec
   | MondrianSpec;
 
 export type TilingType = TilingSpec["type"];
@@ -285,6 +311,8 @@ export const voronoi = (p: Omit<VoronoiSpec, "type">): VoronoiSpec => ({ type: "
 export const delaunay = (p: Omit<DelaunaySpec, "type">): DelaunaySpec => ({ type: "delaunay", ...p });
 export const ashlar = (p: Omit<AshlarSpec, "type">): AshlarSpec => ({ type: "ashlar", ...p });
 export const penrose = (p: Omit<PenroseSpec, "type">): PenroseSpec => ({ type: "penrose", ...p });
+export const periodic = (p: Omit<PeriodicSpec, "type">): PeriodicSpec => ({ type: "periodic", ...p });
+export const tiles = (p: Omit<TilesSpec, "type">): TilesSpec => ({ type: "tiles", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
@@ -341,8 +369,14 @@ const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
 export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec;
 
-export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec | IsohedralSpec>): PeriodicDefinition {
+export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec | IsohedralSpec | TilesSpec>): PeriodicDefinition {
   switch (spec.type) {
+    case "periodic":
+      return {
+        a: vec(spec.a.x, spec.a.y),
+        b: vec(spec.b.x, spec.b.y),
+        motif: spec.motif.map((m, k) => ({ polygon: m.polygon.map((v) => vec(v.x, v.y)), protoTile: m.protoTile ?? k })),
+      };
     case "grid": {
       const w = positive("grid.width", spec.width);
       const h = positive("grid.height", spec.height ?? spec.width);
@@ -710,6 +744,8 @@ export function generateMondrian(spec: MondrianSpec, ctx: GenerateContext): RawT
 
 export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[] {
   switch (spec.type) {
+    case "tiles":
+      return spec.tiles.map((t, i) => ({ id: t.id ?? `t${i}`, polygon: t.polygon.map((v) => vec(v.x, v.y)), protoTile: t.protoTile ?? 0 }));
     case "mondrian":
       return generateMondrian(spec, ctx);
     case "voronoi":
@@ -784,4 +820,69 @@ function generateSpectre(size: number, ctx: GenerateContext): RawTile[] {
   return generateMonotile(size, SPECTRE_WIDTH, ctx, "s", (local) =>
     spectresCovering(bbox(local), ctx.maxTiles).map((t) => ({ polygon: t.polygon, protoTile: SPECTRE_LABEL_INDEX[t.label] })),
   );
+}
+
+export interface PeriodicCheck {
+  /** True when no gaps, overlaps or self-intersecting tiles were found. */
+  ok: boolean;
+  /** Area of one lattice cell, |a × b|, and the motif's total area (equal for a tiling). */
+  cellArea: number;
+  motifArea: number;
+  /** Fraction of sample points covered by no tile, and by more than one. */
+  gaps: number;
+  overlaps: number;
+  /** Motif indices whose outline crosses itself. */
+  selfIntersecting: number[];
+}
+
+/**
+ * Check a custom periodic tiling by sampling one lattice cell: every point should be
+ * covered by exactly one copy of one motif tile. Sampling can miss slivers narrower than
+ * the sample spacing (`samples` points per side, default 60).
+ */
+export function checkPeriodic(spec: PeriodicSpec | PeriodicDefinition, samples = 60): PeriodicCheck {
+  const def = "type" in spec ? periodicDefinition(spec) : spec;
+  const { a, b, motif } = def;
+  const cellArea = Math.abs(a.x * b.y - a.y * b.x);
+  const motifArea = motif.reduce((sum, m) => sum + area(m.polygon), 0);
+  const selfIntersecting = motif.flatMap((m, k) => (splitSelfIntersections(m.polygon).length > 1 ? [k] : []));
+  if (cellArea < 1e-12) return { ok: false, cellArea, motifArea, gaps: 1, overlaps: 0, selfIntersecting };
+
+  // Copies whose lattice offset could reach the cell: the motif's extent in lattice units.
+  const det = a.x * b.y - a.y * b.x;
+  const toLattice = (p: Vec) => ({ i: (p.x * b.y - p.y * b.x) / det, j: (a.x * p.y - a.y * p.x) / det });
+  let reach = 1;
+  for (const m of motif) for (const v of m.polygon) {
+    const l = toLattice(v);
+    reach = Math.max(reach, Math.ceil(Math.abs(l.i)) + 1, Math.ceil(Math.abs(l.j)) + 1);
+  }
+  const copies: { polygon: Polygon; box: Rect }[] = [];
+  for (let i = -reach; i <= reach; i++) {
+    for (let j = -reach; j <= reach; j++) {
+      for (const m of motif) {
+        const polygon = m.polygon.map((v) => vec(v.x + i * a.x + j * b.x, v.y + i * a.y + j * b.y));
+        copies.push({ polygon, box: bbox(polygon) });
+      }
+    }
+  }
+
+  let gaps = 0;
+  let overlaps = 0;
+  for (let u = 0; u < samples; u++) {
+    for (let w = 0; w < samples; w++) {
+      // Odd offsets keep samples off tile edges, which often run along lattice directions.
+      const s = (u + 0.4142136) / samples;
+      const t = (w + 0.7320508) / samples;
+      const p = vec(s * a.x + t * b.x, s * a.y + t * b.y);
+      let hits = 0;
+      for (const c of copies) {
+        if (p.x < c.box.x || p.y < c.box.y || p.x > c.box.x + c.box.width || p.y > c.box.y + c.box.height) continue;
+        if (pointInPolygon(p, c.polygon)) hits++;
+      }
+      if (hits === 0) gaps++;
+      else if (hits > 1) overlaps++;
+    }
+  }
+  const n = samples * samples;
+  return { ok: gaps === 0 && overlaps === 0 && selfIntersecting.length === 0, cellArea, motifArea, gaps: gaps / n, overlaps: overlaps / n, selfIntersecting };
 }

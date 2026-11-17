@@ -82,6 +82,36 @@ Patterns:
   `delaunay` (random triangles), `ashlar` (stone courses of random lengths), `mondrian`
   (random rectangles). `relax` controls how even Voronoi cells and triangles are.
 
+### Your own tilings (advanced)
+
+Nothing here checks that your tiles fit together; overlapping or gappy input simply produces
+overlapping or gappy layouts.
+
+```ts
+import { checkPeriodic, periodic, tiles } from "@andamento/core";
+
+// A repeating tiling: the motif is copied to every i·a + j·b (region units).
+// Two L-trominoes filling a 3 × 2 block:
+const trominoes = periodic({
+  a: { x: 150, y: 0 },
+  b: { x: 50, y: 100 },
+  motif: [
+    { polygon: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 100 }] },
+    { polygon: [{ x: 100, y: 0 }, { x: 150, y: 0 }, { x: 150, y: 100 }, { x: 50, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 50 }] },
+  ],
+});
+checkPeriodic(trominoes); // { ok, gaps, overlaps, selfIntersecting, cellArea, motifArea }
+
+// Or bring your own polygons: used as given (rotation and origin don't apply).
+const custom = tiles({ tiles: [{ polygon: myPolygon, id: "hero", protoTile: 1 }, /* … */] });
+```
+
+Both get the usual gap, margin, edge handling, rounding, neighbours and rendering; `periodic`
+also gets rotation, origin and lattice-based ids. Polygons can be non-convex but must be simple.
+`checkPeriodic` samples one lattice cell and reports the fraction of points covered by no tile
+(`gaps`) or by several (`overlaps`); `periodicDefinition(spec)` gives the `{ a, b, motif }` of
+any built-in repeating pattern as a starting point.
+
 `cell.protoTile` tells the tile types apart within a pattern (e.g. rhombille: 0 top, 1 right,
 2 left face), which is handy for shading.
 Every spec is a plain JSON object, so layouts can be saved and restored.
