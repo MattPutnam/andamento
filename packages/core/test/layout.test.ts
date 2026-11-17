@@ -235,12 +235,12 @@ describe("layout options", () => {
     expect(other.cells.map((c) => c.id)).not.toEqual(a.cells.map((c) => c.id));
   });
 
-  it("accepts a convex polygon wall and rejects a concave one", () => {
+  it("accepts a convex polygon wall and rejects one that crosses itself", () => {
     const tri = [{ x: 0, y: 0 }, { x: 600, y: 0 }, { x: 300, y: 500 }];
     const l = createLayout({ region: tri, tiling: grid({ width: 40 }) });
     expect(totalArea(l)).toBeCloseTo(area(tri), 3);
-    const concave = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 50, y: 20 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
-    expect(() => createLayout({ region: concave, tiling: grid({ width: 10 }) })).toThrow(RangeError);
+    const bowtie = [{ x: 0, y: 0 }, { x: 100, y: 100 }, { x: 100, y: 0 }, { x: 0, y: 100 }];
+    expect(() => createLayout({ region: bowtie, tiling: grid({ width: 10 }) })).toThrow(/cross itself/);
   });
 
   it("guards against runaway tile counts and bad params", () => {

@@ -235,6 +235,62 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
 
 type Content = "photos" | "cards" | "colors";
 
+type RegionShape = "rectangle" | "l" | "arch" | "stairs" | "hexagon";
+type HoleSet = "none" | "window-door" | "sockets" | "round";
+type Pt = { x: number; y: number };
+
+/** Example region outlines in a w × h box. */
+function regionShape(shape: RegionShape, w: number, h: number): Pt[] | { x: number; y: number; width: number; height: number } {
+  switch (shape) {
+    case "rectangle":
+      return { x: 0, y: 0, width: w, height: h };
+    case "l":
+      return [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h * 0.45 }, { x: w * 0.45, y: h * 0.45 }, { x: w * 0.45, y: h }, { x: 0, y: h }];
+    case "arch": {
+      // A rectangle with a semicircular top, as short segments.
+      const r = Math.min(w / 2, h);
+      const top = Array.from({ length: 33 }, (_, i) => {
+        const a = Math.PI + (i / 32) * Math.PI;
+        return { x: w / 2 + Math.cos(a) * (w / 2), y: r + Math.sin(a) * r };
+      });
+      return [...top, { x: w, y: h }, { x: 0, y: h }];
+    }
+    case "stairs": {
+      const steps = 6;
+      const pts: Pt[] = [{ x: 0, y: h }];
+      for (let i = 0; i < steps; i++) pts.push({ x: (w / steps) * i, y: h - (h / steps) * (i + 1) }, { x: (w / steps) * (i + 1), y: h - (h / steps) * (i + 1) });
+      pts.push({ x: w, y: h });
+      return pts;
+    }
+    case "hexagon":
+      return Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * 2 * Math.PI;
+        return { x: w / 2 + (Math.cos(a) * w) / 2, y: h / 2 + (Math.sin(a) * h) / 2 };
+      });
+  }
+}
+
+/** Example holes in a w × h box. */
+function holesFor(set: HoleSet, w: number, h: number): (Pt[] | { x: number; y: number; width: number; height: number })[] {
+  switch (set) {
+    case "none":
+      return [];
+    case "window-door":
+      return [
+        { x: w * 0.58, y: h * 0.2, width: w * 0.24, height: h * 0.3 },
+        { x: w * 0.12, y: h * 0.42, width: w * 0.16, height: h * 0.58 },
+      ];
+    case "sockets":
+      return Array.from({ length: 5 }, (_, i) => ({ x: w * (0.1 + i * 0.18), y: h * 0.75, width: w * 0.05, height: h * 0.06 }));
+    case "round":
+      return [Array.from({ length: 40 }, (_, i) => {
+        const a = (i / 40) * 2 * Math.PI;
+        const r = Math.min(w, h) * 0.18;
+        return { x: w * 0.5 + Math.cos(a) * r, y: h * 0.45 + Math.sin(a) * r };
+      })];
+  }
+}
+
 // Ways to color tiles without content, using the core fill helpers.
 const EMPTY_FILLS = {
   neutral: neutralPalette,
@@ -267,6 +323,8 @@ export function App() {
     Object.fromEntries(Object.entries(TILINGS).map(([k, d]) => [k, { ...d.defaults }])) as Record<PlaygroundTiling, Record<string, number | string>>,
   );
   const [wall, setWall] = useState({ width: 240, height: 150 });
+  const [shape, setShape] = useState<RegionShape>("rectangle");
+  const [holeSet, setHoleSet] = useState<HoleSet>("none");
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -285,7 +343,8 @@ export function App() {
   const def = TILINGS[type];
   const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
   const options: LayoutOptions = {
-    region: { x: 0, y: 0, width: wall.width, height: wall.height },
+    region: regionShape(shape, wall.width, wall.height),
+    ...(holeSet !== "none" ? { holes: holesFor(holeSet, wall.width, wall.height) } : {}),
     tiling,
     gap,
     margin,
@@ -374,6 +433,25 @@ export function App() {
           <h2>Region</h2>
           <Slider label="Width" min={50} max={500} step={5} value={wall.width} onChange={(v) => setWall({ ...wall, width: v })} />
           <Slider label="Height" min={50} max={400} step={5} value={wall.height} onChange={(v) => setWall({ ...wall, height: v })} />
+          <label className="row">
+            <span>Shape</span>
+            <select value={shape} onChange={(e) => setShape(e.target.value as RegionShape)}>
+              <option value="rectangle">Rectangle</option>
+              <option value="l">L-shape</option>
+              <option value="arch">Arch</option>
+              <option value="stairs">Under the stairs</option>
+              <option value="hexagon">Hexagon</option>
+            </select>
+          </label>
+          <label className="row">
+            <span>Holes</span>
+            <select value={holeSet} onChange={(e) => setHoleSet(e.target.value as HoleSet)}>
+              <option value="none">None</option>
+              <option value="window-door">Window and door</option>
+              <option value="sockets">Sockets</option>
+              <option value="round">Round window</option>
+            </select>
+          </label>
           <label className="row">
             <span>Background</span>
             <input type="color" value={background} onChange={(e) => setBackground(e.target.value)} />

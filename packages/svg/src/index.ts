@@ -62,9 +62,17 @@ export function polygonToPath(p: Polygon, precision = 3, radius = 0): string {
   return parts.join("") + "Z";
 }
 
-/** `d` attribute for a cell's visible outline, including the layout's corner rounding. */
+/**
+ * `d` attribute for a cell's visible outline, including the layout's corner rounding and
+ * any holes (as extra subpaths; draw with `fill-rule="evenodd"`).
+ */
 export function cellPath(layout: Layout, cell: Cell, precision = 3): string {
-  return polygonToPath(cell.polygon, precision, layout.cornerRadius);
+  return [cell.polygon, ...(cell.holes ?? [])].map((p) => polygonToPath(p, precision, layout.cornerRadius)).join("");
+}
+
+/** `d` attribute for the region with its holes (draw with `fill-rule="evenodd"`). */
+export function regionPath(layout: Layout, precision = 3): string {
+  return [layout.region, ...layout.holes].map((p) => polygonToPath(p, precision)).join("");
 }
 
 export interface CellStyle {
@@ -127,16 +135,17 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
   const children: SvgNode["children"] = [];
   if (opts.title) children.push(el("title", {}, [opts.title]));
   if (opts.background) {
-    children.push(el("path", { d: polygonToPath(layout.region, precision), fill: opts.background, class: "andamento-region" }));
+    children.push(el("path", { d: regionPath(layout, precision), fill: opts.background, "fill-rule": "evenodd", class: "andamento-region" }));
   }
 
   layout.cells.forEach((cell, i) => {
     const d = cellPath(layout, cell, precision);
     const style = styles[i]!;
-    const parts: SvgNode[] = [el("path", { d, fill: style.fill })];
+    const holed = !!cell.holes?.length;
+    const parts: SvgNode[] = [el("path", { d, fill: style.fill, "fill-rule": holed ? "evenodd" : undefined })];
     if (style.image) {
       const clipId = `${prefix}-clip-${cell.index}`;
-      parts.unshift(el("clipPath", { id: clipId }, [el("path", { d })]));
+      parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));
       parts.push(
         el("image", {
           href: style.image,

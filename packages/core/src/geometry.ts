@@ -244,3 +244,19 @@ export function sharesEdge(a: Polygon, b: Polygon, tol: number): boolean {
   }
   return false;
 }
+
+/** Convex hull (positive orientation) of a set of points. */
+export function convexHull(points: Vec[]): Polygon {
+  const pts = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (pts.length < 3) return pts;
+  const half = (list: Vec[]) => {
+    const out: Vec[] = [];
+    for (const p of list) {
+      while (out.length >= 2 && cross(sub(out[out.length - 1]!, out[out.length - 2]!), sub(p, out[out.length - 1]!)) <= 0) out.pop();
+      out.push(p);
+    }
+    out.pop();
+    return out;
+  };
+  return ensurePositive([...half(pts), ...half([...pts].reverse())]);
+}

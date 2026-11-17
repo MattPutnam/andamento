@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
-import { cellPath, polygonToPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
+import { cellPath, regionPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
@@ -78,7 +78,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={title ? "img" : undefined} {...svgProps}>
       {title && <title>{title}</title>}
-      {background && <path className="andamento-region" d={polygonToPath(layout.region)} fill={background} />}
+      {background && <path className="andamento-region" d={regionPath(layout)} fill={background} fillRule="evenodd" />}
       {layout.cells.map((cell, i) => {
         const d = cellPath(layout, cell);
         const clipPathId = `${prefix}-clip-${cell.index}`;
@@ -94,7 +94,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
             data-boundary={cell.boundary ? "" : undefined}
           >
             <clipPath id={clipPathId}>
-              <path d={d} />
+              <path d={d} clipRule="evenodd" />
             </clipPath>
             {renderCell ? renderCell(cell, ctx) : <DefaultCell cell={cell} ctx={ctx} />}
             {stroke && <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />}
@@ -108,7 +108,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
 function DefaultCell({ cell, ctx }: { cell: Cell; ctx: SvgCellRenderContext }) {
   return (
     <>
-      <path d={ctx.path} fill={ctx.fill} />
+      <path d={ctx.path} fill={ctx.fill} fillRule="evenodd" />
       {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} />}
     </>
   );

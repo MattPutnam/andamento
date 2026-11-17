@@ -1,5 +1,7 @@
 export * from "./geometry";
-export { clipPolygonToConvex, insetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
+export { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
+export { overlay, shapeArea, shapeCentroid } from "./overlay";
+export type { Shape } from "./overlay";
 export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
 export { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
@@ -15,7 +17,7 @@ export type { RoundedCorner } from "./rounding";
 export { createLayout, colorCells } from "./layout";
 export type { Cell, EdgeMode, Layout, LayoutOptions } from "./layout";
 export { mulberry32 } from "./random";
-export { boundsAspectRatio, cellCss, cssPolygon } from "./css";
+export { boundsAspectRatio, cellCss, cssPolygon, regionCss } from "./css";
 export type { CellCss } from "./css";
 export { contentSlots } from "./content";
 export type { ContentCells, ContentOptions, ContentPlacement } from "./content";

@@ -10,7 +10,7 @@ import {
 import {
   cellCss,
   contentSlots,
-  cssPolygon,
+  regionCss,
   type Cell,
   type ContentCells,
   type ContentPlacement,
@@ -130,7 +130,7 @@ export function TileLayout(props: TileLayoutProps) {
       {background && (
         <div
           aria-hidden
-          style={{ position: "absolute", inset: 0, background, clipPath: cssPolygon(layout.region, bounds) }}
+          style={{ position: "absolute", inset: 0, background, clipPath: regionCss(layout) }}
         />
       )}
       {layout.cells.map((cell, i) => {

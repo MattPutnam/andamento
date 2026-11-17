@@ -4,6 +4,7 @@ import {
   centroid,
   clipConvex,
   containsPolygon,
+  convexHull,
   ensurePositive,
   insetConvex,
   isConvex,
@@ -14,7 +15,8 @@ import {
   type Rect,
   type Vec,
 } from "./geometry";
-import { clipPolygonToConvex, insetPolygon } from "./offset";
+import { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
+import { inShapes, overlay, shapeArea, shapeCentroid, type Shape } from "./overlay";
 import { generateTiles, type TilingSpec } from "./tilings";
 
 /**
@@ -26,12 +28,21 @@ import { generateTiles, type TilingSpec } from "./tilings";
 export type EdgeMode = "clip" | "inside" | "overflow";
 
 export interface LayoutOptions {
-  /** The area to tile: a rectangle or any convex polygon, in your own units (cm, px, in…). */
+  /**
+   * The area to tile: a rectangle or any simple polygon (convex or not; it mustn't cross
+   * itself), in your own units (cm, px, in…).
+   */
   region: Rect | Polygon;
+  /**
+   * Areas inside the region to leave empty: windows, doors, sockets. Rectangles or
+   * simple polygons; they may overlap each other or the region's edge. Tiles are cut
+   * around them (or skipped, with `edges: "inside"`), and `margin` applies around them too.
+   */
+  holes?: (Rect | Polygon)[];
   tiling: TilingSpec;
   /** Space between neighbouring tiles. Defaults to 0. */
   gap?: number;
-  /** Empty border kept between the region outline and the tiles. Defaults to 0. */
+  /** Empty border kept between the region outline (and any holes) and the tiles. Defaults to 0. */
   margin?: number;
   /** Pattern rotation in degrees (ignored by the random patterns: mondrian, voronoi, delaunay, ashlar, jigsaw). Defaults to 0. */
   rotation?: number;
@@ -71,6 +82,11 @@ export interface Cell {
   index: number;
   /** Visible shape: after gap and edge handling. */
   polygon: Polygon;
+  /**
+   * Holes in the visible shape, when a region hole lies wholly inside the tile. Absent
+   * otherwise. `area` and `centroid` account for them.
+   */
+  holes?: Polygon[];
   /** The full pattern tile before gap and edge handling. */
   original: Polygon;
   bbox: Rect;
@@ -87,6 +103,8 @@ export interface Cell {
 export interface Layout {
   /** The region outline (before margin). */
   region: Polygon;
+  /** The region's holes (before margin), positively oriented. */
+  holes: Polygon[];
   /** Bounding box of the region; a good SVG viewBox. */
   bounds: Rect;
   /** Corner radius renderers apply to every cell (0 for sharp corners). */
@@ -101,7 +119,17 @@ function toPolygon(region: Rect | Polygon): Polygon {
 
 export function createLayout(options: LayoutOptions): Layout {
   const region = ensurePositive(toPolygon(options.region));
-  if (!isConvex(region)) throw new RangeError("region must be a convex polygon");
+  if (region.length < 3) throw new RangeError("region needs at least 3 corners");
+  if (splitSelfIntersections(region).length > 1) throw new RangeError("region must not cross itself");
+  if (area(region) === 0) throw new RangeError("region has no area");
+  const holes: Polygon[] = [];
+  for (const h of options.holes ?? []) {
+    const hole = ensurePositive(toPolygon(h));
+    if (hole.length >= 3 && splitSelfIntersections(hole).length > 1) throw new RangeError("holes must not cross themselves");
+    if (hole.length >= 3 && area(hole) > 0) holes.push(hole);
+  }
+  // Convex regions without holes take the fast path: clipping against a convex outline.
+  const simple = holes.length === 0 && isConvex(region);
   const bounds = bbox(region);
   const scaleRef = Math.max(bounds.width, bounds.height);
   const tol = 1e-7 * scaleRef;
@@ -112,9 +140,31 @@ export function createLayout(options: LayoutOptions): Layout {
   const minFill = Math.min(1, Math.max(0, options.minFill ?? 0));
   const cornerRadius = Math.max(0, options.cornerRadius ?? 0);
 
-  const inner = margin > 0 ? insetConvex(region, margin) : region;
-  if (inner.length === 0) return { region, bounds, cornerRadius, cells: [] };
+  const empty: Layout = { region, holes, bounds, cornerRadius, cells: [] };
+  // The area tiles may cover: the region less its margin and the (grown) holes.
+  let inner: Polygon;
+  let usable: Shape[] = [];
+  let loops: Polygon[] = [];
+  if (simple) {
+    inner = margin > 0 ? insetConvex(region, margin) : region;
+    if (inner.length === 0) return empty;
+  } else {
+    const outers = margin > 0 ? insetPolygonPieces(region, margin) : [region];
+    const grown = holes.map((h) => (margin > 0 ? outsetPolygon(h, margin) : h)).filter((h) => h.length >= 3);
+    usable = overlay(
+      [...outers, ...grown],
+      (p) => outers.some((o) => pointInPolygon(p, o)) && !grown.some((h) => pointInPolygon(p, h)),
+      scaleRef,
+    );
+    if (usable.length === 0) return empty;
+    loops = usable.flatMap((s) => [s.outer, ...s.holes]);
+    // Generators only need to cover this; tiles are cut to the exact area below.
+    inner = convexHull(usable.flatMap((s) => s.outer));
+  }
   const innerBox = bbox(inner);
+  // Region edges with their boxes, to find the few that reach each tile.
+  const edgesOf = loops.flatMap((l) => l.map((a, i) => [a, l[(i + 1) % l.length]!] as const));
+  const edgeBoxes = edgesOf.map(([a, b]) => ({ x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }));
 
   const k = options.tileScale ?? 1;
   if (!(k > 0) || !Number.isFinite(k)) throw new RangeError(`tileScale must be a positive number (got ${k})`);
@@ -142,11 +192,38 @@ export function createLayout(options: LayoutOptions): Layout {
     if (tile.length === 0) continue;
     const full = area(tile);
 
-    let pieces: Polygon[];
+    let pieces: Shape[];
     let boundary: boolean;
-    if (edges === "inside") {
+    if (!simple) {
+      const tb = bbox(tile);
+      const pad = tol;
+      const near: Polygon[] = [];
+      edgeBoxes.forEach((e, i) => {
+        if (e.x1 >= tb.x - pad && e.x0 <= tb.x + tb.width + pad && e.y1 >= tb.y - pad && e.y0 <= tb.y + tb.height + pad) {
+          near.push([...edgesOf[i]!]);
+        }
+      });
+      let cut: Shape[];
+      if (near.length === 0) {
+        // No region edge reaches the tile's box: it's wholly in or wholly out.
+        cut = inShapes(tile[0]!, loops) ? [{ outer: tile, holes: [] }] : [];
+      } else {
+        cut = overlay([tile, ...near], (p) => pointInPolygon(p, tile) && inShapes(p, loops), scaleRef)
+          .filter((q) => shapeArea(q) > minArea)
+          .sort((a, b) => shapeArea(b) - shapeArea(a));
+      }
+      const visible = cut.reduce((sum, q) => sum + shapeArea(q), 0);
+      boundary = visible < full - minArea;
+      if (edges === "inside") {
+        if (boundary || cut.length !== 1 || cut[0]!.holes.length > 0) continue;
+        pieces = [{ outer: tile, holes: [] }];
+      } else {
+        if (visible <= minArea || visible < minFill * full) continue;
+        pieces = edges === "overflow" ? [{ outer: tile, holes: [] }] : cut;
+      }
+    } else if (edges === "inside") {
       if (!containsPolygon(inner, tile, tol)) continue;
-      pieces = [tile];
+      pieces = [{ outer: tile, holes: [] }];
       boundary = false;
     } else {
       // The region edge can cut a non-convex tile into separate parts; those become
@@ -159,18 +236,20 @@ export function createLayout(options: LayoutOptions): Layout {
       const visible = cut.reduce((sum, q) => sum + (q.length ? area(q) : 0), 0);
       if (visible <= minArea || visible < minFill * full) continue;
       boundary = visible < full - minArea;
-      pieces = edges === "overflow" ? [tile] : cut;
+      pieces = (edges === "overflow" ? [tile] : cut).map((outer) => ({ outer, holes: [] }));
     }
 
-    pieces.forEach((polygon, k) => {
+    pieces.forEach((shape, k) => {
+      const withHoles = shape.holes.length > 0;
       drafts.push({
         // Extra parts of a tile split by the region edge get "~1", "~2", ….
         id: k === 0 ? t.id : `${t.id}~${k}`,
-        polygon,
+        polygon: shape.outer,
+        ...(withHoles ? { holes: shape.holes.map((h) => ensurePositive(h)) } : {}),
         original,
-        bbox: bbox(polygon),
-        centroid: centroid(polygon),
-        area: area(polygon),
+        bbox: bbox(shape.outer),
+        centroid: withHoles ? shapeCentroid(shape) : centroid(shape.outer),
+        area: withHoles ? shapeArea(shape) : area(shape.outer),
         boundary,
         protoTile: t.protoTile,
       });
@@ -194,7 +273,7 @@ export function createLayout(options: LayoutOptions): Layout {
     index,
     neighbors: neighbors[index]!.map((k) => drafts[k]!.id),
   }));
-  return { region, bounds, cornerRadius, cells };
+  return { region, holes, bounds, cornerRadius, cells };
 }
 
 /**

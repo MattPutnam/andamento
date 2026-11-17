@@ -25,6 +25,42 @@ export function insetPolygon(poly: Polygon, distance: number): Polygon {
   const p = cleanPolygon(ensurePositive(poly));
   if (p.length < 3) return [];
   if (distance <= 0) return p;
+  const pieces = offsetLoops(p, distance);
+  if (pieces.length === 0) return [];
+  let best = pieces[0]!;
+  for (const q of pieces) if (area(q) > area(best)) best = q;
+  return best;
+}
+
+/** Like `insetPolygon`, but every piece when a narrow neck pinches the shape apart. */
+export function insetPolygonPieces(poly: Polygon, distance: number): Polygon[] {
+  const p = cleanPolygon(ensurePositive(poly));
+  if (p.length < 3) return [];
+  if (distance <= 0) return [p];
+  return offsetLoops(p, distance);
+}
+
+/**
+ * Grow a simple polygon by moving every edge outward by `distance` (mitred corners;
+ * pockets narrower than 2 × distance close up). Positively oriented.
+ */
+export function outsetPolygon(poly: Polygon, distance: number): Polygon {
+  const p = cleanPolygon(ensurePositive(poly));
+  if (p.length < 3) return [];
+  if (distance <= 0) return p;
+  // Offsetting toward the left of a clockwise outline moves it outward.
+  const loops = offsetLoops([...p].reverse(), distance);
+  let best: Polygon = [];
+  for (const q of loops) if (area(q) > area(best)) best = q;
+  return best.length ? [...best].reverse() : [];
+}
+
+/**
+ * Move every edge of `p` (cleaned, either orientation) to its left by `distance`, and
+ * return the resulting loops that keep `p`'s orientation.
+ */
+function offsetLoops(p: Polygon, distance: number): Polygon[] {
+  const sign = Math.sign(signedArea(p));
 
   // Edge lines as flat arrays: a point on the edge, its unit direction and inward normal.
   const px: number[] = [], py: number[] = [], ux: number[] = [], uy: number[] = [];
@@ -148,11 +184,10 @@ export function insetPolygon(poly: Polygon, distance: number): Polygon {
     outline.push(vec(jx, jy));
     k = next[k]!;
   } while (k !== start);
-  const pieces = splitSelfIntersections(outline).filter((q) => signedArea(q) > 0);
-  if (pieces.length === 0) return [];
-  let best = pieces[0]!;
-  for (const q of pieces) if (area(q) > area(best)) best = q;
-  return dropStraightVertices(cleanPolygon(best));
+  return splitSelfIntersections(outline)
+    .filter((q) => signedArea(q) * sign > 0)
+    .map((q) => dropStraightVertices(cleanPolygon(q)))
+    .filter((q) => q.length >= 3);
 }
 
 /** Remove vertices that sit in the middle of a straight run. */

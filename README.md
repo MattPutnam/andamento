@@ -108,10 +108,11 @@ import { createLayout, herringbone } from "@andamento/core";
 import { renderToString } from "@andamento/svg";
 
 const layout = createLayout({
-  region: { x: 0, y: 0, width: 240, height: 150 }, // any unit; rectangle or convex polygon
+  region: { x: 0, y: 0, width: 240, height: 150 }, // any unit; a rectangle or any simple polygon
+  holes: [{ x: 150, y: 40, width: 50, height: 60 }], // windows, doors, sockets: left empty
   tiling: herringbone({ length: 60, width: 30 }),
   gap: 2,
-  margin: 4,
+  margin: 4,       // kept clear along the region edge and around holes
   cornerRadius: 3, // round tile corners (shrinks to fit small corners)
   rotation: 0,
   edges: "clip",   // "clip" | "inside" | "overflow"
@@ -202,10 +203,27 @@ npm run typecheck # run after build: packages resolve each other through dist/
 npm run dev       # playground at http://localhost:5173
 ```
 
+### Region shapes and holes
+
+The region can be any simple polygon: an L-shaped wall, the space under stairs, an arch
+(approximate the curve with short segments). `holes` are left empty: rectangles or polygons
+that may overlap each other or stick out past the region edge. Tiles are cut around holes
+like they're cut at the region edge (`edges: "inside"` skips any tile that would be cut, and
+`"overflow"` keeps tiles that are partly visible whole), and `margin` keeps a border around
+holes too. A margin can pinch a narrow part of the region shut, splitting it in two.
+
+When a hole sits entirely inside one tile, the cell gets `holes` of its own; `area` and
+`centroid` account for them, `cellCss` returns an even–odd `clip-path`, and `cellPath` adds
+the holes as subpaths. `layout.holes` lists the region's holes, and `regionCss(layout)` /
+`regionPath(layout)` draw the region with them.
+
+Convex regions without holes use a faster clipping path; anything else goes through a general
+polygon overlay, applied only to tiles near an edge, so it costs about the same.
+
 ## Limitations
 
-- The region (the outline being tiled) must be a convex polygon; rectangles are the common
-  case. The tiles inside it can be any simple shape.
+- The region (and each hole) must be a single outline that doesn't cross itself. For a
+  region in several separate parts, make one layout per part.
 - The random patterns (`voronoi`, `delaunay`, `ashlar`, `mondrian`, `jigsaw`) ignore `rotation` and `origin`.
 - Curved tiles are approximated with short straight segments. If `gap` is wider than a narrow
   part of a tile (a jigsaw neck, say), that part is dropped and the largest remaining piece is
