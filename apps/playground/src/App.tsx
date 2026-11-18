@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
-import { TileLayout, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
+import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -338,6 +338,8 @@ export function App() {
   const [light, setLight] = useState(315);
   const [activated, setActivated] = useState<string>();
   const [animateChanges, setAnimateChanges] = useState(true);
+  // Hit testing: the tile under the pointer, snapping to the nearest one from the grout.
+  const [pointer, setPointer] = useState<{ id: string; index: number; inGap: boolean }>();
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -681,7 +683,11 @@ export function App() {
             <span className="error">{result.error}</span>
           )}
           <span className="hint" aria-live="polite">
-            {activated ? `Opened ${activated}` : "Tab into the layout, then use the arrow keys"}
+            {pointer
+              ? `Pointer: tile ${pointer.index + 1}${pointer.inGap ? " (in the grout, nearest)" : ""}`
+              : activated
+                ? `Opened ${activated}`
+                : "Tab into the layout, then use the arrow keys"}
           </span>
           <button onClick={download} disabled={!("layout" in result)}>
             Download SVG
@@ -699,7 +705,14 @@ export function App() {
               onCellActivate={(_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`)}
               className={safe && content === "cards" ? "region show-safe" : "region"}
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
-              cellClassName="tile"
+              cellClassName={(cell) => (cell.id === pointer?.id ? "tile pointed" : "tile")}
+              onPointerMove={(e) => {
+                const hit = cellFromPointer(layout, e, { tolerance: Math.max(gap, 2) });
+                if (!hit) return setPointer(undefined);
+                const exact = cellFromPointer(layout, e) === hit;
+                if (hit.id !== pointer?.id || exact === pointer.inGap) setPointer({ id: hit.id, index: hit.index, inGap: !exact });
+              }}
+              onPointerLeave={() => setPointer(undefined)}
               contentCells={contentCells}
               placement={placement}
               fill={cellFill}

@@ -21,6 +21,8 @@ export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss, resampl
 export { safeArea } from "./safe";
 export { bevelFacets, lightVector } from "./relief";
 export { cellInDirection } from "./navigation";
+export { cellAt, cellsInRect, nearestCell, screenToLayout } from "./hit";
+export type { HitOptions, ScreenBox } from "./hit";
 export type { Direction } from "./navigation";
 export type { BevelFacet, BevelOptions } from "./relief";
 export type { SafeAreaOptions } from "./safe";

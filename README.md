@@ -181,6 +181,33 @@ core), which is what lets CSS morph between any two shapes. Cells with holes swi
 without morphing. Animation is off for users who prefer reduced motion. Static SVG output
 doesn't animate.
 
+#### Hit testing
+
+```tsx
+const layout = useTileLayout(options);
+<TileLayout layout={layout}
+  onPointerMove={(e) => setHovered(cellFromPointer(layout, e, { tolerance: 4 })?.id)}>
+  {children}
+</TileLayout>
+```
+
+Each tile's own DOM events already follow its shape. Hit testing also works where there are
+no tile elements: the gaps, an `<svg>`, a canvas, or plain layout geometry.
+- **`cellAt(layout, point, { tolerance })`:** the cell whose visible shape (gap, rounded
+  corners and holes included) contains a point in layout units. With `tolerance`, a point
+  that close to a tile also counts, e.g. in the grout or for touch.
+- **`nearestCell(layout, point, maxDistance?)`:** the containing cell, or else the one whose
+  edge is closest.
+- **`cellsInRect(layout, rect, { contain })`:** cells meeting a rectangle, or wholly inside
+  it, for marquee selection or what's in view. Rectangles dragged up or left work too.
+- **`screenToLayout(layout, box, clientX, clientY)`:** converts a screen point using the
+  element's `getBoundingClientRect()`, letterboxed like SVG's default
+  `preserveAspectRatio`. `cellFromPointer(layout, event, options)` in
+  `@andamento/react` does both steps for an event handler.
+
+A spatial index is built once per layout, so lookups stay fast on layouts with tens of
+thousands of cells.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:
