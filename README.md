@@ -61,6 +61,28 @@ import { hexagonal } from "@andamento/core";
 The core function behind this, `contentSlots(layout, count, { cells, placement })`, returns
 the item index per cell (or -1) for other renderers.
 
+#### Matching items to tile shapes
+
+```tsx
+const aspects = useImageAspects(photos); // width / height of each, once loaded
+<TileLayout options={options} aspects={aspects} choose="shape">
+  {photos.map((src) => <img key={src} src={src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+With `aspects` (one width / height per child), each child goes in a tile of similar shape,
+so `object-fit: cover` crops as little as possible: landscape photos in wide tiles,
+portraits in tall ones. The arrangement minimises the total crop (as the difference in log
+aspect ratio, which matching in sorted order solves exactly). By default the same tiles are
+used as without matching (`placement`), only rearranged; `choose="shape"` also picks which
+tiles get content by their shape, e.g. the vertical bricks of a herringbone for portraits.
+Featured tiles still take the first children. A tile's shape is its bounding box, which is
+what content is laid out in.
+
+`<SvgTileLayout imageAspects={…}>` and `renderToString(layout, { imageAspects })` do the
+same for `images`, and `matchSlots(layout, aspects, { cells, placement, choose })` in core
+returns the item per cell. Children's order no longer follows reading order when matching.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:

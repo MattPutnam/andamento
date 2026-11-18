@@ -1,4 +1,4 @@
-import { contentSlots, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
+import { contentSlots, matchSlots, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
@@ -18,6 +18,13 @@ export interface RenderOptions {
   contentCells?: ContentCells;
   /** Where the images go when there are fewer than cells (default "reading"). */
   placement?: ContentPlacement;
+  /**
+   * Width / height of each image in `images`. When given, each image goes in a cell of
+   * similar shape, to crop as little as possible (see `matchSlots`). Ignored with `repeatImages`.
+   */
+  imageAspects?: readonly number[];
+  /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
+  choose?: "placement" | "shape";
   /**
    * Cell color when there is no image: a color, a palette (neighbouring cells get
    * different entries), or a function. Defaults to `defaultPalette`.
@@ -98,7 +105,7 @@ export function resolveFills(layout: Layout, fill: FillSource): string[] {
   return layout.cells.map((c) => f(c, layout));
 }
 
-type StyleOptions = Pick<RenderOptions, "images" | "repeatImages" | "fill" | "contentCells" | "placement">;
+type StyleOptions = Pick<RenderOptions, "images" | "repeatImages" | "fill" | "contentCells" | "placement" | "imageAspects" | "choose">;
 
 /** Resolve the fill color and image for every cell (shared by the SVG and React renderers). */
 export function resolveCellStyles(layout: Layout, opts: StyleOptions = {}): CellStyle[] {
@@ -107,7 +114,11 @@ export function resolveCellStyles(layout: Layout, opts: StyleOptions = {}): Cell
   let slots: number[] = layout.cells.map(() => -1);
   if (Array.isArray(images) && images.length > 0) {
     const count = opts.repeatImages ? Infinity : images.length;
-    slots = contentSlots(layout, count, { cells: opts.contentCells, placement: opts.placement });
+    const content = { cells: opts.contentCells, placement: opts.placement, choose: opts.choose };
+    slots =
+      opts.imageAspects && !opts.repeatImages
+        ? matchSlots(layout, images.map((_, i) => opts.imageAspects![i] ?? 1), content)
+        : contentSlots(layout, count, content);
   }
   return layout.cells.map((c, i) => {
     const slot = slots[i]!;

@@ -27,6 +27,10 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   contentCells?: ContentCells;
   /** Where images go when there are fewer than cells: "reading" (default), "center" or "spread". */
   placement?: ContentPlacement;
+  /** Width / height of each image, to put images in cells of similar shape (see `matchSlots`). */
+  imageAspects?: readonly number[];
+  /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
+  choose?: "placement" | "shape";
   /**
    * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
    * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
@@ -62,6 +66,8 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     repeatImages,
     contentCells,
     placement,
+    imageAspects,
+    choose,
     fit,
     fill,
     stroke,
@@ -76,8 +82,8 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   const layout = useResolvedLayout("SvgTileLayout", options, given, { fit, count: fitTo, cells: contentCells });
   const prefix = "andamento" + useId().replace(/:/g, "");
   const styles = useMemo(
-    () => resolveCellStyles(layout, { images, repeatImages, fill, contentCells, placement }),
-    [layout, images, repeatImages, fill, contentCells, placement],
+    () => resolveCellStyles(layout, { images, repeatImages, fill, contentCells, placement, imageAspects, choose }),
+    [layout, images, repeatImages, fill, contentCells, placement, imageAspects, choose],
   );
   const { x, y, width, height } = layout.bounds;
 

@@ -11,6 +11,7 @@ import {
   backdropCss,
   cellCss,
   contentSlots,
+  matchSlots,
   regionCss,
   type Cell,
   type ContentCells,
@@ -65,6 +66,15 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    */
   placement?: ContentPlacement;
   /**
+   * Width / height of each child, in order. When given, each child goes in a tile of
+   * similar shape, so `object-fit: cover` crops as little as possible (landscape photos in
+   * wide tiles, portraits in tall ones); see `matchSlots`. Featured tiles still take the
+   * first children. Missing entries count as square. Ignored with `renderCell`.
+   */
+  aspects?: readonly number[];
+  /** With `aspects`: "shape" also picks which tiles hold children by their shape, ignoring `placement`. */
+  choose?: "placement" | "shape";
+  /**
    * Color of empty tiles: a color, a palette (neighbouring tiles get different entries),
    * or a function per cell. Defaults to `neutralPalette`; use "transparent" for none.
    */
@@ -111,6 +121,8 @@ export function TileLayout(props: TileLayoutProps) {
     renderCell,
     contentCells,
     placement,
+    aspects,
+    choose,
     fill = neutralPalette,
     fit,
     backdrop,
@@ -126,8 +138,12 @@ export function TileLayout(props: TileLayoutProps) {
   const { bounds } = layout;
   const count = renderCell ? Infinity : items.length;
   const slots = useMemo(
-    () => contentSlots(layout, count, { cells: contentCells, placement }),
-    [layout, count, contentCells, placement],
+    () =>
+      aspects && !renderCell
+        ? matchSlots(layout, Array.from({ length: count }, (_, i) => aspects[i] ?? 1), { cells: contentCells, placement, choose })
+        : contentSlots(layout, count, { cells: contentCells, placement }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layout, count, contentCells, placement, aspects?.join(","), choose, !renderCell],
   );
   const fills = useMemo(() => resolveFills(layout, fill), [layout, fill]);
 

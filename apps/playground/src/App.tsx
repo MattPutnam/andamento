@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToString } from "@andamento/svg";
-import { TileLayout, coverStyle, neutralPalette, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
+import { TileLayout, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
 interface Param {
@@ -332,6 +332,7 @@ export function App() {
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
   const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
   const [mosaicPalette, setMosaicPalette] = useState(false);
+  const [matchShapes, setMatchShapes] = useState<"off" | "placement" | "shape">("off");
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -382,12 +383,15 @@ export function App() {
   const picture = uploads[0] ?? photos[0]!;
   // "Mosaic": each tile takes the average color of the picture under it.
   const mosaic = useImageFill(content === "mosaic" ? picture : undefined, { palette: mosaicPalette ? MOSAIC_PALETTE : undefined });
+  // Photo shapes, for matching photos to tile shapes.
+  const photoAspects = useImageAspects(content === "photos" && matchShapes !== "off" ? photos : undefined);
   const cellFill = content === "colors" ? defaultPalette : content === "mosaic" ? (mosaic ?? neutralPalette) : EMPTY_FILLS[emptyFill];
   const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
 
   // Any React content works as children: one child per tile, in reading order.
   const numItems = layout ? (itemCount > 0 ? itemCount : layout.cells.length) : 0;
+  const childAspects = photoAspects && Array.from({ length: numItems }, (_, i) => photoAspects[i % photoAspects.length]!);
   const children = Array.from({ length: itemsShown ? numItems : 0 }, (_, i) => {
     if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
     if (content === "cards")
@@ -424,6 +428,8 @@ export function App() {
     if (!layout) return;
     const svg = renderToString(layout, {
       images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
+      imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : undefined,
+      choose: matchShapes === "shape" ? "shape" : "placement",
       repeatImages: itemCount === 0,
       contentCells,
       placement,
@@ -602,6 +608,16 @@ export function App() {
                   ))}
                 </select>
               </label>
+              {content === "photos" && (
+                <label className="row">
+                  <span>Match photo shapes</span>
+                  <select value={matchShapes} onChange={(e) => setMatchShapes(e.target.value as typeof matchShapes)}>
+                    <option value="off">Off</option>
+                    <option value="placement">Arrange within placement</option>
+                    <option value="shape">Pick tiles by shape</option>
+                  </select>
+                </label>
+              )}
               <label className="row">
                 <span>Placement</span>
                 <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)}>
@@ -649,6 +665,8 @@ export function App() {
               placement={placement}
               fill={cellFill}
               backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
+              aspects={childAspects}
+              choose={matchShapes === "shape" ? "shape" : "placement"}
               aria-label={`${def.label} layout`}
             >
               {children}

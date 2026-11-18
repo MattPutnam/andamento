@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { gradientFill, grid, hexagonal, protoTileFill } from "@andamento/core";
+import { gradientFill, grid, herringbone, hexagonal, protoTileFill } from "@andamento/core";
 import { SvgCellImage, SvgTileLayout, TileLayout, coverStyle, neutralPalette } from "@andamento/react";
 
 // 3 x 2 grid of 100-unit cells, 10-unit gap.
@@ -218,6 +218,37 @@ describe("backdrop: one picture across all tiles", () => {
     expect(html).toMatch(/<clipPath id="[^"]*-backdrop">(<path [^>]*><\/path>){6}<\/clipPath>/);
     expect(html).not.toMatch(/<path d="[^"]*" fill=/);
     expect(html).toContain('href="a.jpg"'); // per-cell images still on top
+  });
+});
+
+describe("matching children to tile shapes", () => {
+  it("puts each child in a tile of similar shape", () => {
+    // Herringbone: wide and tall bricks.
+    const bricks = { region: { x: 0, y: 0, width: 400, height: 300 }, tiling: herringbone({ length: 80, width: 40 }), edges: "inside" as const };
+    const html = renderToStaticMarkup(
+      <TileLayout options={bricks} aspects={[0.5, 2, 0.5, 2]} choose="shape">
+        <i>tall0</i>
+        <i>wide1</i>
+        <i>tall2</i>
+        <i>wide3</i>
+      </TileLayout>,
+    );
+    const placed = [...html.matchAll(/<div data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><i>(\w+)<\/i>/g)];
+    expect(placed).toHaveLength(4);
+    for (const m of placed) {
+      const w = Number(m[1]) * 4, h = Number(m[2]) * 3; // back to region units
+      expect(m[3]!.startsWith("wide")).toBe(w > h);
+    }
+    expect(html.match(/<i>/g)).toHaveLength(4);
+  });
+
+  it("matches images in SVG with imageAspects", () => {
+    const bricks = { region: { x: 0, y: 0, width: 400, height: 300 }, tiling: herringbone({ length: 80, width: 40 }), edges: "inside" as const };
+    const html = renderToStaticMarkup(<SvgTileLayout options={bricks} images={["w.jpg", "t.jpg"]} imageAspects={[2, 0.5]} choose="shape" />);
+    for (const m of html.matchAll(/<image href="(\w)\.jpg" x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)"/g)) {
+      expect(m[1] === "w").toBe(Number(m[2]) > Number(m[3]));
+    }
+    expect(html.match(/<image /g)).toHaveLength(2);
   });
 });
 

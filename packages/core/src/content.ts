@@ -56,6 +56,100 @@ export function contentSlots(layout: Layout, count: number, options: ContentOpti
   return out;
 }
 
+export interface MatchOptions extends ContentOptions {
+  /**
+   * Which cells get items:
+   * - "placement" (default): the same cells as without matching (`placement`); matching
+   *   only decides which item goes where among them.
+   * - "shape": the cells whose shapes suit the items best, wherever they are (portrait
+   *   photos into the vertical bricks of a herringbone, say). Ignores `placement`.
+   */
+  choose?: "placement" | "shape";
+}
+
+/**
+ * Like `contentSlots`, but puts each item in a cell of similar shape, so content shown with
+ * `object-fit: cover` loses as little as possible to cropping. `aspects` gives each item's
+ * width / height (one per item, in item order); a cell's shape is its bounding box, which
+ * is what content is laid out in.
+ *
+ * Featured cells still take the first items, in feature order. The rest are matched to
+ * minimise the total crop (measured as the difference in log aspect ratio, which is optimal
+ * to match by sorting both sides). Returns the item index per cell (by `cell.index`), or -1.
+ */
+export function matchSlots(layout: Layout, aspects: readonly number[], options: MatchOptions = {}): number[] {
+  const { cells = "all", choose = "placement" } = options;
+  const accept = cells === "all" ? () => true : cells === "whole" ? (c: Cell) => !c.boundary : cells;
+  const logAspect = (a: number) => (a > 0 && Number.isFinite(a) ? Math.log(a) : 0);
+  const cellLog = (c: Cell) => logAspect(c.bbox.width / (c.bbox.height || 1));
+
+  // Featured cells and (for "placement") the cells to use come from contentSlots.
+  const base = contentSlots(layout, aspects.length, options);
+  const out: number[] = new Array(layout.cells.length).fill(-1);
+  const featured = layout.cells.filter((c) => c.featured !== undefined && base[c.index]! >= 0 && base[c.index]! < aspects.length);
+  let f = 0;
+  for (const c of featured) {
+    out[c.index] = base[c.index]!;
+    f = Math.max(f, base[c.index]! + 1);
+  }
+
+  let pool: Cell[];
+  if (choose === "shape") pool = layout.cells.filter((c) => out[c.index] === -1 && accept(c));
+  else pool = layout.cells.filter((c) => out[c.index] === -1 && base[c.index]! >= 0);
+  // Items beyond the cells available stay out, as with contentSlots: the first ones are kept.
+  const k = Math.min(aspects.length - f, pool.length);
+  if (k <= 0) return out;
+  const items = Array.from({ length: k }, (_, i) => f + i).sort((a, b) => logAspect(aspects[a]!) - logAspect(aspects[b]!) || a - b);
+  const sorted = [...pool].sort((a, b) => cellLog(a) - cellLog(b) || a.index - b.index);
+
+  let picked: Cell[];
+  if (k === sorted.length) picked = sorted;
+  else picked = bestSubset(items.map((i) => logAspect(aspects[i]!)), sorted.map(cellLog)).map((j) => sorted[j]!);
+  items.forEach((item, i) => (out[picked[i]!.index] = item));
+  return out;
+}
+
+/**
+ * Choose `a.length` of the (sorted) values `c` to pair, in order, with the (sorted) values
+ * `a`, minimising the total |a - c|. Order-preserving pairings are optimal for this cost,
+ * so a dynamic program over (items, cells) finds the best. Returns the chosen indices of `c`.
+ */
+function bestSubset(a: number[], c: number[]): number[] {
+  const n = a.length, m = c.length;
+  // take bit (i, j): item i-1 pairs with cell j-1 in the best solution of the subproblem.
+  const take = new Uint8Array(Math.ceil((n * (m + 1)) / 8) + 1);
+  const setBit = (i: number, j: number) => {
+    const b = (i - 1) * (m + 1) + j;
+    take[b >> 3]! |= 1 << (b & 7);
+  };
+  const bit = (i: number, j: number) => {
+    const b = (i - 1) * (m + 1) + j;
+    return (take[b >> 3]! >> (b & 7)) & 1;
+  };
+  let prev = new Float64Array(m + 1); // row i - 1 (row 0: no items, cost 0)
+  let cur = new Float64Array(m + 1);
+  for (let i = 1; i <= n; i++) {
+    cur.fill(Infinity, 0, i);
+    for (let j = i; j <= m; j++) {
+      const skip = cur[j - 1]!;
+      const pair = prev[j - 1]! + Math.abs(a[i - 1]! - c[j - 1]!);
+      if (pair <= skip) {
+        cur[j] = pair;
+        setBit(i, j);
+      } else cur[j] = skip;
+    }
+    [prev, cur] = [cur, prev];
+  }
+  const chosen: number[] = [];
+  for (let i = n, j = m; i > 0; j--) {
+    if (bit(i, j)) {
+      chosen.push(j - 1);
+      i--;
+    }
+  }
+  return chosen.reverse();
+}
+
 function nearestToCenter(layout: Layout, cells: Cell[], n: number): Cell[] {
   const mid = centroid(layout.region);
   const d = (c: Cell) => (c.centroid.x - mid.x) ** 2 + (c.centroid.y - mid.y) ** 2;
