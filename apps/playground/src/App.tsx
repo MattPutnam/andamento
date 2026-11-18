@@ -328,6 +328,8 @@ export function App() {
     Object.fromEntries(Object.entries(TILINGS).map(([k, d]) => [k, { ...d.defaults }])) as Record<PlaygroundTiling, Record<string, number | string>>,
   );
   const [wall, setWall] = useState({ width: 240, height: 150 });
+  // A wall 15 times taller than wide, in a scrolling box: only the tiles in view are mounted.
+  const [longWall, setLongWall] = useState(false);
   const [shape, setShape] = useState<RegionShape>("rectangle");
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
   const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
@@ -358,7 +360,8 @@ export function App() {
   const def = TILINGS[type];
   const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
   const options: LayoutOptions = {
-    region: regionShape(shape, wall.width, wall.height),
+    region: regionShape(shape, wall.width, longWall ? wall.width * 15 : wall.height),
+    ...(longWall ? { maxTiles: 60000 } : {}),
     ...(holeSet !== "none" ? { holes: holesFor(holeSet, wall.width, wall.height) } : {}),
     ...(featureTiles > 0 ? { features: [{ tiles: featureTiles }] } : {}),
     tiling,
@@ -478,7 +481,11 @@ export function App() {
         <section>
           <h2>Region</h2>
           <Slider label="Width" min={50} max={500} step={5} value={wall.width} onChange={(v) => setWall({ ...wall, width: v })} />
-          <Slider label="Height" min={50} max={400} step={5} value={wall.height} onChange={(v) => setWall({ ...wall, height: v })} />
+          {!longWall && <Slider label="Height" min={50} max={400} step={5} value={wall.height} onChange={(v) => setWall({ ...wall, height: v })} />}
+          <label className="row">
+            <span>Long scrolling wall (virtualised)</span>
+            <input type="checkbox" checked={longWall} onChange={(e) => setLongWall(e.target.checked)} />
+          </label>
           <label className="row">
             <span>Shape</span>
             <select value={shape} onChange={(e) => setShape(e.target.value as RegionShape)}>
@@ -705,7 +712,7 @@ export function App() {
             Download PNG
           </button>
         </div>
-        <div className="canvas">
+        <div className={longWall ? "canvas scroll" : "canvas"}>
           {layout && (
             <TileLayout
               layout={layout}
@@ -713,6 +720,7 @@ export function App() {
               relief={relief}
               navigable
               animate={animateChanges}
+              virtualize={longWall}
               cellLabel={(_cell, s) => (content === "photos" ? `Photo ${s.slot + 1}` : content === "cards" ? `Card ${s.slot + 1}: ${CARD_WORDS[s.slot % CARD_WORDS.length]}` : undefined)}
               onCellActivate={(_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`)}
               className={safe && content === "cards" ? "region show-safe" : "region"}

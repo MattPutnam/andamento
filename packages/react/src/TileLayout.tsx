@@ -19,15 +19,18 @@ import {
   backdropCss,
   cellCss,
   cellInDirection,
+  cellsInRect,
   contentSlots,
   matchSlots,
   regionCss,
   safeAreaCss,
+  screenToLayout,
   type Cell,
   type ContentCells,
   type ContentPlacement,
   type Layout,
   type LayoutOptions,
+  type Rect,
 } from "@andamento/core";
 import { cellPath, defaultBevel, neutralPalette, reliefPaths, resolveFills, shadowOffset, type FillSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
@@ -146,6 +149,15 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * `{ duration, easing }`.
    */
   animate?: boolean | { duration?: number; easing?: string };
+  /**
+   * Mount only the tiles in view (plus `overscan` pixels round it, default 300), for
+   * layouts with thousands of tiles. Tiles mount and unmount as the page or any scrolling
+   * container scrolls, or the layout resizes. Keyboard navigation still reaches every
+   * tile (the focused one stays mounted and is scrolled to), and list items carry
+   * `aria-setsize` and `aria-posinset`. With `renderCell`, every cell `contentCells`
+   * allows counts as having content. On the server no tiles are rendered.
+   */
+  virtualize?: boolean | { overscan?: number };
   /** Content for empty tiles. */
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
@@ -186,6 +198,7 @@ export function TileLayout(props: TileLayoutProps) {
     cellLabel,
     focusRing = "#1a56db",
     animate,
+    virtualize,
     fallback,
     cellClassName,
     cellStyle,
@@ -211,32 +224,51 @@ export function TileLayout(props: TileLayoutProps) {
   const fills = useMemo(() => resolveFills(layout, fill), [layout, fill]);
   const relief = reliefProp === true ? {} : reliefProp || undefined;
   const reliefKey = relief ? JSON.stringify(relief) : "";
-  const bevels = useMemo(() => {
-    if (!relief) return undefined;
-    const bevel = relief.bevel ?? defaultBevel(layout);
-    return bevel > 0 ? layout.cells.map((c) => reliefPaths(layout, c, relief, bevel)) : undefined;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, reliefKey]);
+  // Bevels are worked out per tile as it's first drawn (and kept), not for every tile up front.
+  const bevelCache = useMemo(() => new Map<number, ReturnType<typeof reliefPaths>>(), [layout, reliefKey]);
+  const bevelWidth = useMemo(() => (relief ? (relief.bevel ?? defaultBevel(layout)) : 0), [layout, reliefKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bevelFor = (i: number) => {
+    if (!relief || bevelWidth <= 0) return undefined;
+    let b = bevelCache.get(i);
+    if (!b) bevelCache.set(i, (b = reliefPaths(layout, layout.cells[i]!, relief, bevelWidth)));
+    return b;
+  };
   const cast = relief && shadowOffset(relief);
 
-  // What each tile holds, worked out before rendering so navigation knows which have content.
-  const entries = layout.cells.map((cell, i) => {
+  // Key by child where possible, so a child keeps its state (video position, inputs,
+  // animations) when the layout changes underneath it.
+  const keyOf = (i: number): Key => {
+    const slot = slots[i]!;
+    if (!renderCell && slot >= 0) {
+      const child = items[slot];
+      return isValidElement(child) && child.key != null ? `child:${child.key}` : `child:${slot}`;
+    }
+    return `cell:${layout.cells[i]!.id}`;
+  };
+  // What a tile holds.
+  const makeEntry = (i: number) => {
+    const cell = layout.cells[i]!;
     const slot = slots[i]!;
     let content: ReactNode = null;
-    // Key by child where possible, so a child keeps its state (video position,
-    // inputs, animations) when the layout changes underneath it.
-    let key: Key = `cell:${cell.id}`;
     if (renderCell) content = renderCell(cell, { slot });
-    else if (slot >= 0) {
-      const child = items[slot];
-      content = child;
-      key = isValidElement(child) && child.key != null ? `child:${child.key}` : `child:${slot}`;
-    }
+    else if (slot >= 0) content = items[slot];
     const empty = isEmpty(content);
     const state: CellState = { empty, slot: empty && !renderCell ? -1 : slot };
     if (empty) content = resolve(fallback, cell, state);
-    return { cell, content, key, empty, state };
-  });
+    return { i, cell, content, key: keyOf(i), empty, state };
+  };
+
+  // Virtualisation: the part of the layout in view, in layout units (null until measured).
+  const virtual = !!virtualize;
+  const overscan = Math.max(0, (typeof virtualize === "object" ? virtualize.overscan : undefined) ?? 300);
+  const container = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<Rect | null>(null);
+  // Without virtualisation, every tile's entry is worked out before rendering, so navigation
+  // knows which have content. With it, only the tiles in view are; whether others have
+  // content is judged without rendering them.
+  const allEntries = virtual ? undefined : layout.cells.map((_, i) => makeEntry(i));
+  const hasContent = (i: number) =>
+    allEntries ? !allEntries[i]!.empty : renderCell ? slots[i]! >= 0 : slots[i]! >= 0 && !isEmpty(items[slots[i]!]);
 
   // Animation: transitions on each tile's box and clip path (resampled to a fixed number of
   // points so shapes can morph), and enter / exit animations for tiles that come and go.
@@ -255,20 +287,46 @@ export function TileLayout(props: TileLayoutProps) {
   const lastTiles = useRef(new Map<Key, ReactElement>());
   const [exiting, setExiting] = useState(() => new Map<Key, ReactElement>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  for (const e of entries) if (anim && mounted.current && !lastKeys.current.has(e.key)) entering.current.add(e.key);
 
   // Roving tabindex: one tile is the tab stop; arrow keys move it.
-  const focusable = new Set(navigable ? entries.filter((e) => !e.empty).map((e) => e.cell.id) : []);
+  const focusable = new Set(navigable ? layout.cells.filter((c) => hasContent(c.index)).map((c) => c.id) : []);
   const [activeId, setActiveId] = useState<string>();
-  const firstFocusable = entries.find((e) => focusable.has(e.cell.id))?.cell.id;
+  const firstFocusable = layout.cells.find((c) => focusable.has(c.id))?.id;
   const active = activeId !== undefined && focusable.has(activeId) ? activeId : firstFocusable;
   const tiles = useRef(new Map<string, HTMLDivElement>());
+  const pendingFocus = useRef<string>();
   const list = (role ?? "list") === "list";
+
+  // The tiles to render: all of them, or those in view plus the tab stop (so Tab finds it).
+  let entries: ReturnType<typeof makeEntry>[];
+  if (allEntries) entries = allEntries;
+  else {
+    const shown = new Set(view && view.width >= 0 ? cellsInRect(layout, view).map((c) => c.index) : []);
+    const activeCell = active !== undefined ? layout.cells.find((c) => c.id === active) : undefined;
+    if (activeCell) shown.add(activeCell.index);
+    entries = [...shown].sort((a, b) => a - b).map(makeEntry);
+  }
+  // List positions, as screen readers can't count tiles that aren't there.
+  const positions = useMemo(() => {
+    if (!virtual) return undefined;
+    const pos = new Map<number, number>();
+    for (const c of layout.cells) if (hasContent(c.index)) pos.set(c.index, pos.size + 1);
+    return pos;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [virtual, layout, slots, items.length, !renderCell]);
+
+  // Animation bookkeeping uses every tile's key, so tiles scrolling in and out of view
+  // don't count as coming and going.
+  const allKeys = anim ? new Set(layout.cells.map((_, i) => keyOf(i))) : undefined;
+  for (const e of entries) if (anim && mounted.current && !lastKeys.current.has(e.key)) entering.current.add(e.key);
 
   const moveTo = (cell: Cell | undefined) => {
     if (!cell) return false;
     setActiveId(cell.id);
-    tiles.current.get(cell.id)?.focus();
+    const el = tiles.current.get(cell.id);
+    // A tile out of view isn't mounted yet: focus it once it is.
+    if (el) el.focus();
+    else pendingFocus.current = cell.id;
     return true;
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -278,7 +336,7 @@ export function TileLayout(props: TileLayoutProps) {
     const entry = entries.find((x) => tiles.current.get(x.cell.id) === e.target);
     if (!entry || !focusable.has(entry.cell.id)) return;
     const accept = (c: Cell) => focusable.has(c.id);
-    const ordered = entries.filter((x) => accept(x.cell));
+    const ordered = layout.cells.filter(accept).map((cell) => ({ cell }));
     let handled = false;
     switch (e.key) {
       case "ArrowUp": handled = moveTo(cellInDirection(layout, entry.cell, "up", accept)); break;
@@ -299,8 +357,9 @@ export function TileLayout(props: TileLayoutProps) {
     if (handled || e.key.startsWith("Arrow")) e.preventDefault();
   };
 
-  const rendered = entries.map(({ cell, content, key, empty, state }, i) => {
+  const rendered = entries.map(({ i, cell, content, key, empty, state }) => {
         const slot = slots[i]!;
+        const bevel = bevelFor(i);
         const css = cellCss(cell, layout, 4, anim ? { points: MORPH_POINTS } : {});
         // Tiles with nothing in them are decoration: hidden from assistive technology.
         const silent = empty && isEmpty(content);
@@ -315,6 +374,8 @@ export function TileLayout(props: TileLayoutProps) {
             role={silent ? undefined : list ? "listitem" : undefined}
             aria-hidden={silent ? true : undefined}
             aria-label={silent ? undefined : resolve(cellLabel, cell, state)}
+            aria-setsize={positions && list && !silent ? positions.size : undefined}
+            aria-posinset={positions && list && !silent ? positions.get(i) : undefined}
             tabIndex={canFocus ? (cell.id === active ? 0 : -1) : undefined}
             onFocus={canFocus ? (e) => e.target === e.currentTarget && setActiveId(cell.id) : undefined}
             onClick={onCellActivate && !empty ? () => onCellActivate(cell, state) : undefined}
@@ -358,7 +419,7 @@ export function TileLayout(props: TileLayoutProps) {
             ) : (
               content
             )}
-            {bevels && bevels[i]!.length > 0 && (
+            {bevel && bevel.length > 0 && (
               // Over the content; the tile's box is its bounding box, so map that to the viewBox.
               // When animating, the bevel is for the new shape, so it fades in as the tile arrives.
               <svg
@@ -370,7 +431,7 @@ export function TileLayout(props: TileLayoutProps) {
                 preserveAspectRatio="none"
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
               >
-                {bevels[i]!.map((p, k) => (
+                {bevel.map((p, k) => (
                   <path key={k} d={p.d} fill={p.fill} fillOpacity={p.opacity} />
                 ))}
               </svg>
@@ -395,8 +456,9 @@ export function TileLayout(props: TileLayoutProps) {
   // After each commit: tiles that just went away stay a moment to fade out.
   useIsomorphicLayoutEffect(() => {
     const current = new Map<Key, ReactElement>(rendered.map((el) => [el.key!, el]));
+    const present = allKeys ?? current;
     if (anim && mounted.current) {
-      const gone = [...lastTiles.current].filter(([k]) => !current.has(k));
+      const gone = [...lastTiles.current].filter(([k]) => !present.has(k));
       if (gone.length) {
         setExiting((prev) => new Map([...prev, ...gone]));
         const timer = setTimeout(() => {
@@ -410,11 +472,60 @@ export function TileLayout(props: TileLayoutProps) {
         timers.current.add(timer);
       }
     }
-    for (const k of entering.current) if (!current.has(k)) entering.current.delete(k);
-    lastKeys.current = new Set(current.keys());
+    for (const k of entering.current) if (!present.has(k)) entering.current.delete(k);
+    lastKeys.current = new Set(present.keys());
     lastTiles.current = current;
     mounted.current = true;
+    if (pendingFocus.current) {
+      const el = tiles.current.get(pendingFocus.current);
+      if (el) {
+        pendingFocus.current = undefined;
+        el.focus();
+      }
+    }
   });
+
+  // Virtualisation: measure what's in view, again on scroll (of the page or any container)
+  // and resize, at most once a frame. The visible part is widened by the overscan and
+  // snapped outwards to a coarse grid, so small scrolls don't re-render.
+  useIsomorphicLayoutEffect(() => {
+    if (!virtual) return;
+    const el = container.current;
+    if (!el) return;
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f: () => void) => setTimeout(f, 16) as unknown as number;
+    const cancel = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : (h: number) => clearTimeout(h);
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const box = el.getBoundingClientRect();
+      const seen = visibleClientRect(el, box);
+      const scale = Math.min(box.width / (bounds.width || 1), box.height / (bounds.height || 1));
+      if (!seen || !(scale > 0)) {
+        setView((v) => (v && v.width < 0 ? v : { x: 0, y: 0, width: -1, height: -1 }));
+        return;
+      }
+      const a = screenToLayout(layout, box, seen.left - overscan, seen.top - overscan);
+      const b = screenToLayout(layout, box, seen.right + overscan, seen.bottom + overscan);
+      const q = Math.max(overscan / 2, 50) / scale;
+      const x0 = Math.floor(a.x / q) * q, y0 = Math.floor(a.y / q) * q;
+      const next = { x: x0, y: y0, width: Math.ceil(b.x / q) * q - x0, height: Math.ceil(b.y / q) * q - y0 };
+      setView((v) => (v && v.x === next.x && v.y === next.y && v.width === next.width && v.height === next.height ? v : next));
+    };
+    const schedule = () => {
+      if (!frame) frame = raf(measure);
+    };
+    measure();
+    window.addEventListener("scroll", schedule, { capture: true, passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : undefined;
+    observer?.observe(el);
+    return () => {
+      if (frame) cancel(frame);
+      window.removeEventListener("scroll", schedule, { capture: true });
+      window.removeEventListener("resize", schedule);
+      observer?.disconnect();
+    };
+  }, [virtual, layout, overscan]);
   useEffect(() => {
     const set = timers.current;
     return () => set.forEach(clearTimeout);
@@ -426,6 +537,7 @@ export function TileLayout(props: TileLayoutProps) {
   return (
     <div
       data-andamento=""
+      ref={container}
       role={role ?? "list"}
       {...rest}
       onKeyDown={handleKeyDown}
@@ -451,7 +563,7 @@ export function TileLayout(props: TileLayoutProps) {
             <feGaussianBlur stdDeviation={cast.blur} />
           </filter>
           <path
-            d={layout.cells.map((c) => cellPath(layout, c)).join("")}
+            d={entries.map((e) => cellPath(layout, e.cell)).join("")}
             fillRule="evenodd"
             transform={`translate(${cast.dx} ${cast.dy})`}
             fill="#000"
@@ -481,6 +593,28 @@ export function TileLayout(props: TileLayoutProps) {
       )}
     </div>
   );
+}
+
+/**
+ * The part of `el` (whose box is `box`) visible on screen: within the window and every
+ * ancestor that clips its overflow. Undefined when none of it is.
+ */
+function visibleClientRect(el: Element, box: DOMRect) {
+  let left = Math.max(box.left, 0);
+  let top = Math.max(box.top, 0);
+  let right = Math.min(box.right, window.innerWidth || document.documentElement.clientWidth);
+  let bottom = Math.min(box.bottom, window.innerHeight || document.documentElement.clientHeight);
+  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll|hidden|clip)/.test(`${s.overflow} ${s.overflowX} ${s.overflowY}`)) {
+      const r = p.getBoundingClientRect();
+      left = Math.max(left, r.left);
+      top = Math.max(top, r.top);
+      right = Math.min(right, r.right);
+      bottom = Math.min(bottom, r.bottom);
+    }
+  }
+  return right > left && bottom > top ? { left, top, right, bottom } : undefined;
 }
 
 /** Clip paths get this many points when animating, so any two tile shapes can morph. */

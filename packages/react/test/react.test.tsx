@@ -330,6 +330,14 @@ describe("animate on the server", () => {
   });
 });
 
+describe("virtualize on the server", () => {
+  it("renders the sized container but no tiles", () => {
+    const html = renderToStaticMarkup(<TileLayout options={options} virtualize><b>a</b></TileLayout>);
+    expect(html).toContain("aspect-ratio:300 / 200");
+    expect(cells(html)).toBe(0);
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);

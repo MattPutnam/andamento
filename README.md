@@ -181,6 +181,35 @@ core), which is what lets CSS morph between any two shapes. Cells with holes swi
 without morphing. Animation is off for users who prefer reduced motion. Static SVG output
 doesn't animate.
 
+#### Virtualisation
+
+```tsx
+<TileLayout options={{ region: { x: 0, y: 0, width: 2000, height: 40000 }, tiling }} virtualize>
+  {thousandsOfPhotos}
+</TileLayout>
+```
+
+With `virtualize`, only the tiles in view are mounted, so layouts with thousands of tiles stay
+quick. "In view" means within the window and any scrolling container, plus `overscan` pixels
+round it (`virtualize={{ overscan: 600 }}`; default 300). Tiles mount and unmount as you
+scroll or the layout resizes, checked at most once a frame. The view is measured in coarse
+steps, so small scrolls don't re-render. Hit testing's spatial index finds the tiles in view.
+
+Everything else keeps working:
+- **Keyboard:** navigation reaches every tile. The tab stop stays mounted, and moving to a tile
+  out of view mounts it, focuses it and scrolls to it.
+- **Screen readers:** list items carry `aria-setsize` and `aria-posinset`, because they can't
+  count tiles that aren't there.
+- **Animation:** tiles scrolling in and out don't play the enter and exit animations.
+- **Relief:** bevels are worked out per tile as it's first shown, and cast shadows for the
+  tiles mounted.
+
+Two limits:
+- **`renderCell`:** it's only called for tiles in view, so every cell `contentCells` allows
+  counts as having content.
+- **Server rendering:** it renders the sized container without tiles, which appear once the
+  page measures the view.
+
 #### Hit testing
 
 ```tsx
