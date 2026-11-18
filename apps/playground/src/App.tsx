@@ -333,6 +333,7 @@ export function App() {
   const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
   const [mosaicPalette, setMosaicPalette] = useState(false);
   const [matchShapes, setMatchShapes] = useState<"off" | "placement" | "shape">("off");
+  const [safe, setSafe] = useState(false);
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -384,7 +385,8 @@ export function App() {
   // "Mosaic": each tile takes the average color of the picture under it.
   const mosaic = useImageFill(content === "mosaic" ? picture : undefined, { palette: mosaicPalette ? MOSAIC_PALETTE : undefined });
   // Photo shapes, for matching photos to tile shapes.
-  const photoAspects = useImageAspects(content === "photos" && matchShapes !== "off" ? photos : undefined);
+  // Also with safe areas, so each photo's box has its shape and shows it whole.
+  const photoAspects = useImageAspects(content === "photos" && (matchShapes !== "off" || safe) ? photos : undefined);
   const cellFill = content === "colors" ? defaultPalette : content === "mosaic" ? (mosaic ?? neutralPalette) : EMPTY_FILLS[emptyFill];
   const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
@@ -396,7 +398,8 @@ export function App() {
     if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
     if (content === "cards")
       return (
-        <div key={i} className="card" style={{ background: colorOf(i) }}>
+        // With safe areas the tile carries the color (cellStyle) and the card only the text.
+        <div key={i} className="card" style={{ background: safe ? undefined : colorOf(i) }}>
           <strong>{i + 1}</strong>
           <span>{CARD_WORDS[i % CARD_WORDS.length]}</span>
         </div>
@@ -428,7 +431,8 @@ export function App() {
     if (!layout) return;
     const svg = renderToString(layout, {
       images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
-      imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : undefined,
+      imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : safe ? photoAspects : undefined,
+      imageFit: safe ? "contain" : "cover",
       choose: matchShapes === "shape" ? "shape" : "placement",
       repeatImages: itemCount === 0,
       contentCells,
@@ -592,6 +596,10 @@ export function App() {
                   <option value="whole">Whole tiles only</option>
                 </select>
               </label>
+              <label className="row">
+                <span>Keep inside tile shapes</span>
+                <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
+              </label>
               {itemCount > 0 && (
                 <label className="row">
                   <span>Fit tiles to items</span>
@@ -658,7 +666,7 @@ export function App() {
             <TileLayout
               layout={layout}
               background={background}
-              className="region"
+              className={safe && content === "cards" ? "region show-safe" : "region"}
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
               cellClassName="tile"
               contentCells={contentCells}
@@ -666,6 +674,8 @@ export function App() {
               fill={cellFill}
               backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
               aspects={childAspects}
+              safeArea={safe}
+              cellStyle={safe && content === "cards" ? (_cell, s) => (s.slot >= 0 ? { background: colorOf(s.slot) } : {}) : undefined}
               choose={matchShapes === "shape" ? "shape" : "placement"}
               aria-label={`${def.label} layout`}
             >

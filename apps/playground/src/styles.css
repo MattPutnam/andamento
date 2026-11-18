@@ -55,6 +55,7 @@ select { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid 
 .card strong { font-size: clamp(10px, 28cqmin, 40px); line-height: 1; }
 .card span { font-size: clamp(8px, 11cqmin, 16px); opacity: 0.75; }
 .tile:hover .card { filter: brightness(1.08); }
+.show-safe [data-safe-area] { outline: 1px dashed rgba(0, 0, 0, 0.35); outline-offset: -1px; }
 .code { margin: 0 20px 16px; font-size: 12px; color: var(--muted); }
 .code pre { max-height: 200px; overflow: auto; background: var(--panel); padding: 10px; border-radius: 8px; }
 @media (max-width: 760px) {

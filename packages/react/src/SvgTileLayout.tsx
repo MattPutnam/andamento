@@ -1,5 +1,5 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
-import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
+import { safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import { cellPath, regionPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
@@ -31,6 +31,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   imageAspects?: readonly number[];
   /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
   choose?: "placement" | "shape";
+  /**
+   * "cover" (default) fills each cell's bounding box, cropped to its shape; "contain" shows
+   * each image whole inside the cell's safe area (see `safeArea`), at its `imageAspects` shape.
+   */
+  imageFit?: "cover" | "contain";
   /**
    * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
    * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
@@ -68,6 +73,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     placement,
     imageAspects,
     choose,
+    imageFit,
     fit,
     fill,
     stroke,
@@ -127,7 +133,16 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
             <clipPath id={clipPathId}>
               <path d={d} clipRule="evenodd" />
             </clipPath>
-            {renderCell ? renderCell(cell, ctx) : <DefaultCell cell={cell} ctx={ctx} noFill={!!backdrop} />}
+            {renderCell ? renderCell(cell, ctx) : <DefaultCell
+                cell={cell}
+                ctx={ctx}
+                noFill={!!backdrop}
+                box={
+                  imageFit === "contain" && style.image
+                    ? safeArea(cell, layout, { aspect: imageAspects && style.slot >= 0 ? imageAspects[style.slot] : undefined })
+                    : undefined
+                }
+              />}
             {stroke && <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />}
           </g>
         );
@@ -136,11 +151,11 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   );
 }
 
-function DefaultCell({ cell, ctx, noFill }: { cell: Cell; ctx: SvgCellRenderContext; noFill: boolean }) {
+function DefaultCell({ cell, ctx, noFill, box }: { cell: Cell; ctx: SvgCellRenderContext; noFill: boolean; box?: Rect }) {
   return (
     <>
       {!noFill && <path d={ctx.path} fill={ctx.fill} fillRule="evenodd" />}
-      {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} />}
+      {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} box={box} />}
     </>
   );
 }
@@ -150,18 +165,27 @@ export interface SvgCellImageProps extends Omit<SVGProps<SVGImageElement>, "href
   href: string;
   /** Pass `ctx.clipPath` from `renderCell`. */
   clipPath: string;
+  /**
+   * Draw the image whole inside this box (e.g. `safeArea(cell, layout)`) instead of
+   * covering the cell.
+   */
+  box?: Rect;
 }
 
-/** An SVG <image> that covers the cell (like CSS `object-fit: cover`), clipped to its shape. */
-export function SvgCellImage({ cell, href, clipPath, ...rest }: SvgCellImageProps) {
+/**
+ * An SVG <image> that covers the cell (like CSS `object-fit: cover`), clipped to its shape;
+ * or, with `box`, shown whole inside the box (like `object-fit: contain`).
+ */
+export function SvgCellImage({ cell, href, clipPath, box, ...rest }: SvgCellImageProps) {
+  const b = box ?? cell.bbox;
   return (
     <image
       href={href}
-      x={cell.bbox.x}
-      y={cell.bbox.y}
-      width={cell.bbox.width}
-      height={cell.bbox.height}
-      preserveAspectRatio="xMidYMid slice"
+      x={b.x}
+      y={b.y}
+      width={b.width}
+      height={b.height}
+      preserveAspectRatio={box ? "xMidYMid meet" : "xMidYMid slice"}
       clipPath={clipPath}
       {...rest}
     />

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { createLayout, grid } from "@andamento/core";
+import { createLayout, grid, hexagonal } from "@andamento/core";
 import { polygonToPath, renderToElement, renderToString } from "@andamento/svg";
 
 const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 10 });
@@ -60,5 +60,17 @@ describe("svg backdrop", () => {
     expect(svg.indexOf("andamento-region")).toBeLessThan(svg.indexOf("andamento-backdrop"));
     expect(svg).not.toMatch(/<path d="[^"]*" fill="#[0-9a-f]+"\/>/);
     expect(renderToString(layout, { idPrefix: "t" })).toMatch(/<path d="[^"]*" fill="#[0-9a-f]+"\/>/);
+  });
+});
+
+describe("svg imageFit", () => {
+  it("draws images whole in the cells' safe areas", () => {
+    const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: hexagonal({ size: 40 }), edges: "inside" });
+    const cover = renderToString(layout, { images: ["a.jpg"] });
+    expect(cover).toContain('preserveAspectRatio="xMidYMid slice"');
+    const svg = renderToString(layout, { images: ["a.jpg", "b.jpg"], imageAspects: [2, 0.5], imageFit: "contain" });
+    const images = [...svg.matchAll(/<image href="(\w)\.jpg" x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)" preserveAspectRatio="xMidYMid meet"/g)];
+    expect(images).toHaveLength(2);
+    for (const m of images) expect(Number(m[2]) / Number(m[3])).toBeCloseTo(m[1] === "a" ? 2 : 0.5, 1);
   });
 });

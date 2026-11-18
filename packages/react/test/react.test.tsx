@@ -252,6 +252,49 @@ describe("matching children to tile shapes", () => {
   });
 });
 
+describe("safe areas", () => {
+  const hexes = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: hexagonal({ size: 40 }), edges: "inside" as const };
+
+  it("puts content in a box inside the tile shape", () => {
+    const plain = renderToStaticMarkup(<TileLayout options={hexes}><p>a</p></TileLayout>);
+    expect(plain).not.toContain("data-safe-area");
+    const html = renderToStaticMarkup(
+      <TileLayout options={hexes} safeArea fallback={<span>empty</span>}>
+        <p>a</p>
+      </TileLayout>,
+    );
+    const boxes = [...html.matchAll(/<div data-safe-area="" style="position:absolute;box-sizing:border-box;left:([\d.]+)%;top:([\d.]+)%;width:([\d.]+)%;height:([\d.]+)%">/g)];
+    // The child and every fallback get a box narrower than the hexagon's bounding box.
+    expect(boxes.length).toBe(cells(html));
+    for (const [, left, , width] of boxes) {
+      expect(Number(left)).toBeGreaterThan(0);
+      expect(Number(width)).toBeLessThan(100);
+    }
+    expect(html).toMatch(/data-safe-area[^>]*><p>a<\/p>/);
+    // Every tile, the one with content too, shows its fill around the box.
+    expect(html.match(/background:#/g)).toHaveLength(cells(html));
+  });
+
+  it("gives each child its own shape with aspects", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={hexes} safeArea aspects={[2]}>
+        <p>a</p>
+      </TileLayout>,
+    );
+    const outer = html.match(/<div data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><div data-safe-area="" style="[^"]*width:([\d.]+)%;height:([\d.]+)%">/)!;
+    const [cw, ch, w, h] = outer.slice(1).map(Number) as [number, number, number, number];
+    // Back to region units: cell box = cw% of 300 by ch% of 200; inner box is a % of that.
+    const width = ((cw * 3) * w) / 100, height = ((ch * 2) * h) / 100;
+    expect(width / height).toBeCloseTo(2, 2);
+  });
+
+  it("draws SVG images whole inside the safe area with imageFit contain", () => {
+    const html = renderToStaticMarkup(<SvgTileLayout options={hexes} images={["a.jpg"]} imageAspects={[1.5]} imageFit="contain" />);
+    const m = html.match(/<image href="a.jpg" x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)" preserveAspectRatio="xMidYMid meet"/)!;
+    expect(Number(m[1]) / Number(m[2])).toBeCloseTo(1.5, 3);
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);

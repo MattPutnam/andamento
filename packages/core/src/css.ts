@@ -1,6 +1,7 @@
 import type { Polygon, Rect } from "./geometry";
 import { roundedPolygon } from "./rounding";
 import type { Cell, Layout } from "./layout";
+import { safeArea, type SafeAreaOptions } from "./safe";
 
 /**
  * CSS placement for one cell, as percentages of the layout bounds, so the result
@@ -75,6 +76,23 @@ export function backdropCss(cell: Cell, layout: Layout, precision = 4): Omit<Cel
     top: pct(((bounds.y - b.y) / h) * 100, precision),
     width: pct((bounds.width / w) * 100, precision),
     height: pct((bounds.height / h) * 100, precision),
+  };
+}
+
+/**
+ * Placement, inside a cell's element (as positioned by `cellCss`), of the cell's safe area
+ * (see `safeArea`): the largest rectangle that isn't clipped by the tile's shape.
+ */
+export function safeAreaCss(cell: Cell, layout: Layout, options: SafeAreaOptions = {}, precision = 4): Omit<CellCss, "clipPath"> {
+  const b = cell.bbox;
+  const s = safeArea(cell, layout, options);
+  const w = b.width || 1;
+  const h = b.height || 1;
+  return {
+    left: pct(((s.x - b.x) / w) * 100, precision),
+    top: pct(((s.y - b.y) / h) * 100, precision),
+    width: pct((s.width / w) * 100, precision),
+    height: pct((s.height / h) * 100, precision),
   };
 }
 

@@ -83,6 +83,28 @@ what content is laid out in.
 same for `images`, and `matchSlots(layout, aspects, { cells, placement, choose })` in core
 returns the item per cell. Children's order no longer follows reading order when matching.
 
+#### Keeping content out of clipped corners
+
+```tsx
+<TileLayout options={{ region, tiling: hexagonal({ size: 60 }) }} safeArea>
+  {labels.map((t) => <p key={t} style={{ margin: 0, height: "100%", display: "grid", placeItems: "center" }}>{t}</p>)}
+</TileLayout>
+```
+
+Content normally fills a tile's bounding box and is clipped to the tile's shape, so text in a
+triangle or hexagon loses its corners. With `safeArea`, each tile's content goes in a box at
+the tile's *safe area*: the largest rectangle that fits inside its shape (holes and rounded
+corners included), centred where it could slide. Add `aspects` and each child's box has the
+child's own shape, so a photo or card shows whole and uncropped, as big as the tile allows.
+The box has `data-safe-area`, and every tile shows its `fill` around it.
+
+For SVG, `imageFit: "contain"` (on `<SvgTileLayout>` or `renderToString`) draws each image
+whole inside its cell's safe area, at its `imageAspects` shape. In core,
+`safeArea(cell, layout, { aspect })` returns the rectangle in layout units and
+`safeAreaCss(cell, layout, { aspect })` places it inside the cell's element. It works for
+any shape, convex or not, and is cached per cell; without `aspect` it finds the
+largest-area rectangle of any shape.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:

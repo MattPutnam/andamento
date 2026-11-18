@@ -1,4 +1,4 @@
-import { contentSlots, matchSlots, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
+import { contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
@@ -23,6 +23,12 @@ export interface RenderOptions {
    * similar shape, to crop as little as possible (see `matchSlots`). Ignored with `repeatImages`.
    */
   imageAspects?: readonly number[];
+  /**
+   * How each image fills its cell: "cover" (default) fills the cell's bounding box and is
+   * cropped to the cell's shape; "contain" shows the whole image inside the cell's safe area
+   * (see `safeArea`), uncropped. Give `imageAspects` so the safe area has each image's shape.
+   */
+  imageFit?: "cover" | "contain";
   /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
   choose?: "placement" | "shape";
   /**
@@ -181,14 +187,17 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
     if (style.image) {
       const clipId = `${prefix}-clip-${cell.index}`;
       parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));
+      const contain = opts.imageFit === "contain";
+      const aspect = contain && opts.imageAspects && style.slot >= 0 ? opts.imageAspects[style.slot % opts.imageAspects.length] : undefined;
+      const box = contain ? safeArea(cell, layout, { aspect }) : cell.bbox;
       parts.push(
         el("image", {
           href: style.image,
-          x: r(cell.bbox.x),
-          y: r(cell.bbox.y),
-          width: r(cell.bbox.width),
-          height: r(cell.bbox.height),
-          preserveAspectRatio: "xMidYMid slice",
+          x: r(box.x),
+          y: r(box.y),
+          width: r(box.width),
+          height: r(box.height),
+          preserveAspectRatio: contain ? "xMidYMid meet" : "xMidYMid slice",
           "clip-path": `url(#${clipId})`,
         }),
       );

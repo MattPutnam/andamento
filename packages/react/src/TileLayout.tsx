@@ -13,6 +13,7 @@ import {
   contentSlots,
   matchSlots,
   regionCss,
+  safeAreaCss,
   type Cell,
   type ContentCells,
   type ContentPlacement,
@@ -72,6 +73,15 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * first children. Missing entries count as square. Ignored with `renderCell`.
    */
   aspects?: readonly number[];
+  /**
+   * Keep content out of the tiles' clipped corners: each tile's content goes in a box at
+   * the tile's safe area (see `safeArea`), the largest rectangle that fits inside its shape,
+   * instead of filling the tile's bounding box. Useful for text in triangles or hexagons.
+   * With `aspects`, each child's box has the child's shape, so it shows whole and uncropped.
+   * The box has `data-safe-area`; style its contents to fill it. Tiles show `fill` around
+   * their content.
+   */
+  safeArea?: boolean;
   /** With `aspects`: "shape" also picks which tiles hold children by their shape, ignoring `placement`. */
   choose?: "placement" | "shape";
   /**
@@ -123,6 +133,7 @@ export function TileLayout(props: TileLayoutProps) {
     placement,
     aspects,
     choose,
+    safeArea,
     fill = neutralPalette,
     fit,
     backdrop,
@@ -189,7 +200,8 @@ export function TileLayout(props: TileLayoutProps) {
               boxSizing: "border-box",
               overflow: "hidden",
               ...css,
-              ...(empty && backdrop == null ? { background: fills[i] } : undefined),
+              // With safeArea, content no longer covers its tile, so every tile shows its fill.
+              ...((empty || safeArea) && backdrop == null ? { background: fills[i] } : undefined),
               ...resolve(cellStyle, cell, state),
             }}
           >
@@ -200,7 +212,20 @@ export function TileLayout(props: TileLayoutProps) {
                 {backdrop}
               </div>
             )}
-            {content}
+            {safeArea && content != null && !isEmpty(content) ? (
+              <div
+                data-safe-area=""
+                style={{
+                  position: "absolute",
+                  boxSizing: "border-box",
+                  ...safeAreaCss(cell, layout, { aspect: !renderCell && !empty && aspects ? (aspects[slot] ?? 1) : undefined }),
+                }}
+              >
+                {content}
+              </div>
+            ) : (
+              content
+            )}
           </div>
         );
       })}
