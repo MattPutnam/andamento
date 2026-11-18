@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import { safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
-import { cellPath, regionPath, resolveCellStyles, type FillSource, type ImageSource } from "@andamento/svg";
+import { cellPath, defaultBevel, regionPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
@@ -52,6 +52,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
    * cells. The default cell rendering then skips `fill`; per-cell `images` go on top.
    */
   backdrop?: string;
+  /**
+   * Raised tiles: a lit bevel over each cell, and optionally a shadow cast into the grout.
+   * `true` for the defaults. See `ReliefOptions`. Drawn over `renderCell` content too.
+   */
+  relief?: boolean | ReliefOptions;
   /** Replace the default cell rendering with SVG content. Rendered inside a <g> per cell. */
   renderCell?: (cell: Cell, ctx: SvgCellRenderContext) => ReactNode;
   /** Accessible title. */
@@ -80,6 +85,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     strokeWidth = 1,
     background,
     backdrop,
+    relief: reliefProp,
     renderCell,
     title,
     ...svgProps
@@ -92,6 +98,15 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     [layout, images, repeatImages, fill, contentCells, placement, imageAspects, choose],
   );
   const { x, y, width, height } = layout.bounds;
+  const relief = reliefProp === true ? {} : reliefProp || undefined;
+  const reliefKey = relief ? JSON.stringify(relief) : "";
+  const bevels = useMemo(() => {
+    if (!relief) return undefined;
+    const bevel = relief.bevel ?? defaultBevel(layout);
+    return bevel > 0 ? layout.cells.map((c) => reliefPaths(layout, c, relief, bevel)) : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, reliefKey]);
+  const cast = relief && shadowOffset(relief);
 
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={title ? "img" : undefined} {...svgProps}>
@@ -115,6 +130,24 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
             clipPath={`url(#${prefix}-backdrop)`}
           />
         </>
+      )}
+      {cast && (
+        <g className="andamento-shadow" clipPath={`url(#${prefix}-region)`}>
+          <clipPath id={`${prefix}-region`}>
+            <path d={regionPath(layout)} clipRule="evenodd" />
+          </clipPath>
+          <filter id={`${prefix}-shadow`} x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation={cast.blur} />
+          </filter>
+          <path
+            d={layout.cells.map((c) => cellPath(layout, c)).join("")}
+            fillRule="evenodd"
+            transform={`translate(${cast.dx} ${cast.dy})`}
+            fill="#000"
+            fillOpacity={cast.opacity}
+            filter={`url(#${prefix}-shadow)`}
+          />
+        </g>
       )}
       {layout.cells.map((cell, i) => {
         const d = cellPath(layout, cell);
@@ -143,6 +176,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
                     : undefined
                 }
               />}
+            {bevels?.[i]!.map((p, k) => <path key={k} className="andamento-bevel" d={p.d} fill={p.fill} fillOpacity={p.opacity} />)}
             {stroke && <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />}
           </g>
         );

@@ -1,6 +1,7 @@
 import {
   Children,
   isValidElement,
+  useId,
   useMemo,
   type CSSProperties,
   type HTMLAttributes,
@@ -20,7 +21,7 @@ import {
   type Layout,
   type LayoutOptions,
 } from "@andamento/core";
-import { neutralPalette, resolveFills, type FillSource } from "@andamento/svg";
+import { cellPath, defaultBevel, neutralPalette, reliefPaths, resolveFills, shadowOffset, type FillSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 /** What a per-cell prop function is told about the cell besides its geometry. */
@@ -103,6 +104,13 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * out of sync; images are loaded once.)
    */
   backdrop?: ReactNode;
+  /**
+   * Raised tiles: a bevel round each tile, lit from one side and drawn over its content,
+   * and optionally a soft shadow each tile casts into the grout (set `shadow`). `true` for
+   * the defaults. With `gap` as the grout width and `background` as its color or texture,
+   * it looks like a tiled surface. See `ReliefOptions`.
+   */
+  relief?: boolean | ReliefOptions;
   /** Content for empty tiles. */
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
@@ -137,6 +145,7 @@ export function TileLayout(props: TileLayoutProps) {
     fill = neutralPalette,
     fit,
     backdrop,
+    relief: reliefProp,
     fallback,
     cellClassName,
     cellStyle,
@@ -144,6 +153,7 @@ export function TileLayout(props: TileLayoutProps) {
     style,
     ...rest
   } = props;
+  const uid = "andamento" + useId().replace(/:/g, "");
   const items = renderCell ? [] : Children.toArray(children);
   const layout = useResolvedLayout("TileLayout", options, given, { fit: !renderCell && fit, count: items.length, cells: contentCells });
   const { bounds } = layout;
@@ -157,6 +167,15 @@ export function TileLayout(props: TileLayoutProps) {
     [layout, count, contentCells, placement, aspects?.join(","), choose, !renderCell],
   );
   const fills = useMemo(() => resolveFills(layout, fill), [layout, fill]);
+  const relief = reliefProp === true ? {} : reliefProp || undefined;
+  const reliefKey = relief ? JSON.stringify(relief) : "";
+  const bevels = useMemo(() => {
+    if (!relief) return undefined;
+    const bevel = relief.bevel ?? defaultBevel(layout);
+    return bevel > 0 ? layout.cells.map((c) => reliefPaths(layout, c, relief, bevel)) : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, reliefKey]);
+  const cast = relief && shadowOffset(relief);
 
   return (
     <div
@@ -169,6 +188,27 @@ export function TileLayout(props: TileLayoutProps) {
           aria-hidden
           style={{ position: "absolute", inset: 0, background, clipPath: regionCss(layout) }}
         />
+      )}
+      {cast && (
+        <svg
+          aria-hidden
+          data-andamento-shadow=""
+          viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
+          preserveAspectRatio="none"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", clipPath: regionCss(layout) }}
+        >
+          <filter id={`${uid}-shadow`} x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation={cast.blur} />
+          </filter>
+          <path
+            d={layout.cells.map((c) => cellPath(layout, c)).join("")}
+            fillRule="evenodd"
+            transform={`translate(${cast.dx} ${cast.dy})`}
+            fill="#000"
+            fillOpacity={cast.opacity}
+            filter={`url(#${uid}-shadow)`}
+          />
+        </svg>
       )}
       {layout.cells.map((cell, i) => {
         const slot = slots[i]!;
@@ -225,6 +265,20 @@ export function TileLayout(props: TileLayoutProps) {
               </div>
             ) : (
               content
+            )}
+            {bevels && bevels[i]!.length > 0 && (
+              // Over the content; the tile's box is its bounding box, so map that to the viewBox.
+              <svg
+                aria-hidden
+                data-bevel=""
+                viewBox={`${cell.bbox.x} ${cell.bbox.y} ${cell.bbox.width} ${cell.bbox.height}`}
+                preserveAspectRatio="none"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+              >
+                {bevels[i]!.map((p, k) => (
+                  <path key={k} d={p.d} fill={p.fill} fillOpacity={p.opacity} />
+                ))}
+              </svg>
             )}
           </div>
         );

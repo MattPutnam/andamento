@@ -414,8 +414,33 @@ export function clipPolygonToConvex(subject: Polygon, clip: Polygon): Polygon[] 
       if (next === start || used[next]) break;
       k = next;
     }
-    const clean = cleanPolygon(piece);
+    const clean = dropSpikes(cleanPolygon(piece), eps * 1e3);
     if (clean.length >= 3) pieces.push(clean);
   }
   return pieces;
+}
+
+/**
+ * Remove zero-width spikes: points where the outline runs out along a line and straight
+ * back (a tile edge lying along the clip edge can leave one). They have no area, but they
+ * confuse anything that follows the outline, such as bevels.
+ */
+function dropSpikes(poly: Polygon, tol: number): Polygon {
+  let pts = poly;
+  for (let changed = true; changed && pts.length >= 3; ) {
+    changed = false;
+    for (let i = 0; i < pts.length && pts.length >= 3; i++) {
+      const n = pts.length;
+      const a = pts[(i - 1 + n) % n]!, v = pts[i]!, b = pts[(i + 1) % n]!;
+      const ux = v.x - a.x, uy = v.y - a.y, wx = b.x - v.x, wy = b.y - v.y;
+      const lu = Math.hypot(ux, uy), lw = Math.hypot(wx, wy);
+      const flat = Math.abs(ux * wy - uy * wx) <= tol * Math.max(lu, lw, tol);
+      if (lu <= tol || lw <= tol || (flat && ux * wx + uy * wy < 0)) {
+        pts = [...pts.slice(0, i), ...pts.slice(i + 1)];
+        changed = true;
+        i--;
+      }
+    }
+  }
+  return pts.length >= 3 ? pts : [];
 }

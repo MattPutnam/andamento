@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { createLayout, grid, hexagonal } from "@andamento/core";
-import { polygonToPath, renderToElement, renderToString } from "@andamento/svg";
+import { defaultBevel, polygonToPath, renderToElement, renderToString } from "@andamento/svg";
 
 const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 10 });
 
@@ -72,5 +72,31 @@ describe("svg imageFit", () => {
     const images = [...svg.matchAll(/<image href="(\w)\.jpg" x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)" preserveAspectRatio="xMidYMid meet"/g)];
     expect(images).toHaveLength(2);
     for (const m of images) expect(Number(m[2]) / Number(m[3])).toBeCloseTo(m[1] === "a" ? 2 : 0.5, 1);
+  });
+});
+
+describe("svg relief", () => {
+  const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }), gap: 6 });
+
+  it("draws a lit bevel over every cell", () => {
+    expect(renderToString(layout)).not.toContain("andamento-bevel");
+    const svg = renderToString(layout, { relief: { bevel: 5 } });
+    const cells = svg.split('class="andamento-cell"').slice(1);
+    expect(cells).toHaveLength(6);
+    for (const c of cells) {
+      // Squares lit from the top left: two lit sides and two dark ones, at the same strength.
+      expect(c.match(/class="andamento-bevel"[^>]*fill="#fff" fill-opacity="0.3"/g)).toHaveLength(1);
+      expect(c.match(/class="andamento-bevel"[^>]*fill="#000" fill-opacity="0.3"/g)).toHaveLength(1);
+    }
+    expect(svg).not.toContain("andamento-shadow");
+  });
+
+  it("casts shadows into the grout, away from the light", () => {
+    const svg = renderToString(layout, { relief: { shadow: 3, light: 0 } });
+    expect(svg).toContain('class="andamento-shadow"');
+    expect(svg).toContain('transform="translate(0 3)"');
+    expect(svg).toMatch(/<feGaussianBlur stdDeviation="3"\/>/);
+    // Default bevel: 8% of the tile size.
+    expect(defaultBevel(layout)).toBeCloseTo(0.08 * 94, 6);
   });
 });

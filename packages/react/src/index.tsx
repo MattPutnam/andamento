@@ -8,4 +8,4 @@ export { useImageAspects } from "./useImageAspects";
 export type { FitProp } from "./useTileLayout";
 export type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions, MatchOptions, SafeAreaOptions } from "@andamento/core";
 export { defaultPalette, neutralPalette } from "@andamento/svg";
-export type { FillSource } from "@andamento/svg";
+export type { FillSource, ReliefOptions } from "@andamento/svg";

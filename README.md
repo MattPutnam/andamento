@@ -105,6 +105,34 @@ whole inside its cell's safe area, at its `imageAspects` shape. In core,
 any shape, convex or not, and is cached per cell; without `aspect` it finds the
 largest-area rectangle of any shape.
 
+#### Grout and relief
+
+```tsx
+<TileLayout options={{ region, tiling: hexagonal({ size: 40 }), gap: 4, cornerRadius: 3 }}
+  background="#d8d2c4" relief={{ shadow: 2 }}>
+  {children}
+</TileLayout>
+```
+
+`gap` is the grout width and `background` its color (any CSS background, so a texture
+works too). `relief` makes the tiles look raised: a bevel round each tile's edges, drawn
+over its content, with faces turned towards the light brightened and the others darkened.
+It follows rounded corners, holes and non-convex shapes, and narrows on thin tiles. Set
+`shadow` and each tile also casts a soft shadow into the grout, away from the light.
+
+| `relief` option | Default | |
+|---|---|---|
+| `bevel` | 8% of a typical tile's size | bevel width, layout units |
+| `light` | 315 (top left) | where light comes from, degrees clockwise from the top |
+| `strength` | 0.4 | opacity of the strongest highlight and shade |
+| `shadow` | 0 (none) | how far shadows fall into the grout |
+| `shadowBlur`, `shadowOpacity` | `shadow`, 0.35 | |
+
+`relief` works the same on `<SvgTileLayout>` and `renderToString`. In core,
+`bevelFacets(cell, layout, { width, light })` returns the bevel's faces, each with a
+`shade` from 1 (facing the light) to -1; `reliefPaths` in `@andamento/svg` groups them into
+a few paths per tile.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:

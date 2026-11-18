@@ -334,6 +334,8 @@ export function App() {
   const [mosaicPalette, setMosaicPalette] = useState(false);
   const [matchShapes, setMatchShapes] = useState<"off" | "placement" | "shape">("off");
   const [safe, setSafe] = useState(false);
+  const [reliefMode, setReliefMode] = useState<"off" | "bevel" | "shadow">("off");
+  const [light, setLight] = useState(315);
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -364,6 +366,10 @@ export function App() {
     edges,
     minFill,
   };
+
+  // Raised tiles: a lit bevel, plus a shadow into the grout sized to the gap.
+  const relief =
+    reliefMode === "off" ? undefined : { light, ...(reliefMode === "shadow" ? { shadow: Math.max(1, gap * 0.6) } : {}) };
 
   const itemsShown = content === "photos" || content === "cards";
   const fitTo = fitTiles && itemCount > 0 && itemsShown ? itemCount : 0;
@@ -440,6 +446,7 @@ export function App() {
       fill: cellFill,
       backdrop: content === "picture" ? picture : undefined,
       background,
+      relief,
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
@@ -559,6 +566,15 @@ export function App() {
           <Slider label="Gap" min={0} max={10} step={0.5} value={gap} onChange={setGap} />
           <Slider label="Margin" min={0} max={30} step={1} value={margin} onChange={setMargin} />
           <Slider label="Corner radius" min={0} max={20} step={0.5} value={cornerRadius} onChange={setCornerRadius} />
+          <label className="row">
+            <span>Relief</span>
+            <select value={reliefMode} onChange={(e) => setReliefMode(e.target.value as typeof reliefMode)}>
+              <option value="off">Flat</option>
+              <option value="bevel">Bevelled tiles</option>
+              <option value="shadow">Bevel + shadow in grout</option>
+            </select>
+          </label>
+          {reliefMode !== "off" && <Slider label="Light from (degrees)" min={0} max={355} step={5} value={light} onChange={setLight} />}
           <Slider label="Featured tile (tiles merged)" min={0} max={12} step={1} value={featureTiles} onChange={setFeatureTiles} />
           <label className="row">
             <span>Edge tiles</span>
@@ -666,6 +682,7 @@ export function App() {
             <TileLayout
               layout={layout}
               background={background}
+              relief={relief}
               className={safe && content === "cards" ? "region show-safe" : "region"}
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
               cellClassName="tile"

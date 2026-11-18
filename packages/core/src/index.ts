@@ -19,6 +19,8 @@ export type { Cell, EdgeMode, Feature, Layout, LayoutOptions } from "./layout";
 export { mulberry32 } from "./random";
 export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss, safeAreaCss } from "./css";
 export { safeArea } from "./safe";
+export { bevelFacets, lightVector } from "./relief";
+export type { BevelFacet, BevelOptions } from "./relief";
 export type { SafeAreaOptions } from "./safe";
 export type { CellCss } from "./css";
 export { contentSlots, matchSlots } from "./content";

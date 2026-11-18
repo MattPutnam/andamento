@@ -1,5 +1,9 @@
 import { contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
+import { defaultBevel, reliefPaths, shadowOffset, type ReliefOptions } from "./relief";
+export { defaultBevel, reliefPaths, shadowOffset } from "./relief";
+export type { ReliefOptions, ReliefPath } from "./relief";
+
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
 /** Soft neutrals for tiles without content: visible as tiles, but quiet next to photos. */
@@ -36,6 +40,11 @@ export interface RenderOptions {
    * different entries), or a function. Defaults to `defaultPalette`.
    */
   fill?: FillSource;
+  /**
+   * Raised tiles: a lit bevel round each tile, and optionally a shadow cast into the grout.
+   * `true` for the defaults. See `ReliefOptions`.
+   */
+  relief?: boolean | ReliefOptions;
   /** Outline drawn on top of each cell. */
   stroke?: string;
   strokeWidth?: number;
@@ -179,6 +188,29 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
     );
   }
 
+  const relief: ReliefOptions | undefined = opts.relief === true ? {} : opts.relief || undefined;
+  const bevel = relief ? (relief.bevel ?? defaultBevel(layout)) : 0;
+  const cast = relief && shadowOffset(relief);
+  if (cast) {
+    // Every tile's shape, moved away from the light and blurred, kept within the region.
+    const regionId = `${prefix}-region`;
+    const blurId = `${prefix}-shadow`;
+    children.push(el("clipPath", { id: regionId }, [el("path", { d: regionPath(layout, precision), "clip-rule": "evenodd" })]));
+    children.push(el("filter", { id: blurId, x: "-10%", y: "-10%", width: "120%", height: "120%" }, [el("feGaussianBlur", { stdDeviation: r(cast.blur) })]));
+    children.push(
+      el("g", { class: "andamento-shadow", "clip-path": `url(#${regionId})` }, [
+        el("path", {
+          d: layout.cells.map((c) => cellPath(layout, c, precision)).join(""),
+          "fill-rule": "evenodd",
+          transform: `translate(${r(cast.dx)} ${r(cast.dy)})`,
+          fill: "#000",
+          "fill-opacity": cast.opacity,
+          filter: `url(#${blurId})`,
+        }),
+      ]),
+    );
+  }
+
   layout.cells.forEach((cell, i) => {
     const d = cellPath(layout, cell, precision);
     const style = styles[i]!;
@@ -201,6 +233,11 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
           "clip-path": `url(#${clipId})`,
         }),
       );
+    }
+    if (relief && bevel > 0) {
+      for (const p of reliefPaths(layout, cell, relief, bevel, precision)) {
+        parts.push(el("path", { class: "andamento-bevel", d: p.d, fill: p.fill, "fill-opacity": p.opacity }));
+      }
     }
     if (opts.stroke) {
       parts.push(el("path", { d, fill: "none", stroke: opts.stroke, "stroke-width": opts.strokeWidth ?? 1 }));

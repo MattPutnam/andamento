@@ -295,6 +295,27 @@ describe("safe areas", () => {
   });
 });
 
+describe("relief", () => {
+  it("overlays a bevel on each tile and casts shadows into the grout", () => {
+    const html = renderToStaticMarkup(
+      <TileLayout options={options} relief={{ shadow: 2 }}>
+        <p>a</p>
+      </TileLayout>,
+    );
+    expect(html.match(/data-bevel=""/g)).toHaveLength(6);
+    // Over the content, in the tile's own coordinates.
+    expect(html).toMatch(/<p>a<\/p><svg aria-hidden="true" data-bevel="" viewBox="5 5 90 90"/);
+    expect(html.match(/data-andamento-shadow=""/g)).toHaveLength(1);
+    expect(renderToStaticMarkup(<TileLayout options={options}><p>a</p></TileLayout>)).not.toContain("data-bevel");
+  });
+
+  it("works in SvgTileLayout", () => {
+    const html = renderToStaticMarkup(<SvgTileLayout options={options} relief />);
+    expect(html.match(/class="andamento-bevel"/g)!.length).toBe(12);
+    expect(html).not.toContain("andamento-shadow");
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);
