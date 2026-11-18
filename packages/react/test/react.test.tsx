@@ -322,6 +322,14 @@ describe("relief", () => {
   });
 });
 
+describe("animate on the server", () => {
+  it("renders transitions without effects", () => {
+    const html = renderToStaticMarkup(<TileLayout options={options} animate><b>a</b></TileLayout>);
+    expect(html).toContain("transition:left 400ms");
+    expect(html).toContain("@keyframes andamento-enter");
+  });
+});
+
 describe("<SvgTileLayout>", () => {
   it("renders cells with images", () => {
     const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} title="Layout" />);

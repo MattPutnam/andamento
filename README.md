@@ -159,6 +159,28 @@ For SVG, `imageAlts` (on `<SvgTileLayout>` or `renderToString`) gives each image
 alternative. Those cells become labelled images, the SVG a group of them, and the rest is
 hidden as decoration.
 
+#### Animated transitions
+
+```tsx
+<TileLayout options={options} animate>{children}</TileLayout>
+<TileLayout options={options} animate={{ duration: 600, easing: "ease-in-out" }}>…</TileLayout>
+```
+
+With `animate`, tiles move smoothly when the layout or the children change. This covers
+resizing the region, switching tilings, changing the gap or corner radius, and adding,
+removing or reordering children.
+- **Moving and reshaping:** a child keeps its tile element (give children keys), and the
+  tile glides to its new place while its shape morphs, a square into a hexagon say.
+- **Coming and going:** new tiles fade in, and removed ones stay a moment to fade out.
+- **Colours:** empty-tile fills cross-fade.
+- **Bevels:** a `relief` bevel fades in for the new shape as the tile arrives.
+
+It is all CSS transitions, with no animation loop in JavaScript. Every tile's `clip-path`
+is given the same number of points (see `resamplePolygon`, and `cellCss(…, { points })` in
+core), which is what lets CSS morph between any two shapes. Cells with holes switch shape
+without morphing. Animation is off for users who prefer reduced motion. Static SVG output
+doesn't animate.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:

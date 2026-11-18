@@ -1,4 +1,4 @@
-import type { Polygon, Rect } from "./geometry";
+import { signedArea, type Polygon, type Rect, type Vec } from "./geometry";
 import { roundedPolygon } from "./rounding";
 import type { Cell, Layout } from "./layout";
 import { safeArea, type SafeAreaOptions } from "./safe";
@@ -42,8 +42,56 @@ export function cssPolygon(poly: Polygon, box: Rect, precision = 4, holes: Polyg
   return `polygon(evenodd, ${pts.join(", ")})`;
 }
 
+/**
+ * `poly` with points added along its edges to make exactly `n`, keeping every original
+ * vertex, so any two shapes can be morphed point by point (CSS transitions only interpolate
+ * `polygon()` values with the same number of points). The points run the same way round
+ * for every shape and start at the corner nearest the top left of `box`, so a shape
+ * morphs into another without twisting. A polygon with more than `n` points is returned
+ * as it is.
+ */
+export function resamplePolygon(poly: Polygon, n: number, box: Rect): Polygon {
+  if (poly.length < 3 || poly.length > n) return poly;
+  // In box-relative units, so tall and wide tiles start and spread their points alike.
+  const w = box.width || 1, h = box.height || 1;
+  let pts = poly.map((p) => ({ u: (p.x - box.x) / w, v: (p.y - box.y) / h, p }));
+  if (signedArea(poly) < 0) pts = pts.reverse();
+  let start = 0;
+  for (let i = 1; i < pts.length; i++) if (pts[i]!.u + pts[i]!.v < pts[start]!.u + pts[start]!.v - 1e-9) start = i;
+  pts = [...pts.slice(start), ...pts.slice(0, start)];
+  const m = pts.length;
+  const lens = pts.map((a, i) => Math.hypot(pts[(i + 1) % m]!.u - a.u, pts[(i + 1) % m]!.v - a.v));
+  const total = lens.reduce((s, l) => s + l, 0) || 1;
+  // Each edge keeps its start point; the extra points go to edges by length (largest remainder).
+  const extra = n - m;
+  const share = lens.map((l) => (l / total) * extra);
+  const count = share.map(Math.floor);
+  let left = extra - count.reduce((s, c) => s + c, 0);
+  const order = share.map((s, i) => [s - Math.floor(s), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; left > 0; k++, left--) count[order[k % m]![1]]! += 1;
+  const out: Vec[] = [];
+  for (let i = 0; i < m; i++) {
+    const a = pts[i]!.p, b = pts[(i + 1) % m]!.p;
+    out.push(a);
+    for (let k = 1; k <= count[i]!; k++) {
+      const t = k / (count[i]! + 1);
+      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  return out;
+}
+
+/** Options for `cellCss`. */
+export interface CellCssOptions {
+  /**
+   * Give every clip path exactly this many points (see `resamplePolygon`), so CSS can
+   * animate one tile shape into another. Cells with holes keep their own.
+   */
+  points?: number;
+}
+
 /** CSS placement for `cell` within `layout`, including rounded corners if the layout has them. */
-export function cellCss(cell: Cell, layout: Layout, precision = 4): CellCss {
+export function cellCss(cell: Cell, layout: Layout, precision = 4, options: CellCssOptions = {}): CellCss {
   const { bounds } = layout;
   const b = cell.bbox;
   return {
@@ -52,7 +100,9 @@ export function cellCss(cell: Cell, layout: Layout, precision = 4): CellCss {
     width: pct((b.width / bounds.width) * 100, precision),
     height: pct((b.height / bounds.height) * 100, precision),
     clipPath: cssPolygon(
-      roundedPolygon(cell.polygon, layout.cornerRadius),
+      options.points && !cell.holes?.length
+        ? resamplePolygon(roundedPolygon(cell.polygon, layout.cornerRadius), options.points, b)
+        : roundedPolygon(cell.polygon, layout.cornerRadius),
       b,
       precision,
       (cell.holes ?? []).map((h) => roundedPolygon(h, layout.cornerRadius)),

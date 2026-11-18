@@ -337,6 +337,7 @@ export function App() {
   const [reliefMode, setReliefMode] = useState<"off" | "bevel" | "shadow">("off");
   const [light, setLight] = useState(315);
   const [activated, setActivated] = useState<string>();
+  const [animateChanges, setAnimateChanges] = useState(true);
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -576,6 +577,10 @@ export function App() {
               <option value="shadow">Bevel + shadow in grout</option>
             </select>
           </label>
+          <label className="row">
+            <span>Animate changes</span>
+            <input type="checkbox" checked={animateChanges} onChange={(e) => setAnimateChanges(e.target.checked)} />
+          </label>
           {reliefMode !== "off" && <Slider label="Light from (degrees)" min={0} max={355} step={5} value={light} onChange={setLight} />}
           <Slider label="Featured tile (tiles merged)" min={0} max={12} step={1} value={featureTiles} onChange={setFeatureTiles} />
           <label className="row">
@@ -689,6 +694,7 @@ export function App() {
               background={background}
               relief={relief}
               navigable
+              animate={animateChanges}
               cellLabel={(_cell, s) => (content === "photos" ? `Photo ${s.slot + 1}` : content === "cards" ? `Card ${s.slot + 1}: ${CARD_WORDS[s.slot % CARD_WORDS.length]}` : undefined)}
               onCellActivate={(_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`)}
               className={safe && content === "cards" ? "region show-safe" : "region"}
