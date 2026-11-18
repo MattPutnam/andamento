@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
-import { defaultPalette, renderToString } from "@andamento/svg";
+import { defaultPalette, renderToPng, renderToString } from "@andamento/svg";
 import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
 
@@ -437,9 +437,8 @@ export function App() {
     setContent("photos");
   };
 
-  const download = () => {
-    if (!layout) return;
-    const svg = renderToString(layout, {
+  // The same picture as SVG or PNG.
+  const exportOptions = () => ({
       images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
       imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : safe ? photoAspects : undefined,
       imageFit: safe ? "contain" : "cover",
@@ -452,12 +451,22 @@ export function App() {
       background,
       relief,
       imageAlts: content === "photos" ? photos.map((_, i) => `Photo ${i + 1}`) : undefined,
-    });
+  } as const);
+  const save = (blob: Blob, ext: string) => {
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    a.download = `andamento-${type}.svg`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `andamento-${type}.${ext}`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  const download = () => {
+    if (!layout) return;
+    save(new Blob([renderToString(layout, exportOptions())], { type: "image/svg+xml" }), "svg");
+  };
+  const downloadPng = async () => {
+    if (!layout) return;
+    // 1600 px wide, at twice the density for a sharp picture.
+    save(await renderToPng(layout, { ...exportOptions(), width: 1600, pixelRatio: 2 }), "png");
   };
 
   return (
@@ -691,6 +700,9 @@ export function App() {
           </span>
           <button onClick={download} disabled={!("layout" in result)}>
             Download SVG
+          </button>
+          <button onClick={downloadPng} disabled={!("layout" in result)}>
+            Download PNG
           </button>
         </div>
         <div className="canvas">

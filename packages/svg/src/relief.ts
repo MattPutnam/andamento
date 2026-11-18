@@ -1,4 +1,4 @@
-import { bevelFacets, lightVector, type Cell, type Layout } from "@andamento/core";
+import { bevelFacets, lightVector, type Cell, type Layout, type Polygon } from "@andamento/core";
 
 /**
  * Makes tiles look raised: a bevel round each tile's edges, lit from one side, and
@@ -37,30 +37,45 @@ export function defaultBevel(layout: Layout): number {
 
 const LEVELS = 8;
 
+/** One layer of a cell's bevel as polygons: all its faces of about the same shade. */
+export interface ReliefLayer {
+  polygons: Polygon[];
+  /** "#fff" for highlights, "#000" for shadows. */
+  fill: string;
+  opacity: number;
+}
+
 /**
- * A cell's bevel as a few paths (faces grouped into shade levels), in layout coordinates,
- * to draw over the cell's content. Pass the bevel width from `defaultBevel` if not set.
+ * A cell's bevel grouped into a few shade levels, in layout coordinates, to draw over the
+ * cell's content. Pass the bevel width from `defaultBevel` if not set.
  */
-export function reliefPaths(layout: Layout, cell: Cell, relief: ReliefOptions, bevel: number, precision = 3): ReliefPath[] {
+export function reliefLayers(layout: Layout, cell: Cell, relief: ReliefOptions, bevel: number): ReliefLayer[] {
   const strength = relief.strength ?? 0.4;
-  const facets = bevelFacets(cell, layout, { width: bevel, light: relief.light });
-  const f = (n: number) => Number(n.toFixed(precision));
-  const groups = new Map<number, string[]>();
-  for (const facet of facets) {
+  const groups = new Map<number, Polygon[]>();
+  for (const facet of bevelFacets(cell, layout, { width: bevel, light: relief.light })) {
     const level = Math.round(facet.shade * LEVELS);
     if (level === 0) continue;
-    const d = "M" + facet.polygon.map((p) => `${f(p.x)} ${f(p.y)}`).join("L") + "Z";
     const list = groups.get(level);
-    if (list) list.push(d);
-    else groups.set(level, [d]);
+    if (list) list.push(facet.polygon);
+    else groups.set(level, [facet.polygon]);
   }
   return [...groups.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([level, ds]) => ({
-      d: ds.join(""),
+    .map(([level, polygons]) => ({
+      polygons,
       fill: level > 0 ? "#fff" : "#000",
       opacity: Number(((Math.abs(level) / LEVELS) * strength).toFixed(3)),
     }));
+}
+
+/** `reliefLayers` as SVG paths, one per layer. */
+export function reliefPaths(layout: Layout, cell: Cell, relief: ReliefOptions, bevel: number, precision = 3): ReliefPath[] {
+  const f = (n: number) => Number(n.toFixed(precision));
+  return reliefLayers(layout, cell, relief, bevel).map(({ polygons, fill, opacity }) => ({
+    d: polygons.map((poly) => "M" + poly.map((p) => `${f(p.x)} ${f(p.y)}`).join("L") + "Z").join(""),
+    fill,
+    opacity,
+  }));
 }
 
 /** Offset of the cast shadow (away from the light), or undefined for none. */

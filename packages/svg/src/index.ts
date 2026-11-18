@@ -1,8 +1,8 @@
 import { contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 import { defaultBevel, reliefPaths, shadowOffset, type ReliefOptions } from "./relief";
-export { defaultBevel, reliefPaths, shadowOffset } from "./relief";
-export type { ReliefOptions, ReliefPath } from "./relief";
+export { defaultBevel, reliefLayers, reliefPaths, shadowOffset } from "./relief";
+export type { ReliefLayer, ReliefOptions, ReliefPath } from "./relief";
 
 export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6702", "#bb3e03", "#ae2012", "#005f73"];
 
@@ -319,3 +319,6 @@ export function renderToElement(layout: Layout, opts: RenderOptions = {}, doc: D
   if (!doc) throw new Error("renderToElement needs a DOM Document; pass one explicitly outside the browser");
   return build(toSvgTree(layout, opts), doc) as SVGSVGElement;
 }
+
+export { drawLayout, imagesUsed, loadImages, rasterSize, renderToCanvas, renderToPng, tracePolygon } from "./canvas";
+export type { CanvasContextLike, CanvasImage, CanvasLike, CanvasRenderOptions, RasterOptions } from "./canvas";

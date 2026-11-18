@@ -353,6 +353,37 @@ as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ra
 Lower-level helpers are exported too, e.g. `colorCells` (neighbour-aware color indices),
 `insetPolygon`, `roundedPolygon`, `voronoiCells`, `delaunayTriangles` and `generateSubstitution`.
 
+## Canvas and PNG
+
+```ts
+import { renderToPng, drawLayout } from "@andamento/svg";
+
+const png = await renderToPng(layout, { images, width: 1200, pixelRatio: 2, relief: true });
+// or draw on a canvas you already have (synchronous; pass loaded images):
+drawLayout(canvas.getContext("2d"), layout, { fill: palette, loaded });
+```
+
+The canvas renderer takes the same options as the SVG one and draws the same thing:
+background, cast shadows, fills, images (`cover` or `contain`), the backdrop, bevels and
+strokes, with rounded corners drawn as true arcs.
+- **`renderToPng(layout, options)`:** loads the images, draws on an offscreen canvas and
+  resolves to a `Blob`. Use `type` and `quality` for JPEG or WebP.
+- **`width` and `pixelRatio`:** set the size; the height follows the layout's shape.
+- **`renderToCanvas(layout, canvas, options)`:** the same, onto your own canvas.
+- **`drawLayout(ctx, layout, options)`:** draws synchronously, scaled to fit the canvas and
+  centred. Pass loaded images in `loaded`, e.g. from `loadImages(imagesUsed(layout, options))`.
+
+It works with any 2D context. In Node, use a canvas package such as `@napi-rs/canvas` or
+`skia-canvas`: pass its `loadImage` and `createCanvas` (or call `drawLayout` and its own
+export).
+
+Two cautions:
+- **Images from other sites:** they load with `crossOrigin = "anonymous"`, so the server must
+  allow it, or the browser won't let the canvas be exported. Images that fail to load show
+  their cell's `fill`.
+- **React content:** `<TileLayout>` children are HTML, so they can't be drawn; the canvas
+  renderer draws images and colours.
+
 ## Development
 
 ```bash
