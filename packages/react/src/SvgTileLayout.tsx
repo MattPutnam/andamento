@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import { safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
-import { cellPath, defaultBevel, regionPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
+import { cellA11y, cellPath, defaultBevel, regionPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
@@ -61,6 +61,8 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   renderCell?: (cell: Cell, ctx: SvgCellRenderContext) => ReactNode;
   /** Accessible title. */
   title?: string;
+  /** Text alternative per image in `images`: those cells become labelled images; the rest decoration. */
+  imageAlts?: readonly string[];
 }
 
 /**
@@ -88,6 +90,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     relief: reliefProp,
     renderCell,
     title,
+    imageAlts,
     ...svgProps
   } = props;
   const fitTo = Array.isArray(images) && !repeatImages ? images.length : 0;
@@ -109,7 +112,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   const cast = relief && shadowOffset(relief);
 
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={title ? "img" : undefined} {...svgProps}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={imageAlts?.length ? "group" : title ? "img" : undefined} {...svgProps}>
       {title && <title>{title}</title>}
       {background && <path className="andamento-region" d={regionPath(layout)} fill={background} fillRule="evenodd" />}
       {backdrop && (
@@ -162,6 +165,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
             data-index={cell.index}
             data-empty={style.image ? undefined : ""}
             data-boundary={cell.boundary ? "" : undefined}
+            {...cellA11y(style, imageAlts)}
           >
             <clipPath id={clipPathId}>
               <path d={d} clipRule="evenodd" />

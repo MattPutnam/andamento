@@ -100,3 +100,16 @@ describe("svg relief", () => {
     expect(defaultBevel(layout)).toBeCloseTo(0.08 * 94, 6);
   });
 });
+
+describe("svg image alternatives", () => {
+  it("labels cells with described images and hides the rest", () => {
+    const layout = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }) });
+    const svg = renderToString(layout, { images: ["a.jpg", "b.jpg"], imageAlts: ["A lake", "A hill"], title: "Holiday" });
+    expect(svg).toMatch(/<svg [^>]*role="group"/);
+    expect(svg.match(/role="img" aria-label="A lake"/g)).toHaveLength(1);
+    expect(svg.match(/role="img" aria-label="A hill"/g)).toHaveLength(1);
+    expect(svg.match(/class="andamento-cell"[^>]*aria-hidden="true"/g)).toHaveLength(4);
+    // Without alternatives, nothing changes: one image with a title.
+    expect(renderToString(layout, { images: ["a.jpg"], title: "x" })).toMatch(/<svg [^>]*role="img"/);
+  });
+});

@@ -20,6 +20,8 @@ export { mulberry32 } from "./random";
 export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss, safeAreaCss } from "./css";
 export { safeArea } from "./safe";
 export { bevelFacets, lightVector } from "./relief";
+export { cellInDirection } from "./navigation";
+export type { Direction } from "./navigation";
 export type { BevelFacet, BevelOptions } from "./relief";
 export type { SafeAreaOptions } from "./safe";
 export type { CellCss } from "./css";

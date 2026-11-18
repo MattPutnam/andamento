@@ -336,6 +336,7 @@ export function App() {
   const [safe, setSafe] = useState(false);
   const [reliefMode, setReliefMode] = useState<"off" | "bevel" | "shadow">("off");
   const [light, setLight] = useState(315);
+  const [activated, setActivated] = useState<string>();
   const [gap, setGap] = useState(2);
   const [margin, setMargin] = useState(4);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -447,6 +448,7 @@ export function App() {
       backdrop: content === "picture" ? picture : undefined,
       background,
       relief,
+      imageAlts: content === "photos" ? photos.map((_, i) => `Photo ${i + 1}`) : undefined,
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
@@ -673,6 +675,9 @@ export function App() {
           ) : (
             <span className="error">{result.error}</span>
           )}
+          <span className="hint" aria-live="polite">
+            {activated ? `Opened ${activated}` : "Tab into the layout, then use the arrow keys"}
+          </span>
           <button onClick={download} disabled={!("layout" in result)}>
             Download SVG
           </button>
@@ -683,6 +688,9 @@ export function App() {
               layout={layout}
               background={background}
               relief={relief}
+              navigable
+              cellLabel={(_cell, s) => (content === "photos" ? `Photo ${s.slot + 1}` : content === "cards" ? `Card ${s.slot + 1}: ${CARD_WORDS[s.slot % CARD_WORDS.length]}` : undefined)}
+              onCellActivate={(_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`)}
               className={safe && content === "cards" ? "region show-safe" : "region"}
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}
               cellClassName="tile"

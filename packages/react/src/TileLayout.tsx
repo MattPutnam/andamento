@@ -3,6 +3,9 @@ import {
   isValidElement,
   useId,
   useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
   type CSSProperties,
   type HTMLAttributes,
   type Key,
@@ -11,6 +14,7 @@ import {
 import {
   backdropCss,
   cellCss,
+  cellInDirection,
   contentSlots,
   matchSlots,
   regionCss,
@@ -111,6 +115,25 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * it looks like a tiled surface. See `ReliefOptions`.
    */
   relief?: boolean | ReliefOptions;
+  /**
+   * Keyboard navigation: tiles with content become focusable as one tab stop (roving
+   * tabindex). Arrow keys move to the nearest tile in that direction, whatever the tiling;
+   * Home and End go to the first and last. The focused tile shows `focusRing`.
+   */
+  navigable?: boolean;
+  /**
+   * Called when a tile with content is activated: clicked, or Enter or Space while it has
+   * focus (with `navigable`).
+   */
+  onCellActivate?: (cell: Cell, state: CellState) => void;
+  /** Accessible name for each tile (its `aria-label`), e.g. a photo's description. */
+  cellLabel?: PerCell<string | undefined>;
+  /**
+   * Color of the focus outline drawn inside the focused tile's shape (a CSS outline would be
+   * clipped away), with a white inner line so it shows on any content. `false` for none,
+   * if you style `[data-cell-id]:focus-visible` yourself. Defaults to "#1a56db".
+   */
+  focusRing?: string | false;
   /** Content for empty tiles. */
   fallback?: PerCell<ReactNode>;
   /** Class name for each tile wrapper (fixed or per cell). */
@@ -146,11 +169,17 @@ export function TileLayout(props: TileLayoutProps) {
     fit,
     backdrop,
     relief: reliefProp,
+    navigable,
+    onCellActivate,
+    cellLabel,
+    focusRing = "#1a56db",
     fallback,
     cellClassName,
     cellStyle,
     background,
     style,
+    role,
+    onKeyDown,
     ...rest
   } = props;
   const uid = "andamento" + useId().replace(/:/g, "");
@@ -177,12 +206,76 @@ export function TileLayout(props: TileLayoutProps) {
   }, [layout, reliefKey]);
   const cast = relief && shadowOffset(relief);
 
+  // What each tile holds, worked out before rendering so navigation knows which have content.
+  const entries = layout.cells.map((cell, i) => {
+    const slot = slots[i]!;
+    let content: ReactNode = null;
+    // Key by child where possible, so a child keeps its state (video position,
+    // inputs, animations) when the layout changes underneath it.
+    let key: Key = `cell:${cell.id}`;
+    if (renderCell) content = renderCell(cell, { slot });
+    else if (slot >= 0) {
+      const child = items[slot];
+      content = child;
+      key = isValidElement(child) && child.key != null ? `child:${child.key}` : `child:${slot}`;
+    }
+    const empty = isEmpty(content);
+    const state: CellState = { empty, slot: empty && !renderCell ? -1 : slot };
+    if (empty) content = resolve(fallback, cell, state);
+    return { cell, content, key, empty, state };
+  });
+
+  // Roving tabindex: one tile is the tab stop; arrow keys move it.
+  const focusable = new Set(navigable ? entries.filter((e) => !e.empty).map((e) => e.cell.id) : []);
+  const [activeId, setActiveId] = useState<string>();
+  const firstFocusable = entries.find((e) => focusable.has(e.cell.id))?.cell.id;
+  const active = activeId !== undefined && focusable.has(activeId) ? activeId : firstFocusable;
+  const tiles = useRef(new Map<string, HTMLDivElement>());
+  const list = (role ?? "list") === "list";
+
+  const moveTo = (cell: Cell | undefined) => {
+    if (!cell) return false;
+    setActiveId(cell.id);
+    tiles.current.get(cell.id)?.focus();
+    return true;
+  };
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    onKeyDown?.(e);
+    if (e.defaultPrevented || !navigable || e.altKey || e.ctrlKey || e.metaKey) return;
+    // Only when a tile itself has focus, not an input or button inside it.
+    const entry = entries.find((x) => tiles.current.get(x.cell.id) === e.target);
+    if (!entry || !focusable.has(entry.cell.id)) return;
+    const accept = (c: Cell) => focusable.has(c.id);
+    const ordered = entries.filter((x) => accept(x.cell));
+    let handled = false;
+    switch (e.key) {
+      case "ArrowUp": handled = moveTo(cellInDirection(layout, entry.cell, "up", accept)); break;
+      case "ArrowDown": handled = moveTo(cellInDirection(layout, entry.cell, "down", accept)); break;
+      case "ArrowLeft": handled = moveTo(cellInDirection(layout, entry.cell, "left", accept)); break;
+      case "ArrowRight": handled = moveTo(cellInDirection(layout, entry.cell, "right", accept)); break;
+      case "Home": handled = moveTo(ordered[0]?.cell); break;
+      case "End": handled = moveTo(ordered[ordered.length - 1]?.cell); break;
+      case "Enter":
+      case " ":
+        if (onCellActivate) {
+          onCellActivate(entry.cell, entry.state);
+          handled = true;
+        }
+        break;
+    }
+    // Arrow keys at the edge are still ours: don't scroll the page.
+    if (handled || e.key.startsWith("Arrow")) e.preventDefault();
+  };
+
   return (
     <div
       data-andamento=""
+      role={role ?? "list"}
       {...rest}
+      onKeyDown={handleKeyDown}
       style={{ position: "relative", width: "100%", aspectRatio: `${bounds.width} / ${bounds.height}`, ...style }}
     >
+      {navigable && focusRing !== false && <style>{FOCUS_CSS}</style>}
       {background && (
         <div
           aria-hidden
@@ -210,26 +303,25 @@ export function TileLayout(props: TileLayoutProps) {
           />
         </svg>
       )}
-      {layout.cells.map((cell, i) => {
+      {entries.map(({ cell, content, key, empty, state }, i) => {
         const slot = slots[i]!;
-        let content: ReactNode = null;
-        // Key by child where possible, so a child keeps its state (video position,
-        // inputs, animations) when the layout changes underneath it.
-        let key: Key = `cell:${cell.id}`;
-        if (renderCell) content = renderCell(cell, { slot });
-        else if (slot >= 0) {
-          const child = items[slot];
-          content = child;
-          key = isValidElement(child) && child.key != null ? `child:${child.key}` : `child:${slot}`;
-        }
-        const empty = isEmpty(content);
-        const state: CellState = { empty, slot: empty && !renderCell ? -1 : slot };
-        if (empty) content = resolve(fallback, cell, state);
-
         const css = cellCss(cell, layout);
+        // Tiles with nothing in them are decoration: hidden from assistive technology.
+        const silent = empty && isEmpty(content);
+        const canFocus = focusable.has(cell.id);
         return (
           <div
             key={key}
+            ref={(el) => {
+              if (el) tiles.current.set(cell.id, el);
+              else tiles.current.delete(cell.id);
+            }}
+            role={silent ? undefined : list ? "listitem" : undefined}
+            aria-hidden={silent ? true : undefined}
+            aria-label={silent ? undefined : resolve(cellLabel, cell, state)}
+            tabIndex={canFocus ? (cell.id === active ? 0 : -1) : undefined}
+            onFocus={canFocus ? (e) => e.target === e.currentTarget && setActiveId(cell.id) : undefined}
+            onClick={onCellActivate && !empty ? () => onCellActivate(cell, state) : undefined}
             className={resolve(cellClassName, cell, state)}
             data-cell-id={cell.id}
             data-index={cell.index}
@@ -242,6 +334,7 @@ export function TileLayout(props: TileLayoutProps) {
               ...css,
               // With safeArea, content no longer covers its tile, so every tile shows its fill.
               ...((empty || safeArea) && backdrop == null ? { background: fills[i] } : undefined),
+              ...(onCellActivate && !empty ? { cursor: "pointer" } : undefined),
               ...resolve(cellStyle, cell, state),
             }}
           >
@@ -280,12 +373,31 @@ export function TileLayout(props: TileLayoutProps) {
                 ))}
               </svg>
             )}
+            {canFocus && focusRing !== false && (
+              // The tile's outline, stroked across its edge; the clip keeps the inner half.
+              <svg
+                aria-hidden
+                data-focus-ring=""
+                viewBox={`${cell.bbox.x} ${cell.bbox.y} ${cell.bbox.width} ${cell.bbox.height}`}
+                preserveAspectRatio="none"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+              >
+                <path d={cellPath(layout, cell)} fill="none" stroke="#fff" strokeWidth={8} vectorEffect="non-scaling-stroke" />
+                <path d={cellPath(layout, cell)} fill="none" stroke={focusRing} strokeWidth={4} vectorEffect="non-scaling-stroke" />
+              </svg>
+            )}
           </div>
         );
       })}
     </div>
   );
 }
+
+// The ring shows only on keyboard focus; a CSS outline would be clipped away anyway.
+const FOCUS_CSS =
+  "[data-andamento]>[data-cell-id]:focus{outline:none}" +
+  "[data-andamento]>[data-cell-id]>[data-focus-ring]{display:none}" +
+  "[data-andamento]>[data-cell-id]:focus-visible>[data-focus-ring]{display:block}";
 
 /** Style that makes an <img> or <video> cover its tile, like `object-fit: cover`. */
 export const coverStyle: CSSProperties = { display: "block", width: "100%", height: "100%", objectFit: "cover" };

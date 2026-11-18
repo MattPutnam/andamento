@@ -133,6 +133,32 @@ It follows rounded corners, holes and non-convex shapes, and narrows on thin til
 `shade` from 1 (facing the light) to -1; `reliefPaths` in `@andamento/svg` groups them into
 a few paths per tile.
 
+#### Keyboard navigation and accessibility
+
+```tsx
+<TileLayout options={options} navigable aria-label="Holiday photos"
+  cellLabel={(cell, { slot }) => photos[slot]?.alt}
+  onCellActivate={(cell, { slot }) => openPhoto(slot)}>
+  {photos.map((p) => <img key={p.src} src={p.src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+The layout is a list (`role="list"`, unless you pass another `role`) and each tile with
+content a list item, in reading order. Tiles with nothing in them are hidden from assistive
+technology as decoration. `cellLabel` gives tiles an accessible name.
+
+With `navigable`, the tiles with content are one tab stop (a roving tabindex). The arrow keys
+move to the nearest tile in that direction, in any tiling: hexagons, herringbone or
+aperiodic hats. Home and End go to the first and last tile. `onCellActivate` runs on Enter,
+Space or a click. Keys pressed in a tile's own inputs or buttons are left alone. The focused
+tile gets a ring drawn inside its shape, because a CSS outline would be clipped away. Set
+the ring's colour with `focusRing`, or pass `false` and style `[data-cell-id]:focus-visible`
+yourself. In core, `cellInDirection(layout, cell, "left", accept?)` is the same navigation.
+
+For SVG, `imageAlts` (on `<SvgTileLayout>` or `renderToString`) gives each image a text
+alternative. Those cells become labelled images, the SVG a group of them, and the rest is
+hidden as decoration.
+
 #### Fill helpers
 
 `fill` also takes a function `(cell, layout) => color`. Core has ready-made ones:

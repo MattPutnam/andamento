@@ -233,7 +233,7 @@ describe("matching children to tile shapes", () => {
         <i>wide3</i>
       </TileLayout>,
     );
-    const placed = [...html.matchAll(/<div data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><i>(\w+)<\/i>/g)];
+    const placed = [...html.matchAll(/<div [^>]*data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><i>(\w+)<\/i>/g)];
     expect(placed).toHaveLength(4);
     for (const m of placed) {
       const w = Number(m[1]) * 4, h = Number(m[2]) * 3; // back to region units
@@ -281,7 +281,7 @@ describe("safe areas", () => {
         <p>a</p>
       </TileLayout>,
     );
-    const outer = html.match(/<div data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><div data-safe-area="" style="[^"]*width:([\d.]+)%;height:([\d.]+)%">/)!;
+    const outer = html.match(/<div [^>]*data-cell-id[^>]*width:([\d.]+)%;height:([\d.]+)%[^>]*><div data-safe-area="" style="[^"]*width:([\d.]+)%;height:([\d.]+)%">/)!;
     const [cw, ch, w, h] = outer.slice(1).map(Number) as [number, number, number, number];
     // Back to region units: cell box = cw% of 300 by ch% of 200; inner box is a % of that.
     const width = ((cw * 3) * w) / 100, height = ((ch * 2) * h) / 100;
@@ -307,6 +307,12 @@ describe("relief", () => {
     expect(html).toMatch(/<p>a<\/p><svg aria-hidden="true" data-bevel="" viewBox="5 5 90 90"/);
     expect(html.match(/data-andamento-shadow=""/g)).toHaveLength(1);
     expect(renderToStaticMarkup(<TileLayout options={options}><p>a</p></TileLayout>)).not.toContain("data-bevel");
+  });
+
+  it("labels SvgTileLayout images with imageAlts", () => {
+    const html = renderToStaticMarkup(<SvgTileLayout options={options} images={["a.jpg"]} imageAlts={["A lake"]} />);
+    expect(html).toContain('role="img" aria-label="A lake"');
+    expect(html.match(/aria-hidden="true"/g)).toHaveLength(5);
   });
 
   it("works in SvgTileLayout", () => {

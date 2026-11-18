@@ -65,6 +65,12 @@ export interface RenderOptions {
   height?: string | number;
   /** Accessible title. */
   title?: string;
+  /**
+   * Text alternative for each image in `images` (by position). Cells showing an image with
+   * one become labelled images to assistive technology, and the SVG a group of them; the
+   * other cells are hidden as decoration.
+   */
+  imageAlts?: readonly string[];
 }
 
 const formatter = (precision: number) => (n: number) => {
@@ -251,6 +257,7 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
           "data-index": cell.index,
           "data-empty": style.image ? undefined : "",
           "data-boundary": cell.boundary ? "" : undefined,
+          ...cellA11y(style, opts.imageAlts),
         },
         parts,
       ),
@@ -264,10 +271,17 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
       viewBox: `${r(x)} ${r(y)} ${r(width)} ${r(height)}`,
       width: opts.width,
       height: opts.height,
-      role: opts.title ? "img" : undefined,
+      role: opts.imageAlts?.length ? "group" : opts.title ? "img" : undefined,
     },
     children,
   );
+}
+
+/** With `imageAlts`: a cell showing a described image is an image; the rest is decoration. */
+export function cellA11y(style: CellStyle, alts: readonly string[] | undefined): { role?: "img"; "aria-label"?: string; "aria-hidden"?: "true" } {
+  if (!alts?.length) return {};
+  const alt = style.image && style.slot >= 0 ? alts[style.slot % alts.length] : undefined;
+  return alt ? { role: "img", "aria-label": alt } : { "aria-hidden": "true" };
 }
 
 const escapeText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
