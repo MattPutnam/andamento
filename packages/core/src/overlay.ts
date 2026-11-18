@@ -79,10 +79,13 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
       const d1x = p.bx - p.ax, d1y = p.by - p.ay;
       const d2x = q.bx - q.ax, d2y = q.by - q.ay;
       const den = d1x * d2y - d1y * d2x;
-      if (den === 0) continue;
+      const l1 = Math.hypot(d1x, d1y), l2 = Math.hypot(d2x, d2y);
+      // (Nearly) parallel: no proper crossing. Runs along each other were cut above; and
+      // for collinear segments meeting end to end, dividing by a rounding-error `den`
+      // would put a bogus cut anywhere along them.
+      if (Math.abs(den) <= 1e-9 * l1 * l2) continue;
       const s = ((q.ax - p.ax) * d2y - (q.ay - p.ay) * d2x) / den;
       const r = ((q.ax - p.ax) * d1y - (q.ay - p.ay) * d1x) / den;
-      const l1 = Math.hypot(d1x, d1y), l2 = Math.hypot(d2x, d2y);
       if (s * l1 <= eps || (1 - s) * l1 <= eps || r * l2 <= eps || (1 - r) * l2 <= eps) continue;
       const x = p.ax + d1x * s, y = p.ay + d1y * s;
       addCut(i, s, x, y);

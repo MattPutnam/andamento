@@ -463,6 +463,35 @@ round and is cut, rounded and given neighbours like any other. Featured cells ha
 take the first content: `<TileLayout>`'s first child goes to the first feature, and so on;
 the rest follow `placement` as usual.
 
+### Tile size by density
+
+```ts
+createLayout({ region, tiling: hexagonal({ size: 30 }), sizeAt: radialSize({ center: { x: 400, y: 300 }, radius: 350 }) });
+createLayout({ region, tiling: voronoi({ size: 40 }), sizeAt: imageSize(await loadImagePixels(url), bounds) });
+```
+
+`sizeAt` sets the tile size across the region. It gives the size wanted at each point, as a
+factor of the tiling's own size: 1 as given, 0.5 half as big, 2 twice as big. This puts small
+tiles round a focal point, along the edges, or wherever a picture has detail.
+
+How the size changes depends on the tiling:
+- **Voronoi and Delaunay:** the size changes smoothly. Sites are scattered more densely where
+  tiles should be small, then evened out by density-weighted relaxation.
+- **Every other tiling:** tiles are generated at the largest size wanted. Where tiles should be
+  under about half that, groups of them are replaced by the same tiling at half the scale,
+  then again, down to the smallest. A grid from the same origin nests exactly, like a quadtree.
+  Other tilings are cut where a finer area meets a coarser one, and cut slivers are merged into
+  a neighbour, so there are no crumbs or gaps.
+
+Three helpers make size fields, each easing smoothly between its two sizes:
+- **`radialSize({ center, radius, inner, outer })`:** small at a point, growing outwards.
+- **`edgeSize(region, { distance, edge, middle, holes })`:** small along the edges.
+- **`imageSize(pixels, box, { dark, light, invert })`:** small where a picture is dark (or
+  light, with `invert`), covering `box` like `object-fit: cover`.
+
+Everything else (gaps, holes, features, content placement, hit testing) works on the result
+as usual. `maxTiles` still caps the count.
+
 ### Region shapes and holes
 
 The region can be any simple polygon: an L-shaped wall, the space under stairs, an arch

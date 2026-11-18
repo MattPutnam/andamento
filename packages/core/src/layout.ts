@@ -18,6 +18,7 @@ import {
 import { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
 import { inShapes, overlay, shapeArea, shapeCentroid, type Shape } from "./overlay";
 import { generateTiles, type TilingSpec } from "./tilings";
+import { fieldRange, refineTiles } from "./density";
 
 /**
  * How tiles at the edge of the region are treated.
@@ -77,6 +78,15 @@ export interface LayoutOptions {
    * the same gap all round as any other. See `Feature`.
    */
   features?: Feature[];
+  /**
+   * Vary the tile size across the region: the size wanted at each point, as a factor of the
+   * tiling's own size (1 as given, 0.5 half as big, 2 twice). Voronoi and Delaunay change
+   * size smoothly; other tilings are generated at the largest size wanted and, where tiles
+   * should be smaller, replaced by the same tiling at half the scale (again and again, down
+   * to the smallest), cut to fit. Grids and other tilings that halve exactly nest without
+   * cuts. See `radialSize`, `edgeSize` and `imageSize`.
+   */
+  sizeAt?: (point: Vec) => number;
   /** Safety cap on generated tiles. Defaults to 20000. */
   maxTiles?: number;
 }
@@ -197,15 +207,34 @@ export function createLayout(options: LayoutOptions): Layout {
   const k = options.tileScale ?? 1;
   if (!(k > 0) || !Number.isFinite(k)) throw new RangeError(`tileScale must be a positive number (got ${k})`);
   const origin = options.origin ?? vec(bounds.x, bounds.y);
-  // Scaling the pattern by k = generating in a region shrunk by 1/k, then scaling back up.
-  const down = (v: Vec) => vec(v.x / k, v.y / k);
+  // With sizeAt, the pattern starts at the largest size wanted.
+  const field = options.sizeAt;
+  const range = field ? fieldRange(field, innerBox) : { min: 1, max: 1 };
+  const k0 = k * range.max;
+  const smooth = options.tiling.type === "voronoi" || options.tiling.type === "delaunay";
+  // Scaling the pattern by k0 = generating in a region shrunk by 1/k0, then scaling back up.
+  const down = (v: Vec) => vec(v.x / k0, v.y / k0);
   let raw = generateTiles(options.tiling, {
-    region: k === 1 ? inner : inner.map(down),
+    region: k0 === 1 ? inner : inner.map(down),
     rotation: options.rotation ?? 0,
-    origin: k === 1 ? origin : down(origin),
+    origin: k0 === 1 ? origin : down(origin),
     maxTiles: options.maxTiles ?? 20000,
+    ...(field && smooth ? { sizeAt: (p: Vec) => Math.min(1, field(vec(p.x * k0, p.y * k0)) / range.max) } : {}),
   });
-  if (k !== 1) raw = raw.map((t) => ({ ...t, polygon: t.polygon.map((v) => vec(v.x * k, v.y * k)) }));
+  if (k0 !== 1) raw = raw.map((t) => ({ ...t, polygon: t.polygon.map((v) => vec(v.x * k0, v.y * k0)) }));
+  if (field && !smooth && options.tiling.type !== "tiles" && range.min < range.max / Math.SQRT2) {
+    raw = refineTiles(raw, {
+      spec: options.tiling,
+      rotation: options.rotation ?? 0,
+      origin,
+      scale: k0,
+      want: (p) => field(p) / range.max,
+      levels: Math.min(6, Math.round(Math.log2(range.max / range.min))),
+      maxTiles: options.maxTiles ?? 20000,
+      scaleRef,
+      tol,
+    });
+  }
 
   type Draft = Omit<Cell, "index" | "neighbors">;
   const drafts: Draft[] = [];

@@ -1,5 +1,5 @@
-import { useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
-import { colorCells, createLayout, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
+import { colorCells, createLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToPng, renderToString } from "@andamento/svg";
 import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
@@ -240,6 +240,9 @@ type HoleSet = "none" | "window-door" | "sockets" | "round";
 type Pt = { x: number; y: number };
 
 /** Example region outlines in a w × h box. */
+const asPolygon = (r: Pt[] | { x: number; y: number; width: number; height: number }) =>
+  Array.isArray(r) ? r : rectPolygon(r.x, r.y, r.width, r.height);
+
 function regionShape(shape: RegionShape, w: number, h: number): Pt[] | { x: number; y: number; width: number; height: number } {
   switch (shape) {
     case "rectangle":
@@ -330,6 +333,9 @@ export function App() {
   const [wall, setWall] = useState({ width: 240, height: 150 });
   // A wall 15 times taller than wide, in a scrolling box: only the tiles in view are mounted.
   const [longWall, setLongWall] = useState(false);
+  // Tile size by density: even, small in the middle, small at the edges, or from the picture.
+  const [density, setDensity] = useState<"even" | "centre" | "edges" | "picture">("even");
+  const [densityPixels, setDensityPixels] = useState<Pixels>();
   const [shape, setShape] = useState<RegionShape>("rectangle");
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
   const [featureTiles, setFeatureTiles] = useState(0); // 0: no featured tile
@@ -359,8 +365,22 @@ export function App() {
 
   const def = TILINGS[type];
   const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
+  const wallHeight = longWall ? wall.width * 15 : wall.height;
+  const sizeAt =
+    density === "centre"
+      ? radialSize({ center: { x: wall.width / 2, y: wallHeight / 2 }, radius: Math.max(wall.width, wallHeight) * 0.6, inner: 0.3 })
+      : density === "edges"
+        ? edgeSize(asPolygon(regionShape(shape, wall.width, wallHeight)), {
+            distance: Math.min(wall.width, wallHeight) * 0.3,
+            edge: 0.3,
+            holes: holeSet !== "none" ? holesFor(holeSet, wall.width, wallHeight).map(asPolygon) : [],
+          })
+        : density === "picture" && densityPixels
+          ? imageSize(densityPixels, { x: 0, y: 0, width: wall.width, height: wallHeight }, { dark: 0.3 })
+          : undefined;
   const options: LayoutOptions = {
-    region: regionShape(shape, wall.width, longWall ? wall.width * 15 : wall.height),
+    region: regionShape(shape, wall.width, wallHeight),
+    ...(sizeAt ? { sizeAt } : {}),
     ...(longWall ? { maxTiles: 60000 } : {}),
     ...(holeSet !== "none" ? { holes: holesFor(holeSet, wall.width, wall.height) } : {}),
     ...(featureTiles > 0 ? { features: [{ tiles: featureTiles }] } : {}),
@@ -380,7 +400,8 @@ export function App() {
 
   const itemsShown = content === "photos" || content === "cards";
   const fitTo = fitTiles && itemCount > 0 && itemsShown ? itemCount : 0;
-  const optionsKey = JSON.stringify(options);
+  // sizeAt is a function, so JSON leaves it out: key on what it's made from.
+  const optionsKey = JSON.stringify(options) + density;
   const result = useMemo((): { layout: Layout } | { error: string } => {
     try {
       // fitCount scales the pattern so there are about `fitTo` tiles for content.
@@ -389,12 +410,20 @@ export function App() {
       return { error: (e as Error).message };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionsKey, fitTo, contentCells]);
+  }, [optionsKey, fitTo, contentCells, density === "picture" ? densityPixels : undefined]);
 
   const photos = useMemo(() => (uploads.length ? uploads : placeholderPhotos(60)), [uploads]);
   const layout = "layout" in result ? result.layout : undefined;
   // "One picture": your first photo, or a wide placeholder, across all the tiles.
   const picture = uploads[0] ?? photos[0]!;
+  useEffect(() => {
+    if (density !== "picture") return;
+    let live = true;
+    loadImagePixels(picture, 128).then((px) => live && setDensityPixels(px), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [density, picture]);
   // "Mosaic": each tile takes the average color of the picture under it.
   const mosaic = useImageFill(content === "mosaic" ? picture : undefined, { palette: mosaicPalette ? MOSAIC_PALETTE : undefined });
   // Photo shapes, for matching photos to tile shapes.
@@ -482,6 +511,15 @@ export function App() {
           <h2>Region</h2>
           <Slider label="Width" min={50} max={500} step={5} value={wall.width} onChange={(v) => setWall({ ...wall, width: v })} />
           {!longWall && <Slider label="Height" min={50} max={400} step={5} value={wall.height} onChange={(v) => setWall({ ...wall, height: v })} />}
+          <label className="row">
+            <span>Tile size</span>
+            <select value={density} onChange={(e) => setDensity(e.target.value as typeof density)}>
+              <option value="even">Even</option>
+              <option value="centre">Smaller in the middle</option>
+              <option value="edges">Smaller at the edges</option>
+              <option value="picture">From the picture</option>
+            </select>
+          </label>
           <label className="row">
             <span>Long scrolling wall (virtualised)</span>
             <input type="checkbox" checked={longWall} onChange={(e) => setLongWall(e.target.checked)} />

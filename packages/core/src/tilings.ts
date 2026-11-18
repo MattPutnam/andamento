@@ -333,6 +333,11 @@ export interface GenerateContext {
   origin: Vec;
   /** Safety cap on the number of tiles generated. */
   maxTiles: number;
+  /**
+   * For generators that can vary their tile size smoothly (Voronoi, Delaunay): the size
+   * wanted at a point, as a factor (at most 1) of the spec's size.
+   */
+  sizeAt?: (p: Vec) => number;
 }
 
 /**

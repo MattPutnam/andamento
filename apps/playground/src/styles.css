@@ -34,6 +34,7 @@ section { padding: 14px 0; border-top: 1px solid var(--line); }
 .slider output { color: var(--muted); font-variant-numeric: tabular-nums; }
 .slider input { width: 100%; accent-color: var(--accent); }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+.row select { min-width: 0; max-width: 62%; text-overflow: ellipsis; }
 select { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .chip { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }

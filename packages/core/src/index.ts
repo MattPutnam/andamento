@@ -21,6 +21,8 @@ export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, regionCss, resampl
 export { safeArea } from "./safe";
 export { bevelFacets, lightVector } from "./relief";
 export { cellInDirection } from "./navigation";
+export { edgeSize, imageSize, radialSize } from "./density";
+export type { SizeField } from "./density";
 export { cellAt, cellsInRect, nearestCell, screenToLayout } from "./hit";
 export type { HitOptions, ScreenBox } from "./hit";
 export type { Direction } from "./navigation";

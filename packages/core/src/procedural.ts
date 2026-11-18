@@ -23,10 +23,43 @@ function checkCount(kind: string, count: number, ctx: GenerateContext) {
   }
 }
 
-/** Uniform random points in `box`, about one per `size × size` square. */
-function randomSites(box: Rect, size: number, rng: () => number): Vec[] {
-  const n = Math.max(1, Math.round((box.width * box.height) / (size * size)));
-  return Array.from({ length: n }, () => vec(box.x + rng() * box.width, box.y + rng() * box.height));
+/**
+ * Random points in `box`, about one per `size × size` square; with `sizeAt`, about one per
+ * `(size · sizeAt(p))²` instead (thinned from the densest rate), so cells shrink where it's small.
+ */
+function randomSites(box: Rect, size: number, rng: () => number, sizeAt?: (p: Vec) => number): Vec[] {
+  if (!sizeAt) {
+    const n = Math.max(1, Math.round((box.width * box.height) / (size * size)));
+    return Array.from({ length: n }, () => vec(box.x + rng() * box.width, box.y + rng() * box.height));
+  }
+  const fmin = minOver(sizeAt, box);
+  const n = Math.max(1, Math.round((box.width * box.height) / (size * fmin) ** 2));
+  const out: Vec[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = vec(box.x + rng() * box.width, box.y + rng() * box.height);
+    if (rng() < (fmin / Math.max(fmin, sizeAt(p))) ** 2) out.push(p);
+  }
+  return out.length ? out : [vec(box.x + box.width / 2, box.y + box.height / 2)];
+}
+
+/** Smallest value of a size factor over a box (sampled), clamped to (0, 1]. */
+function minOver(sizeAt: (p: Vec) => number, box: Rect): number {
+  let m = 1;
+  for (let i = 0; i <= 32; i++) for (let j = 0; j <= 32; j++) m = Math.min(m, sizeAt(vec(box.x + (box.width * i) / 32, box.y + (box.height * j) / 32)));
+  return Math.max(m, 1e-3);
+}
+
+/** Expected number of sites `randomSites` gives. */
+function expectedSites(box: Rect, size: number, sizeAt?: (p: Vec) => number): number {
+  if (!sizeAt) return (box.width * box.height) / (size * size);
+  let sum = 0;
+  for (let i = 0; i < 32; i++) {
+    for (let j = 0; j < 32; j++) {
+      const f = Math.max(1e-3, sizeAt(vec(box.x + (box.width * (i + 0.5)) / 32, box.y + (box.height * (j + 0.5)) / 32)));
+      sum += 1 / (f * f);
+    }
+  }
+  return ((box.width * box.height) / (size * size)) * (sum / 1024);
 }
 
 /**
@@ -74,22 +107,41 @@ export function voronoiCells(sites: Vec[], box: Rect): Polygon[] {
   });
 }
 
-/** Lloyd relaxation: move each free site to the centroid of its cell, `rounds` times. */
-function relax(sites: Vec[], fixed: number, box: Rect, rounds: number): Vec[] {
+/**
+ * Lloyd relaxation: move each free site to the centroid of its cell, `rounds` times. With
+ * `sizeAt`, centroids are weighted by density (1 / size²), which evens out spacing locally
+ * while keeping the change in size across the box.
+ */
+function relax(sites: Vec[], fixed: number, box: Rect, rounds: number, sizeAt?: (p: Vec) => number): Vec[] {
   let out = sites;
   for (let k = 0; k < rounds; k++) {
     const cells = voronoiCells(out, box);
-    out = out.map((p, i) => (i < fixed || cells[i]!.length < 3 ? p : centroid(cells[i]!)));
+    out = out.map((p, i) => (i < fixed || cells[i]!.length < 3 ? p : sizeAt ? weightedCentroid(cells[i]!, sizeAt) : centroid(cells[i]!)));
   }
   return out;
+}
+
+/** Centroid of a convex polygon with density 1 / sizeAt², by fan triangles. */
+function weightedCentroid(poly: Polygon, sizeAt: (p: Vec) => number): Vec {
+  let sx = 0, sy = 0, sw = 0;
+  const a = poly[0]!;
+  for (let i = 1; i + 1 < poly.length; i++) {
+    const b = poly[i]!, c = poly[i + 1]!;
+    const ar = Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) / 2;
+    const m = vec((a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3);
+    const f = Math.max(1e-3, sizeAt(m));
+    const w = ar / (f * f);
+    sx += m.x * w; sy += m.y * w; sw += w;
+  }
+  return sw > 0 ? vec(sx / sw, sy / sw) : centroid(poly);
 }
 
 export function generateVoronoi(spec: VoronoiSpec, ctx: GenerateContext): RawTile[] {
   const size = positive("voronoi.size", spec.size);
   const box = bbox(ctx.region);
-  checkCount("Voronoi", (box.width * box.height) / (size * size), ctx);
+  checkCount("Voronoi", expectedSites(box, size, ctx.sizeAt), ctx);
   const rng = mulberry32(spec.seed ?? 1);
-  const sites = relax(randomSites(box, size, rng), 0, box, Math.max(0, Math.round(spec.relax ?? 2)));
+  const sites = relax(randomSites(box, size, rng, ctx.sizeAt), 0, box, Math.max(0, Math.round(spec.relax ?? 2)), ctx.sizeAt);
   return voronoiCells(sites, box)
     .map((polygon, i) => ({ id: `v${i}`, polygon, protoTile: 0 }))
     .filter((t) => t.polygon.length >= 3);
@@ -139,7 +191,7 @@ export function generateDelaunay(spec: DelaunaySpec, ctx: GenerateContext): RawT
   const size = positive("delaunay.size", spec.size);
   const box = bbox(ctx.region);
   // Roughly two triangles per site.
-  checkCount("triangle", (2 * box.width * box.height) / (size * size), ctx);
+  checkCount("triangle", 2 * expectedSites(box, size, ctx.sizeAt), ctx);
   const rng = mulberry32(spec.seed ?? 1);
 
   // Fixed sites around the outside of the box, nudged outwards at random so the
@@ -147,19 +199,22 @@ export function generateDelaunay(spec: DelaunaySpec, ctx: GenerateContext): RawT
   const pad = () => size * (0.05 + 0.1 * rng());
   const { x, y, width: w, height: h } = box;
   const ring: Vec[] = [vec(x - pad(), y - pad()), vec(x + w + pad(), y - pad()), vec(x + w + pad(), y + h + pad()), vec(x - pad(), y + h + pad())];
-  const along = (len: number) => Math.max(1, Math.round(len / size));
-  for (let k = 1, m = along(w); k < m; k++) {
-    ring.push(vec(x + (w * k) / m, y - pad()));
-    ring.push(vec(x + w - (w * k) / m, y + h + pad()));
-  }
-  for (let k = 1, m = along(h); k < m; k++) {
-    ring.push(vec(x + w + pad(), y + (h * k) / m));
-    ring.push(vec(x - pad(), y + h - (h * k) / m));
-  }
+  // Points along the outside, closer together where tiles should be small.
+  const local = (p: Vec) => size * Math.min(1, Math.max(0.05, ctx.sizeAt ? ctx.sizeAt(p) : 1));
+  // Evenly spaced along each side, at the smallest size wanted along it.
+  const along = (len: number, a: Vec, b: Vec) => {
+    let step = Infinity;
+    for (let t = 0; t <= 1; t += 0.125) step = Math.min(step, local(vec(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)));
+    return Math.max(1, Math.round(len / step));
+  };
+  for (let k = 1, m = along(w, vec(x, y), vec(x + w, y)); k < m; k++) ring.push(vec(x + (w * k) / m, y - pad()));
+  for (let k = 1, m = along(w, vec(x, y + h), vec(x + w, y + h)); k < m; k++) ring.push(vec(x + w - (w * k) / m, y + h + pad()));
+  for (let k = 1, m = along(h, vec(x + w, y), vec(x + w, y + h)); k < m; k++) ring.push(vec(x + w + pad(), y + (h * k) / m));
+  for (let k = 1, m = along(h, vec(x, y), vec(x, y + h)); k < m; k++) ring.push(vec(x - pad(), y + h - (h * k) / m));
 
   const outer: Rect = { x: x - size, y: y - size, width: w + 2 * size, height: h + 2 * size };
   const inner: Rect = { x: x + size / 4, y: y + size / 4, width: Math.max(0, w - size / 2), height: Math.max(0, h - size / 2) };
-  const sites = relax([...ring, ...randomSites(inner, size, rng)], ring.length, outer, Math.max(0, Math.round(spec.relax ?? 2)));
+  const sites = relax([...ring, ...randomSites(inner, size, rng, ctx.sizeAt)], ring.length, outer, Math.max(0, Math.round(spec.relax ?? 2)), ctx.sizeAt);
 
   return delaunayTriangles(sites).map(([a, b, c], i) => ({
     id: `d${i}`,
