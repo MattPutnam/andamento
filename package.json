@@ -5,11 +5,13 @@
   "workspaces": [
     "packages/core",
     "packages/svg",
+    "packages/dom",
     "packages/react",
+    "packages/vue",
     "apps/playground"
   ],
   "scripts": {
-    "build": "npm run build -w @andamento/core && npm run build -w @andamento/svg && npm run build -w @andamento/react",
+    "build": "npm run build -w @andamento/core && npm run build -w @andamento/svg && npm run build -w @andamento/dom && npm run build -w @andamento/react && npm run build -w @andamento/vue",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,6 +27,7 @@
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13"
   }
 }

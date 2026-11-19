@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
-import { colorCells, createLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { createElement, useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
+import { colorCells, createLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type Cell, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToPng, renderToString } from "@andamento/svg";
 import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
 import { placeholderPhotos } from "./photos";
+import { ElementPreview, VuePreview, type PreviewItem, type PreviewProps } from "./Bindings";
 
 interface Param {
   key: string;
@@ -375,6 +376,8 @@ export function App() {
   const [light, setLight] = useState(315);
   const [activated, setActivated] = useState<string>();
   const [animateChanges, setAnimateChanges] = useState(true);
+  // Which binding renders the layout: the React component, the Vue one or the web component.
+  const [binding, setBinding] = useState<"react" | "vue" | "element">("react");
   // Hit testing: the tile under the pointer, snapping to the nearest one from the grout.
   const [pointer, setPointer] = useState<{ id: string; index: number; inGap: boolean }>();
   const [gap, setGap] = useState(2);
@@ -483,6 +486,15 @@ export function App() {
       );
     return null;
   });
+
+  // The same content for the Vue and web component bindings.
+  const previewItems: PreviewItem[] = Array.from({ length: itemsShown ? numItems : 0 }, (_, i) =>
+    content === "photos"
+      ? { kind: "photo", src: photos[i % photos.length]! }
+      : { kind: "card", n: i + 1, word: CARD_WORDS[i % CARD_WORDS.length]!, color: safe ? undefined : colorOf(i) },
+  );
+  const tileLabel = (_cell: Cell, s: { slot: number }) =>
+    content === "photos" ? `Photo ${s.slot + 1}` : content === "cards" ? `Card ${s.slot + 1}: ${CARD_WORDS[s.slot % CARD_WORDS.length]}` : undefined;
 
   const setParam = (key: string, value: number | string) => setParams((p) => ({ ...p, [type]: { ...p[type], [key]: value } }));
 
@@ -681,6 +693,14 @@ export function App() {
             </select>
           </label>
           <label className="row">
+            <span>Built with</span>
+            <select value={binding} onChange={(e) => setBinding(e.target.value as typeof binding)}>
+              <option value="react">React</option>
+              <option value="vue">Vue</option>
+              <option value="element">Web component</option>
+            </select>
+          </label>
+          <label className="row">
             <span>Animate changes</span>
             <input type="checkbox" checked={animateChanges} onChange={(e) => setAnimateChanges(e.target.checked)} />
           </label>
@@ -798,7 +818,34 @@ export function App() {
           </button>
         </div>
         <div className={longWall ? "canvas scroll" : "canvas"}>
-          {layout && (
+          {layout && binding !== "react" && (
+            // The same settings, through @andamento/vue or <andamento-layout>.
+            createElement(binding === "vue" ? VuePreview : ElementPreview, {
+              key: binding,
+              ...({
+              layout,
+              items: previewItems,
+              background,
+              relief,
+              animate: animateChanges,
+              virtualize: longWall,
+              fill: cellFill,
+              contentCells,
+              placement,
+              aspects: childAspects,
+              safeArea: safe,
+              choose: matchShapes === "shape" ? "shape" : "placement",
+              backdrop: content === "picture" ? picture : undefined,
+              cellLabel: tileLabel,
+              cellStyle: safe && content === "cards" ? (_cell, s) => (s.slot >= 0 ? { background: colorOf(s.slot) } : {}) : undefined,
+              onActivate: (_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`),
+              label: `${def.label} layout`,
+              className: safe && content === "cards" ? "region show-safe" : "region",
+              style: { "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties,
+              } satisfies PreviewProps),
+            })
+          )}
+          {layout && binding === "react" && (
             <TileLayout
               layout={layout}
               background={background}
@@ -806,7 +853,7 @@ export function App() {
               navigable
               animate={animateChanges}
               virtualize={longWall}
-              cellLabel={(_cell, s) => (content === "photos" ? `Photo ${s.slot + 1}` : content === "cards" ? `Card ${s.slot + 1}: ${CARD_WORDS[s.slot % CARD_WORDS.length]}` : undefined)}
+              cellLabel={tileLabel}
               onCellActivate={(_cell, s) => setActivated(content === "photos" ? `Photo ${s.slot + 1}` : `Card ${s.slot + 1}`)}
               className={safe && content === "cards" ? "region show-safe" : "region"}
               style={{ "--ratio": layout.bounds.width / layout.bounds.height } as CSSProperties}

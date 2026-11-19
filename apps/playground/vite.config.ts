@@ -11,8 +11,12 @@ export default defineConfig({
     alias: {
       "@andamento/core": src("core/src/index.ts"),
       "@andamento/svg": src("svg/src/index.ts"),
+      "@andamento/dom": src("dom/src/index.ts"),
       "@andamento/react": src("react/src/index.tsx"),
+      "@andamento/vue": src("vue/src/index.ts"),
     },
   },
+  // Vue's bundler build reads these flags.
+  define: { __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
   server: { port: 5173 },
 });

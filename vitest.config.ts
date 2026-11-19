@@ -8,7 +8,9 @@ export default defineConfig({
     alias: {
       "@andamento/core": src("core"),
       "@andamento/svg": src("svg"),
+      "@andamento/dom": src("dom"),
       "@andamento/react": src("react"),
+      "@andamento/vue": src("vue"),
     },
   },
   test: {

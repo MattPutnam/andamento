@@ -10,6 +10,8 @@ backgrounds.
 | `@andamento/core` | Pure TypeScript, no DOM. Generates a pattern, applies gap/margin/edge rules, returns `Cell[]`. Includes CSS placement helpers for any framework. |
 | `@andamento/svg` | Renders a layout to an SVG string (`renderToString`) or DOM element (`renderToElement`). |
 | `@andamento/react` | `<TileLayout>` (HTML, any children), `<SvgTileLayout>` (pure SVG), `useTileLayout()`. |
+| `@andamento/vue` | The same components for Vue 3: `<TileLayout>`, `<SvgTileLayout>`, `useTileLayout()`. |
+| `@andamento/dom` | No framework: `mountTileLayout()` into any element, and the `<andamento-layout>` web component for Angular, Svelte, Solid, Lit or plain HTML. |
 
 ## React: any content, clipped to the tiles
 
@@ -289,6 +291,114 @@ Use `<SvgTileLayout>` when you need a single `<svg>` (export, print, embedding),
 `images`, `fill`, `stroke` and an SVG-level `renderCell`. It takes `contentCells` and
 `placement` too (they decide where the `images` array goes), and `renderToString` accepts the
 same options.
+
+## Vue, web components and plain DOM
+
+The HTML layout is also available without React. All of these render the same tiles as the
+React `<TileLayout>` (same `data-*` attributes, clip paths, relief, focus ring and animation)
+and take the same options.
+
+### Vue
+
+```vue
+<script setup lang="ts">
+import { TileLayout, coverStyle } from "@andamento/vue";
+import { hexagonal } from "@andamento/core";
+
+const options = { region: { x: 0, y: 0, width: 240, height: 150 }, tiling: hexagonal({ size: 26 }), gap: 2 };
+</script>
+
+<template>
+  <TileLayout :options="options" background="#f4f1ea" navigable animate @cell-activate="(cell, s) => open(s.slot)">
+    <img v-for="p in photos" :key="p.src" :src="p.src" :alt="p.alt" :style="coverStyle" />
+    <template #fallback="{ cell }">…</template>
+    <template #backdrop><img src="wall.jpg" alt="" :style="coverStyle" /></template>
+  </TileLayout>
+</template>
+```
+
+- Each top-level node of the default slot fills one tile; `v-for` children count one each and
+  `v-if`-ed-out ones are skipped. Give them `:key`s so each keeps its element (and state) as
+  the layout changes.
+- The `cell` slot (`#cell="{ cell, slot }"`) fills every tile instead, like React's `renderCell`.
+- Props are React's, in Vue's spelling: `options` or `layout`, `fit`, `contentCells`,
+  `placement`, `aspects`, `choose`, `safe-area`, `fill`, `relief`, `navigable`, `cell-label`,
+  `focus-ring`, `animate`, `virtualize`, `cell-class`, `cell-style`, `background`. Other
+  attributes and listeners (`class`, `aria-label`, `@pointermove`) go on the layout element.
+- `<SvgTileLayout>` takes the options of `renderToString` as props (`images`, `fill`,
+  `stroke`, `relief`, `backdrop`, `title`, `image-alts`, `fit`, …).
+- `useTileLayout(options)` and `useFitCount(options, count)` take a ref, getter or object and
+  return a computed layout, worked out again only when the options change by value.
+- Works with server-side rendering (`vue/server-renderer`): tiles render in place, sized in
+  percentages, with nothing to measure.
+
+### Web component: Angular, Svelte, Solid, Lit, plain HTML
+
+```html
+<script type="module">
+  import { defineTileLayoutElement } from "@andamento/dom";
+  defineTileLayoutElement(); // registers <andamento-layout>
+</script>
+
+<andamento-layout
+  options='{"region":{"x":0,"y":0,"width":240,"height":150},"tiling":{"type":"hexagonal","size":26},"gap":2}'
+  background="#f4f1ea" navigable animate relief label="Photos"
+>
+  <img src="a.jpg" alt="Beach" data-aspect="1.5" />
+  <img src="b.jpg" alt="Hills" data-aspect="0.75" />
+  <img slot="backdrop" src="wall.jpg" alt="" />
+</andamento-layout>
+```
+
+- Each child element fills one tile, in reading order. Children stay where you put them, in
+  the light DOM, and are shown in their tiles through slots, so a framework that renders them
+  (`{#each}` in Svelte, `@for` in Angular, `<For>` in Solid) keeps managing them, and page
+  styles still apply to them. Adding, removing or reordering children re-renders the layout.
+- Settings as attributes: `options` (JSON), `navigable`, `animate`, `relief`, `safe-area`,
+  `virtualize`, `fit` (`nearest` or on), `placement`, `content-cells`, `choose`,
+  `background`, `fill` (a color, or a JSON palette), `focus-ring`, `label`. Or set them as
+  properties, including the ones that can't be attributes: `options` and `layout` objects,
+  `fill` and `cellLabel` functions, `relief` options, `animated` (as `animate` is taken by
+  the Web Animations API), `aspects`, `cellStyle`, `fallback`.
+- `data-aspect` (width / height) on children puts them in tiles of their shape, as `aspects`
+  does. A `slot="backdrop"` child is copied into every tile as one picture across them all.
+- Activating a tile (click, or Enter / Space with `navigable`) fires `cellactivate`, with
+  `{ cell, slot, item }` in `detail` (`item` being the child element).
+- Tiles live in the element's shadow root. Style them with `::part(tile)`, `::part(empty)`
+  and `::part(boundary)`, and the layout element with `::part(layout)`.
+
+```svelte
+<andamento-layout options={JSON.stringify(options)} navigable on:cellactivate={(e) => open(e.detail.slot)}>
+  {#each photos as p (p.src)}<img src={p.src} alt={p.alt} style="width:100%;height:100%;object-fit:cover" />{/each}
+</andamento-layout>
+```
+
+In Angular, add `CUSTOM_ELEMENTS_SCHEMA` to the component and bind properties with
+`[options]="options"` and events with `(cellactivate)="open($event.detail)"`.
+
+### Plain DOM
+
+```ts
+import { mountTileLayout } from "@andamento/dom";
+
+const layout = mountTileLayout(document.querySelector("#wall")!, {
+  options,
+  items: photos.map((src) => Object.assign(new Image(), { src, alt: "" })),
+  navigable: true,
+  onCellActivate: (cell, { slot }) => open(slot),
+});
+layout.update({ options: { ...options, gap: 4 } }); // items keep their elements
+layout.destroy();
+```
+
+`items` are nodes (moved into their tiles and kept there as the layout changes) or strings;
+`renderCell(cell, { slot })` instead returns a node per tile. The other options are those of
+the React component, with `cellClass`, `cellStyle` and `cellAttributes` per tile and `label`
+and `className` for the layout element.
+
+The pieces they're built from (tile styles, bevel and focus ring paths, what a key does,
+what's in view) are exported too, as `tileStyle`, `keyAction`, `viewRect` and so on, for
+bindings to other frameworks.
 
 ## Core
 
