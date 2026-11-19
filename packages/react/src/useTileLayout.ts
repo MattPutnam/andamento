@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import { createLayout, fitCount, type ContentCells, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
-import { layoutResolver, type FitProp } from "@andamento/dom";
+import { layoutResolver, type FitProp, type LayoutNeeds } from "@andamento/dom";
 
 /**
  * Compute a layout, recomputing only when the (serialisable) options change.
@@ -34,7 +34,7 @@ export function useResolvedLayout(
   component: string,
   options?: LayoutOptions,
   layout?: Layout,
-  fit?: { fit?: FitProp; count: number; cells?: ContentCells },
+  fit?: LayoutNeeds,
 ): Layout {
   const resolver = useRef<ReturnType<typeof layoutResolver>>();
   resolver.current ??= layoutResolver(`<${component}>`);

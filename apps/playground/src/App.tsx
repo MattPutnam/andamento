@@ -1,5 +1,5 @@
 import { createElement, useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
-import { colorCells, createLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type Cell, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
+import { colorCells, createLayout, tileSpans, weightedLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type Cell, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToPng, renderToString } from "@andamento/svg";
 import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, useImageFocus, type ContentPlacement, type FillSource, type Focus } from "@andamento/react";
 import { placeholderFocus, placeholderPhotos } from "./photos";
@@ -394,6 +394,8 @@ export function App() {
   const [uploads, setUploads] = useState<string[]>([]);
   const [background, setBackground] = useState("#f4f1ea");
   const [itemCount, setItemCount] = useState(0); // 0: one item per tile
+  // Some items more important than others: they span several tiles.
+  const [bigger, setBigger] = useState<"none" | "fifth" | "hero">("none");
   const [contentCells, setContentCells] = useState<"all" | "whole">("all");
   const [placement, setPlacement] = useState<ContentPlacement>("reading");
   const [fitTiles, setFitTiles] = useState(false);
@@ -444,15 +446,26 @@ export function App() {
   const fitTo = fitTiles && itemCount > 0 && itemsShown ? itemCount : 0;
   // sizeAt is a function, so JSON leaves it out: key on what it's made from.
   const optionsKey = JSON.stringify(options) + density;
+  const weightOf = (i: number) => (bigger === "fifth" ? (i % 5 === 0 ? 4 : 1) : bigger === "hero" ? (i === 0 ? 9 : 1) : 1);
   const result = useMemo((): { layout: Layout } | { error: string } => {
     try {
+      if (bigger !== "none" && itemsShown) {
+        // As many items as fit when each takes its weight in tiles (or the number asked for).
+        let n = itemCount;
+        if (n === 0) {
+          const tiles = createLayout({ ...options, features: undefined }).cells.length;
+          for (let used = 0; used + weightOf(n) <= tiles; n++) used += weightOf(n);
+        }
+        const weights = tileSpans(Array.from({ length: n }, (_, i) => weightOf(i)));
+        return { layout: weightedLayout(options, weights, { fit: !!fitTo, cells: contentCells, placement }).layout };
+      }
       // fitCount scales the pattern so there are about `fitTo` tiles for content.
       return { layout: fitTo ? fitCount(options, fitTo, { cells: contentCells }).layout : createLayout(options) };
     } catch (e) {
       return { error: (e as Error).message };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionsKey, fitTo, contentCells, density === "picture" ? densityPixels : undefined]);
+  }, [optionsKey, fitTo, contentCells, density === "picture" ? densityPixels : undefined, bigger, itemCount, itemsShown, placement]);
 
   const photos = useMemo(() => (uploads.length ? uploads : placeholderPhotos(60)), [uploads]);
   const layout = "layout" in result ? result.layout : undefined;
@@ -748,6 +761,14 @@ export function App() {
           {itemsShown && (
             <>
               <Slider label="Items (0 = every tile)" min={0} max={60} step={1} value={itemCount} onChange={setItemCount} />
+              <label className="row">
+                <span>Bigger items</span>
+                <select value={bigger} onChange={(e) => setBigger(e.target.value as typeof bigger)}>
+                  <option value="none">None</option>
+                  <option value="fifth">Every fifth spans 4 tiles</option>
+                  <option value="hero">The first spans 9 tiles</option>
+                </select>
+              </label>
               <label className="row">
                 <span>Content in</span>
                 <select value={contentCells} onChange={(e) => setContentCells(e.target.value as "all" | "whole")}>

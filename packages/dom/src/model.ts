@@ -19,6 +19,7 @@ import {
   type Layout,
   type LayoutOptions,
   type Rect,
+  weightedLayout,
 } from "@andamento/core";
 import { cellPath, defaultBevel, neutralPalette, reliefPaths, resolveFills, shadowOffset, type FillSource, type ReliefOptions, type ReliefPath } from "@andamento/svg";
 
@@ -60,21 +61,38 @@ export const MORPH_POINTS = 72;
 
 const PLACEHOLDER: LayoutOptions = { region: { x: 0, y: 0, width: 1, height: 1 }, tiling: { type: "grid", width: 1 } };
 
+/** What a layout's items need from it: how many there are, and how they're sized and placed. */
+export interface LayoutNeeds {
+  fit?: FitProp;
+  count: number;
+  cells?: ContentCells;
+  /** Tiles each item spans (see `weightedLayout`); heavier items get featured tiles. */
+  weights?: readonly number[];
+  placement?: ContentPlacement;
+}
+
 /**
  * A layout from options, worked out again only when they change (compared by value; a
  * `cells` function by identity). Returns `layout` itself when given.
  */
 export function layoutResolver(component: string) {
   let lastKey: string | undefined, lastCells: ContentCells | undefined, last: Layout | undefined;
-  return (options: LayoutOptions | undefined, layout: Layout | undefined, fit?: { fit?: FitProp; count: number; cells?: ContentCells }): Layout => {
+  return (options: LayoutOptions | undefined, layout: Layout | undefined, fit?: LayoutNeeds): Layout => {
     if (layout) return layout;
     if (!options) throw new Error(`${component} needs either \`options\` or \`layout\``);
     const fitting = !!fit?.fit && fit.count >= 1 && Number.isFinite(fit.count);
     const mode = fit?.fit === "nearest" ? "nearest" : "atLeast";
-    const cells = fitting ? fit!.cells : undefined;
-    const key = JSON.stringify([options, fitting && fit!.count, mode]);
+    // One weight per item, 1 for any not given; only items that are there count.
+    const count = fit && Number.isFinite(fit.count) ? fit.count : 0;
+    const weights = fit?.weights?.some((w) => w > 1) && count > 0 ? Array.from({ length: count }, (_, i) => fit.weights![i] ?? 1) : undefined;
+    const cells = fitting || weights ? fit!.cells : undefined;
+    const key = JSON.stringify([options, fitting && fit!.count, mode, weights, weights && fit!.placement]);
     if (last && key === lastKey && cells === lastCells) return last;
-    last = fitting ? fitCount(options, fit!.count, { cells, mode }).layout : createLayout(options ?? PLACEHOLDER);
+    last = weights
+      ? weightedLayout(options, weights, { fit: fitting && mode, cells, placement: fit!.placement }).layout
+      : fitting
+        ? fitCount(options, fit!.count, { cells, mode }).layout
+        : createLayout(options ?? PLACEHOLDER);
     lastKey = key;
     lastCells = cells;
     return last;

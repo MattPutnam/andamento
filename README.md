@@ -598,17 +598,42 @@ createLayout({
 ```
 
 Each feature merges `tiles` neighbouring tiles into one bigger cell, for a hero image or a
-highlighted item. The group grows from the tile nearest `at` (default: the middle of the
+highlighted item. The group grows from a tile near `at` (default: the middle of the
 region), adding whichever neighbour keeps it most compact, so 4 grid tiles make a 2 × 2
-square and 7 hexagons a flower; it prefers tiles the region edge doesn't cut. Features never
-share tiles. To pick the tiles yourself, pass `ids` (tile ids are stable, so read them from a
+square and 7 hexagons a flower. It tries growing from several of the free tiles nearest `at`
+and keeps the most compact group, close to `at` and avoiding tiles the region edge cuts
+(a tile the margin only trims counts as whole). Features never share tiles. To pick the tiles yourself, pass `ids` (tile ids are stable, so read them from a
 layout without features).
 
 Merging happens before the gap and edge handling, so a featured cell gets the same gap all
 round and is cut, rounded and given neighbours like any other. Featured cells have
 `featured` (their position in `features`) and `merged` (the ids of the tiles inside), and
 take the first content: `<TileLayout>`'s first child goes to the first feature, and so on;
-the rest follow `placement` as usual.
+the rest follow `placement` as usual. A feature can name its item instead (`item: 4`).
+
+#### Important items
+
+When some items matter more than others, give each a weight: how many tiles it spans.
+
+```tsx
+<TileLayout options={options} weights={[1, 4, 1, 1, 1, 9]} fit>
+  {photos.map((src) => <img key={src} src={src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+- Every item over 1 (weights are rounded) gets a featured tile of that many merged tiles,
+  where it falls in the items' order: its feature is centred on the tiles it would have
+  filled, one by one, in reading order, so heavy items stay among their neighbours. Bigger
+  features are placed first, so they get room.
+- With `fit`, the tiles are sized so everything fits, counting each item as its weight.
+- Vue takes `weights` too, `<andamento-layout>` reads `data-weight="4"` on children (or a
+  `weights` property), and `mountTileLayout` takes `weights`. `<SvgTileLayout>` (React and
+  Vue) takes `imageWeights`. All of them need `options`, not a ready-made `layout`.
+- In core, `weightedLayout(options, weights, { fit, cells, placement })` returns the layout
+  and its features, and `weightedFeatures(layout, weights)` just the features.
+  `contentSlots` and `matchSlots` put each item in its own featured cell.
+- When heavy items crowd together, a later feature may find no free block nearby and take
+  an L or T shape instead. Bigger tiles or fewer heavy items keep them square.
 
 ### Andamento flow
 

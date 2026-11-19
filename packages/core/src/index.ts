@@ -39,3 +39,5 @@ export { fitCount } from "./fit";
 export type { FitOptions, FitResult } from "./fit";
 export { coverRect, estimateFocus, objectPosition } from "./focus";
 export type { CoverOptions, Focus } from "./focus";
+export { tileSpans, weightedFeatures, weightedLayout } from "./weights";
+export type { WeightedLayoutOptions, WeightedLayoutResult, WeightOptions } from "./weights";

@@ -26,7 +26,8 @@ export interface ContentOptions {
 
 /**
  * Assign `count` content items to cells. Featured cells (see `LayoutOptions.features`)
- * take the first items, in feature order; the rest follow `placement`, in reading order.
+ * take the items their features name (`Feature.item`), or else the first items, in feature
+ * order; the rest follow `placement`, in item order and reading order.
  * Returns one entry per cell (by `cell.index`):
  * the index of the item it holds, or -1 for an empty cell. Pass `Infinity` to number
  * every cell that may hold content.
@@ -36,16 +37,14 @@ export function contentSlots(layout: Layout, count: number, options: ContentOpti
   const accept = cells === "all" ? () => true : cells === "whole" ? (c: Cell) => !c.boundary : cells;
   const out: number[] = new Array(layout.cells.length).fill(-1);
   const total = Math.max(0, Math.floor(count));
-  // Featured cells come first, in `features` order (the first item goes to the first feature).
-  const featured = layout.cells
-    .filter((c) => c.featured !== undefined && accept(c))
-    .sort((a, b) => a.featured! - b.featured! || a.index - b.index)
-    .slice(0, total);
-  featured.forEach((c, k) => (out[c.index] = k));
+  // Featured cells come first: the items they name, else the first items in `features` order.
+  const used = featuredItems(layout, total, accept);
+  for (const [cell, item] of used) out[cell] = item;
 
   // layout.cells is in reading order, so filtering keeps it.
   const eligible = layout.cells.filter((c) => out[c.index] === -1 && accept(c));
-  const n = Math.max(0, Math.min(total - featured.length, eligible.length));
+  const rest = remainingItems(total, used, eligible.length);
+  const n = Math.max(0, Math.min(rest.length, eligible.length));
 
   let chosen: Cell[];
   if (n === eligible.length) chosen = eligible;
@@ -53,8 +52,45 @@ export function contentSlots(layout: Layout, count: number, options: ContentOpti
   else if (placement === "spread") chosen = spread(eligible, n);
   else chosen = eligible.slice(0, n);
 
-  chosen.sort((a, b) => a.index - b.index).forEach((c, k) => (out[c.index] = featured.length + k));
+  chosen.sort((a, b) => a.index - b.index).forEach((c, k) => (out[c.index] = rest[k]!));
   return out;
+}
+
+/**
+ * Featured cells' items (cell index → item): the item each feature names, or the next item
+ * not named by any. A tile cut in two only puts its item in its first part; features whose
+ * item is past `total` stay empty (and free for other items).
+ */
+function featuredItems(layout: Layout, total: number, accept: (c: Cell) => boolean): Map<number, number> {
+  const cells = layout.cells
+    .filter((c) => c.featured !== undefined && accept(c))
+    .sort((a, b) => a.featured! - b.featured! || a.index - b.index);
+  const named = new Set(cells.map((c) => c.featuredItem).filter((i): i is number => i !== undefined));
+  const out = new Map<number, number>();
+  const taken = new Set<number>();
+  const seen = new Set<number>();
+  let next = 0;
+  for (const c of cells) {
+    if (seen.has(c.featured!)) continue;
+    let item = c.featuredItem;
+    if (item === undefined) {
+      while (named.has(next) || taken.has(next)) next++;
+      item = next;
+    }
+    if (item < 0 || item >= total || taken.has(item)) continue;
+    seen.add(c.featured!);
+    taken.add(item);
+    out.set(c.index, item);
+  }
+  return out;
+}
+
+/** The first `max` of items 0 … total - 1 not already in a featured cell, in order. */
+function remainingItems(total: number, used: Map<number, number>, max: number): number[] {
+  const taken = new Set(used.values());
+  const rest: number[] = [];
+  for (let i = 0; i < total && rest.length < max; i++) if (!taken.has(i)) rest.push(i);
+  return rest;
 }
 
 export interface MatchOptions extends ContentOptions {
@@ -74,7 +110,7 @@ export interface MatchOptions extends ContentOptions {
  * width / height (one per item, in item order); a cell's shape is its bounding box, which
  * is what content is laid out in.
  *
- * Featured cells still take the first items, in feature order. The rest are matched to
+ * Featured cells still take their items first (see `contentSlots`). The rest are matched to
  * minimise the total crop (measured as the difference in log aspect ratio, which is optimal
  * to match by sorting both sides). Returns the item index per cell (by `cell.index`), or -1.
  */
@@ -87,20 +123,17 @@ export function matchSlots(layout: Layout, aspects: readonly number[], options: 
   // Featured cells and (for "placement") the cells to use come from contentSlots.
   const base = contentSlots(layout, aspects.length, options);
   const out: number[] = new Array(layout.cells.length).fill(-1);
-  const featured = layout.cells.filter((c) => c.featured !== undefined && base[c.index]! >= 0 && base[c.index]! < aspects.length);
-  let f = 0;
-  for (const c of featured) {
-    out[c.index] = base[c.index]!;
-    f = Math.max(f, base[c.index]! + 1);
-  }
+  const used = featuredItems(layout, aspects.length, accept);
+  for (const [cell, item] of used) out[cell] = item;
+  const rest = remainingItems(aspects.length, used, Infinity);
 
   let pool: Cell[];
   if (choose === "shape") pool = layout.cells.filter((c) => out[c.index] === -1 && accept(c));
   else pool = layout.cells.filter((c) => out[c.index] === -1 && base[c.index]! >= 0);
   // Items beyond the cells available stay out, as with contentSlots: the first ones are kept.
-  const k = Math.min(aspects.length - f, pool.length);
+  const k = Math.min(rest.length, pool.length);
   if (k <= 0) return out;
-  const items = Array.from({ length: k }, (_, i) => f + i).sort((a, b) => logAspect(aspects[a]!) - logAspect(aspects[b]!) || a - b);
+  const items = rest.slice(0, k).sort((a, b) => logAspect(aspects[a]!) - logAspect(aspects[b]!) || a - b);
   const sorted = [...pool].sort((a, b) => cellLog(a) - cellLog(b) || a.index - b.index);
 
   let picked: Cell[];

@@ -125,4 +125,12 @@ describe("<andamento-layout>", () => {
     expect(tileOf(el.children[0]!).style.getPropertyValue("--andamento-object-position")).toBe("27.143% 50%");
     expect(tileOf(el.children[1]!).style.getPropertyValue("--andamento-object-position")).toBe("");
   });
+
+  it("reads children's data-weight", async () => {
+    const grid4 = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 50 }) };
+    await make(`<andamento-layout options='${JSON.stringify(grid4)}'><i>a</i><i data-weight="4">b</i><i>c</i></andamento-layout>`);
+    const featured = tiles().find((t) => t.getAttribute("data-cell-id") === "feature0")!;
+    expect(shownIn(featured)!.textContent).toBe("b");
+    expect(el.layout!.cells).toHaveLength(21);
+  });
 });

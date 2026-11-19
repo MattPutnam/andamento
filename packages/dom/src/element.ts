@@ -40,7 +40,8 @@ let slotCount = 0;
  * Give children `data-aspect` (width / height) to put them in tiles of their shape, and
  * `data-focus` ("x y", fractions of the width and height) to keep that point of a photo in
  * view as its tile crops it (style the photo with `coverStyle`, or
- * `object-position: var(--andamento-object-position)`). A child
+ * `object-position: var(--andamento-object-position)`), and `data-weight` (how many tiles
+ * it spans) to give important children featured tiles. A child
  * with `slot="backdrop"` is copied into every tile as one picture across them all.
  *
  * Tiles are in the element's shadow root: style them with `::part(tile)` (also `empty`
@@ -156,6 +157,13 @@ export class AndamentoLayoutElement extends Base {
   set aspects(v: readonly number[] | undefined) {
     this.#set({ aspects: v });
   }
+  /** Tiles each child spans; otherwise read from children's `data-weight`. */
+  get weights() {
+    return this.#props.weights;
+  }
+  set weights(v: readonly number[] | undefined) {
+    this.#set({ weights: v });
+  }
   /** Focal point of each child; otherwise read from children's `data-focus`. */
   get focalPoints() {
     return this.#props.focalPoints;
@@ -208,7 +216,7 @@ export class AndamentoLayoutElement extends Base {
     this.#observer = new MutationObserver((records) => {
       if (records.some((r) => r.target === this || r.target.parentNode === this)) this.#schedule();
     });
-    this.#observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-aspect", "data-focus", "slot"] });
+    this.#observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-aspect", "data-focus", "data-weight", "slot"] });
     this.#schedule();
   }
 
@@ -293,11 +301,14 @@ export class AndamentoLayoutElement extends Base {
       return Number.isFinite(x) && Number.isFinite(y) && c.hasAttribute("data-focus") ? { x: x!, y: y! } : undefined;
     });
     const focalPoints = focusAttrs.some(Boolean) ? focusAttrs : undefined;
+    const weightAttrs = this.#items.map((c) => Number(c.getAttribute("data-weight")));
+    const weights = weightAttrs.some((v) => v > 1) ? weightAttrs.map((v) => (v > 0 ? v : 1)) : undefined;
 
     this.#config = {
       ...fromAttrs,
       aspects,
       focalPoints,
+      weights,
       ...overrides(this.#props),
       items,
       backdrop: backdrop ? this.#backdropFor(backdrop) : undefined,
@@ -320,7 +331,7 @@ export class AndamentoLayoutElement extends Base {
  */
 const overrides = (props: Partial<TileLayoutConfig>): Partial<TileLayoutConfig> =>
   Object.fromEntries(Object.entries(props).filter(([k, v]) => v !== undefined || !ATTRIBUTE_KEYS.has(k)));
-const ATTRIBUTE_KEYS = new Set(["options", "navigable", "animate", "relief", "safeArea", "virtualize", "fit", "placement", "contentCells", "choose", "background", "fill", "focusRing", "label", "aspects", "focalPoints"]);
+const ATTRIBUTE_KEYS = new Set(["options", "navigable", "animate", "relief", "safeArea", "virtualize", "fit", "placement", "contentCells", "choose", "background", "fill", "focusRing", "label", "aspects", "focalPoints", "weights"]);
 
 /** A copy of the backdrop child for one tile; pictures are made to cover it. */
 function copyBackdrop(el: Element): Node {

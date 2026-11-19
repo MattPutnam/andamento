@@ -250,4 +250,17 @@ describe("mountTileLayout", () => {
     handle!.update({ aspects: undefined });
     expect(tiles()[0]!.style.getPropertyValue("--andamento-object-position")).toBe("30% 50%");
   });
+
+  it("gives heavier items featured tiles of their own", () => {
+    // 6 x 4 grid of 50-unit squares; item 2 spans 4 tiles.
+    const grid4 = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 50 }) };
+    const nodes = items(5);
+    mount({ options: grid4, items: nodes, weights: [1, 1, 4] });
+    const tileOf = (n: Node) => tiles().find((t) => t.contains(n))!;
+    expect(handle!.layout.cells.find((c) => c.featuredItem === 2)!.merged).toHaveLength(4);
+    expect(tileOf(nodes[2]!).getAttribute("data-cell-id")).toBe("feature0");
+    expect(tileOf(nodes[0]!).style.getPropertyValue("width")).not.toBe(tileOf(nodes[2]!).style.getPropertyValue("width"));
+    handle!.update({ weights: undefined });
+    expect(tileOf(nodes[2]!).getAttribute("data-cell-id")).not.toBe("feature0");
+  });
 });

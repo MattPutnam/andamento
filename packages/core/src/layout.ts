@@ -97,9 +97,10 @@ export interface LayoutOptions {
 
 /**
  * A featured tile: `tiles` neighbouring tiles merged into one cell. The group grows from
- * the tile nearest `at`, adding whichever neighbour keeps it most compact (so 4 grid tiles
- * make a 2 × 2 square, 7 hexagons a flower), and prefers tiles not cut by the region edge.
- * Features don't share tiles: a later one grows from the nearest tile still free.
+ * a tile near `at`, adding whichever neighbour keeps it most compact (so 4 grid tiles make
+ * a 2 × 2 square, 7 hexagons a flower); several starting tiles are tried and the most
+ * compact group kept, near `at` and avoiding tiles the region edge cuts. Features don't
+ * share tiles: a later one grows among the tiles still free.
  */
 export interface Feature {
   /** How many tiles to merge. Defaults to 4. Fewer are merged if the group runs out of room. */
@@ -111,6 +112,11 @@ export interface Feature {
    * Overrides `tiles` and `at`. Tiles that aren't in the layout or are already taken are skipped.
    */
   ids?: string[];
+  /**
+   * Which content item (by position) goes in this featured cell. By default featured cells
+   * take the first items, in `features` order. See `weightedLayout`.
+   */
+  item?: number;
 }
 
 export interface Cell {
@@ -145,6 +151,8 @@ export interface Cell {
   neighbors: string[];
   /** For a featured cell: its position in `features`. Featured cells get content first. */
   featured?: number;
+  /** For a featured cell: the content item it's for, when its feature names one (`Feature.item`). */
+  featuredItem?: number;
   /** For a featured cell: ids of the tiles merged into it. */
   merged?: string[];
 }
@@ -359,7 +367,12 @@ export function createLayout(options: LayoutOptions): Layout {
     const merged = mergeFeatures(drafts, options.features, region, scaleRef, Math.max(tol * 10, 1e-9));
     for (const m of merged) {
       const keep = new Set(m.members);
-      const pieces = place(m.polygon, `feature${m.feature}`, m.protoTile).map((d) => ({ ...d, featured: m.feature, merged: m.members }));
+      const pieces = place(m.polygon, `feature${m.feature}`, m.protoTile).map((d) => ({
+        ...d,
+        featured: m.feature,
+        ...(options.features![m.feature]!.item !== undefined ? { featuredItem: options.features![m.feature]!.item } : {}),
+        merged: m.members,
+      }));
       // Drop the merged tiles (and any extra parts of them) and add the featured cell.
       for (let i = drafts.length - 1; i >= 0; i--) if (keep.has(drafts[i]!.id.split("~")[0]!)) drafts.splice(i, 1);
       drafts.push(...pieces);
@@ -388,7 +401,7 @@ export function createLayout(options: LayoutOptions): Layout {
   return { region, holes, bounds, cornerRadius, ...(view ? { view } : {}), cells };
 }
 
-type FeatureDraft = { id: string; original: Polygon; boundary: boolean; protoTile: number };
+type FeatureDraft = { id: string; original: Polygon; boundary: boolean; protoTile: number; area: number };
 
 /**
  * Choose the tile groups for `features` among the laid-out tiles, and merge each group's
@@ -408,6 +421,10 @@ function mergeFeatures(
   const adj = findNeighbors(tiles.map((t) => t.original), tiles.map(() => true), tol);
   const cx = tiles.map((t) => centroid(t.original));
   const ar = tiles.map((t) => area(t.original));
+  // How much of each tile is left inside the region; one that keeps most of itself (trimmed
+  // by the margin, say) counts as whole.
+  const kept = tiles.map((t, i) => (t.boundary ? Math.min(1, t.area / (ar[i]! || 1)) : 1));
+  const cut = kept.map((k) => k < 0.6);
   const taken = new Uint8Array(tiles.length);
   const middle = centroid(region);
   const out: { feature: number; members: string[]; polygon: Polygon; protoTile: number }[] = [];
@@ -419,35 +436,66 @@ function mergeFeatures(
     } else {
       const want = Math.max(1, Math.floor(f.tiles ?? 4));
       const at = f.at ?? middle;
-      // Score: uncut tiles first, then distance to `to`, then distance to `at` (which keeps
+      // Score: (mostly) uncut tiles first, then distance to `to`, then distance to `at` (which keeps
       // the group centred on `at` when several tiles are equally compact); then the earlier tile.
       const eps = 1e-9 * scale * scale;
       const d2 = (i: number, p: Vec) => (cx[i]!.x - p.x) ** 2 + (cx[i]!.y - p.y) ** 2;
       const better = (i: number, j: number, to: Vec) => {
-        if (tiles[i]!.boundary !== tiles[j]!.boundary) return !tiles[i]!.boundary;
+        if (cut[i] !== cut[j]) return !cut[i];
         const a = d2(i, to) - d2(j, to);
         if (Math.abs(a) > eps) return a < 0;
         const b = d2(i, at) - d2(j, at);
         if (Math.abs(b) > eps) return b < 0;
         return i < j;
       };
-      let seed = -1;
-      for (let i = 0; i < tiles.length; i++) if (!taken[i] && (seed < 0 || better(i, seed, at))) seed = i;
-      if (seed < 0) return;
-      group = [seed];
-      const inGroup = new Set(group);
-      while (group.length < want) {
-        // The group's centre (area-weighted), and the free neighbour nearest it.
-        let sx = 0, sy = 0, sw = 0;
-        for (const i of group) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; }
-        const c = vec(sx / sw, sy / sw);
-        let pick = -1;
-        for (const i of group) {
-          for (const j of adj[i]!) if (!taken[j] && !inGroup.has(j) && (pick < 0 || better(j, pick, c))) pick = j;
+      // Grow a group from each of the free tiles nearest `at`, and keep the best: the most
+      // tiles, then the lowest cost (spread out, off-centre from `at`, or cut by the edge).
+      // Growing from the nearest tile alone can make a strip where a block fits a step away.
+      const free: number[] = [];
+      for (let i = 0; i < tiles.length; i++) if (!taken[i]) free.push(i);
+      if (!free.length) return;
+      free.sort((i, j) => (better(i, j, at) ? -1 : better(j, i, at) ? 1 : 0));
+      const grow = (seed: number) => {
+        const g = [seed];
+        const inGroup = new Set(g);
+        while (g.length < want) {
+          // The group's centre (area-weighted), and the free neighbour nearest it.
+          let sx = 0, sy = 0, sw = 0;
+          for (const i of g) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; }
+          const c = vec(sx / sw, sy / sw);
+          let pick = -1;
+          for (const i of g) {
+            for (const j of adj[i]!) if (!taken[j] && !inGroup.has(j) && (pick < 0 || better(j, pick, c))) pick = j;
+          }
+          if (pick < 0) break;
+          g.push(pick);
+          inGroup.add(pick);
         }
-        if (pick < 0) break;
-        group.push(pick);
-        inGroup.add(pick);
+        return g;
+      };
+      const cost = (g: number[]) => {
+        let sx = 0, sy = 0, sw = 0, lost = 0;
+        for (const i of g) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; if (cut[i]) lost += (1 - kept[i]!) * ar[i]!; }
+        if (!(sw > 0)) return Infinity;
+        const c = vec(sx / sw, sy / sw);
+        // Spread: the tiles' moment of inertia about the group's centre over its area squared
+        // (a 2 x 2 square of squares scores 1/8, an L 7/32, a 4 x 1 strip 5/16).
+        let inertia = 0;
+        for (const i of g) inertia += ar[i]! * d2(i, c);
+        const spread = inertia / (sw * sw);
+        // Distance from `at`, relative to the group's size; and the share cut off by the edge.
+        const off = ((c.x - at.x) ** 2 + (c.y - at.y) ** 2) / sw;
+        return spread + 0.15 * off + 0.6 * (lost / sw);
+      };
+      group = [];
+      let bestCost = Infinity;
+      for (const seed of free.slice(0, Math.max(8, 2 * want))) {
+        const g = grow(seed);
+        const gc = cost(g);
+        if (g.length > group.length || (g.length === group.length && gc < bestCost - 1e-9)) {
+          group = g;
+          bestCost = gc;
+        }
       }
     }
     if (group.length === 0) return;

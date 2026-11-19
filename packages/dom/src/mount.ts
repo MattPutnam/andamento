@@ -58,6 +58,12 @@ export interface TileLayoutConfig {
    */
   focalPoints?: readonly (Focus | undefined)[];
   /**
+   * How many tiles each item spans (1 for an ordinary item; rounded): heavier items get a
+   * featured tile of that many merged tiles, where they fall in reading order (see
+   * `weightedLayout`). With `fit`, the tiles are sized to fit everything. Needs `options`.
+   */
+  weights?: readonly number[];
+  /**
    * Put each tile's content in the tile's safe area, not its bounding box (see `safeArea`).
    * For tiles an `edges: "window"` layout cuts, `true` or "tile" fits the whole tile and
    * "visible" the part that shows.
@@ -234,7 +240,13 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
     if (destroyed) return;
     const c = config;
     const items = c.renderCell ? [] : (c.items ?? []);
-    layout = resolveLayout(c.options, c.layout, { fit: !c.renderCell && c.fit, count: items.length, cells: c.contentCells });
+    layout = resolveLayout(c.options, c.layout, {
+      fit: !c.renderCell && c.fit,
+      count: items.length,
+      cells: c.contentCells,
+      weights: c.renderCell ? undefined : c.weights,
+      placement: c.placement,
+    });
     const frame = buildFrame(layout, {
       count: c.renderCell ? Infinity : items.length,
       aspects: c.renderCell ? undefined : c.aspects,

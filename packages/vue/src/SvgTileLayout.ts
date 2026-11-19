@@ -26,6 +26,7 @@ export const SvgTileLayout = defineComponent({
     choose: String as PropType<"placement" | "shape">,
     imageFit: String as PropType<"cover" | "contain">,
     containWithin: String as PropType<"tile" | "visible">,
+    imageWeights: Array as PropType<readonly number[]>,
     imageFocus: Array as PropType<readonly ({ x: number; y: number } | undefined)[]>,
     /** Size the tiles to the `images` array: `true`/"atLeast" or "nearest". */
     fit: { type: [Boolean, String] as PropType<FitProp>, default: false },
@@ -44,7 +45,13 @@ export const SvgTileLayout = defineComponent({
     const resolveLayout = layoutResolver("<SvgTileLayout>");
     return () => {
       const fitTo = Array.isArray(props.images) && !props.repeatImages ? props.images.length : 0;
-      const layout = resolveLayout(props.options, props.layout, { fit: props.fit, count: fitTo, cells: props.contentCells });
+      const layout = resolveLayout(props.options, props.layout, {
+        fit: props.fit,
+        count: fitTo,
+        cells: props.contentCells,
+        weights: Array.isArray(props.images) ? props.imageWeights : undefined,
+        placement: props.placement,
+      });
       const { options: _o, layout: _l, fit: _f, ...render } = props;
       const tree = toSvgTree(layout, { ...render, relief: props.relief || undefined, idPrefix });
       return toVNode(tree);

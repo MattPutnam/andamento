@@ -48,6 +48,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
    */
   imageFocus?: readonly (Focus | undefined)[];
   /**
+   * How many tiles each image in `images` spans (1 for most): heavier images get featured
+   * tiles where they fall in reading order (see `weightedLayout`). Needs `options`.
+   */
+  imageWeights?: readonly number[];
+  /**
    * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
    * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
    */
@@ -94,6 +99,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     imageFit,
     containWithin,
     imageFocus,
+    imageWeights,
     fit,
     fill,
     stroke,
@@ -107,7 +113,13 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     ...svgProps
   } = props;
   const fitTo = Array.isArray(images) && !repeatImages ? images.length : 0;
-  const layout = useResolvedLayout("SvgTileLayout", options, given, { fit, count: fitTo, cells: contentCells });
+  const layout = useResolvedLayout("SvgTileLayout", options, given, {
+    fit,
+    count: fitTo,
+    cells: contentCells,
+    weights: Array.isArray(images) ? imageWeights : undefined,
+    placement,
+  });
   const prefix = "andamento" + useId().replace(/:/g, "");
   const styles = useMemo(
     () => resolveCellStyles(layout, { images, repeatImages, fill, contentCells, placement, imageAspects, choose }),

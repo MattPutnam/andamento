@@ -88,6 +88,11 @@ export const TileLayout = defineComponent({
      * a photo keeps in view as its tile crops it. Each tile sets `--andamento-object-position`,
      * which `coverStyle` uses as `object-position`; exact when the photo's shape is known (`aspects`, or the focus's `aspect`).
      */
+    /**
+     * How many tiles each item spans (1 for an ordinary item): heavier items get featured
+     * tiles where they fall in reading order (see `weightedLayout`). Needs `options`.
+     */
+    weights: Array as PropType<readonly number[]>,
     focalPoints: Array as PropType<readonly (Focus | undefined)[]>,
     /** With `aspects`: "shape" also picks which tiles hold items by their shape. */
     choose: String as PropType<"placement" | "shape">,
@@ -207,7 +212,13 @@ export const TileLayout = defineComponent({
 
     return () => {
       const items = slots.cell ? [] : flatten(slots.default?.());
-      const L = resolveLayout(props.options, props.layout, { fit: !slots.cell && props.fit, count: items.length, cells: props.contentCells });
+      const L = resolveLayout(props.options, props.layout, {
+        fit: !slots.cell && props.fit,
+        count: items.length,
+        cells: props.contentCells,
+        weights: slots.cell ? undefined : props.weights,
+        placement: props.placement,
+      });
       layout = L;
       const frame = buildFrame(L, {
         count: slots.cell ? Infinity : items.length,

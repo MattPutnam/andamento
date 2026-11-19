@@ -98,6 +98,12 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    */
   focalPoints?: readonly (Focus | undefined)[];
   /**
+   * How many tiles each child spans (1 for an ordinary child; rounded): heavier childs get a
+   * featured tile of that many merged tiles, where they fall in reading order (see
+   * `weightedLayout`). With `fit`, the tiles are sized to fit everything. Needs `options`.
+   */
+  weights?: readonly number[];
+  /**
    * Color of empty tiles: a color, a palette (neighbouring tiles get different entries),
    * or a function per cell. Defaults to `neutralPalette`; use "transparent" for none.
    */
@@ -190,6 +196,7 @@ export function TileLayout(props: TileLayoutProps) {
     aspects,
     choose,
     focalPoints,
+    weights,
     safeArea,
     fill,
     fit,
@@ -212,7 +219,13 @@ export function TileLayout(props: TileLayoutProps) {
   } = props;
   const uid = "andamento" + useId().replace(/:/g, "");
   const items = renderCell ? [] : Children.toArray(children);
-  const layout = useResolvedLayout("TileLayout", options, given, { fit: !renderCell && fit, count: items.length, cells: contentCells });
+  const layout = useResolvedLayout("TileLayout", options, given, {
+    fit: !renderCell && fit,
+    count: items.length,
+    cells: contentCells,
+    weights: renderCell ? undefined : weights,
+    placement,
+  });
   const { bounds } = layout;
   // Slots, fills and bevels, reused from the last render where nothing they depend on changed.
   const buildFrame = useRef<ReturnType<typeof frameBuilder>>();
