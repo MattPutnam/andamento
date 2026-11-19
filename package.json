@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "dev": "npm run dev -w playground",
     "docs:dev": "npm run dev -w docs",
-    "docs:build": "npm run build && npm run build -w docs"
+    "docs:build": "npm run build && npm run build -w docs",
+    "pack:all": "npm run build && npm pack -w @andamento/core -w @andamento/svg -w @andamento/dom -w @andamento/react -w @andamento/vue --pack-destination .release",
+    "release": "npm run build && npm run typecheck && npm test && npm publish -w @andamento/core -w @andamento/svg -w @andamento/dom -w @andamento/react -w @andamento/vue"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

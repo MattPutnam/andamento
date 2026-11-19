@@ -2,23 +2,68 @@
   "name": "@andamento/vue",
   "version": "0.1.0",
   "description": "Vue components for @andamento tiling layouts.",
+  "keywords": [
+    "tiling",
+    "tessellation",
+    "layout",
+    "mosaic",
+    "grid",
+    "gallery",
+    "photo-wall",
+    "hexagon",
+    "herringbone",
+    "penrose",
+    "voronoi",
+    "svg",
+    "vue",
+    "vue-component"
+  ],
+  "homepage": "https://mattputnam.github.io/andamento/",
+  "bugs": {
+    "url": "https://github.com/MattPutnam/andamento/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MattPutnam/andamento.git",
+    "directory": "packages/vue"
+  },
   "license": "MIT",
+  "author": "Matt Putnam",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit -p ."
   },
-  "dependencies": { "@andamento/core": "0.1.0", "@andamento/dom": "0.1.0", "@andamento/svg": "0.1.0" },
-  "peerDependencies": { "vue": ">=3.3" }
+  "dependencies": {
+    "@andamento/core": "0.1.0",
+    "@andamento/dom": "0.1.0",
+    "@andamento/svg": "0.1.0"
+  },
+  "peerDependencies": {
+    "vue": ">=3.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
