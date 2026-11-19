@@ -133,3 +133,25 @@ describe("window clip paths", () => {
     }
   });
 });
+
+describe("morph points for merged tiles", () => {
+  it("give every corner enough points, adding points in steps of 24", () => {
+    for (const tiles of [3, 7, 12]) {
+      const l = createLayout({ region: { x: 0, y: 0, width: 240, height: 150 }, tiling: hexagonal({ size: 20 }), cornerRadius: 20, gap: 2, features: [{ tiles }] });
+      const f = l.cells.find((c) => c.featured !== undefined)!;
+      const css = cellCss(f, l, 4, { points: 72 }).clipPath;
+      const b = cellShape(f).bbox;
+      const pts = css.slice(8, -1).split(", ").map((p) => {
+        const [x, y] = p.split(" ").map(parseFloat);
+        return { x: b.x + (x! / 100) * b.width, y: b.y + (y! / 100) * b.height };
+      });
+      expect(pts.length % 24).toBe(0);
+      expect(pts.length).toBeGreaterThan(72);
+      // As close to the exact rounded shape (10° steps) as a plain hexagon is.
+      expect(Math.abs(area(pts) - shapeArea(visibleShapes(f, l)[0]!)) / f.area).toBeLessThan(0.002);
+      // Ordinary tiles keep 72, so they still morph into each other.
+      const plain = l.cells.find((c) => c.featured === undefined && !c.boundary)!;
+      expect(cellCss(plain, l, 4, { points: 72 }).clipPath.split(",").length).toBe(72);
+    }
+  });
+});

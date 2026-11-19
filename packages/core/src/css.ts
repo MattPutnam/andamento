@@ -86,13 +86,14 @@ export function resamplePolygon(poly: Polygon, n: number, box: Rect): Polygon {
 }
 
 /**
- * `poly` with its corners rounded (by `radius`, or a radius per corner) as exactly `n`
- * points, laid out the same way whatever the radius: every corner gets the same number of
- * points (all on the vertex when it's sharp, spread along the arc when it's rounded), and
- * the rest go along the edges by the sharp outline's edge lengths. So a tile morphs
- * smoothly as its corner radius changes, as well as into other shapes (see
- * `resamplePolygon` for the start point and direction). Gives the plain rounded polygon
- * when `n` is too few for the corners.
+ * `poly` with its corners rounded (by `radius`, or a radius per corner) as at least `n`
+ * points, laid out the same way whatever the radius: each corner gets a fixed number of
+ * points by how far the outline turns there (one per 10°, all on the vertex when it's sharp,
+ * spread along the arc when it's rounded), and the rest go along the edges by the sharp
+ * outline's edge lengths. So a tile morphs smoothly as its corner radius changes, as well as
+ * into other shapes (see `resamplePolygon` for the start point and direction). Shapes with
+ * too many corners for `n` (merged featured tiles, say) get more points: the next multiple
+ * of 24 that fits, so most tiles share one count and can morph into each other.
  */
 export function morphPolygon(poly: Polygon, radius: number | readonly number[], n: number, box: Rect): Polygon {
   const m = poly.length;
@@ -106,16 +107,20 @@ export function morphPolygon(poly: Polygon, radius: number | readonly number[], 
   pts = [...pts.slice(start), ...pts.slice(0, start)];
   const sharp = pts.map((q) => q.p);
   const corners = roundCorners(sharp, pts.map((q) => q.r));
-  // Points per corner: up to 9 (10° steps round a right angle), leaving about half for the edges.
-  const per = Math.min(9, Math.floor(n / (2 * m)));
-  if (per < 1) {
-    const out: Vec[] = [];
-    for (const c of corners) out.push(...arcPoints(c, Math.max(1, Math.ceil(Math.abs(c.sweep) / (Math.PI / 18)) + 1)));
-    return out;
-  }
+  // Points per corner: one per 10° the outline turns there, plus one (from the sharp shape,
+  // so the same at any radius).
+  const per = sharp.map((v, i) => {
+    const a = sharp[(i - 1 + m) % m]!, b = sharp[(i + 1) % m]!;
+    let turn = Math.atan2(b.y - v.y, b.x - v.x) - Math.atan2(v.y - a.y, v.x - a.x);
+    turn = Math.abs(((turn + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+    return 1 + Math.ceil(turn / (Math.PI / 18) - 1e-6);
+  });
+  const onCorners = per.reduce((s, k) => s + k, 0);
+  // At least one point along each edge, for morphing into shapes with corners there.
+  if (onCorners + m > n) n = Math.ceil((onCorners + m) / 24) * 24;
   const lens = sharp.map((a, i) => Math.hypot(sharp[(i + 1) % m]!.x - a.x, sharp[(i + 1) % m]!.y - a.y));
   const total = lens.reduce((s, l) => s + l, 0) || 1;
-  const extra = n - per * m;
+  const extra = n - onCorners;
   const share = lens.map((l) => (l / total) * extra);
   const count = share.map(Math.floor);
   let left = extra - count.reduce((s, c) => s + c, 0);
@@ -124,7 +129,7 @@ export function morphPolygon(poly: Polygon, radius: number | readonly number[], 
   const out: Vec[] = [];
   for (let i = 0; i < m; i++) {
     const c = corners[i]!;
-    out.push(...arcPoints(c, per));
+    out.push(...arcPoints(c, per[i]!));
     // Along the straight part of the edge, from this corner's arc to the next one's.
     const a = c.end, b = corners[(i + 1) % m]!.start;
     for (let k = 1; k <= count[i]!; k++) {
@@ -269,8 +274,9 @@ function arcPoints(c: ReturnType<typeof roundCorners>[number], k: number): Vec[]
 /** Options for `cellCss`. */
 export interface CellCssOptions {
   /**
-   * Give every clip path exactly this many points (see `morphPolygon`), so CSS can
-   * animate one tile shape into another. Cells with holes keep their own.
+   * Give every clip path this many points (see `morphPolygon`), so CSS can animate one tile
+   * shape into another. Shapes with many corners (merged featured tiles) get more, in steps
+   * of 24; cells with holes keep their own.
    */
   points?: number;
 }

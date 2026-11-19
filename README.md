@@ -180,9 +180,11 @@ removing or reordering children.
 
 It is all CSS transitions, with no animation loop in JavaScript. Every tile's `clip-path`
 is given the same number of points (see `morphPolygon`, and `cellCss(…, { points })` in
-core), which is what lets CSS morph between any two shapes. Each corner gets the same number
-of points whether it's sharp or rounded, so changing `cornerRadius` only grows or shrinks
-the corners. Cells with holes, and window cells the region cuts in two, switch shape
+core), which is what lets CSS morph between any two shapes. Each corner gets a fixed number
+of points (one per 10° it turns) whether it's sharp or rounded, so changing `cornerRadius`
+only grows or shrinks the corners. Shapes with many corners, like a merged featured tile,
+get more points (in steps of 24), so they stay smooth but switch shape without morphing when
+their content moves to an ordinary tile. Cells with holes, and window cells the region cuts in two, switch shape
 without morphing. Animation is off for users who prefer reduced motion. Static SVG output
 doesn't animate.
 
