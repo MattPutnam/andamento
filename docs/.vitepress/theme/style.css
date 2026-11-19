@@ -1,0 +1,105 @@
+:root {
+  --vp-c-brand-1: #b4532a;
+  --vp-c-brand-2: #c8673c;
+  --vp-c-brand-3: #d97f52;
+  --vp-c-brand-soft: rgba(200, 103, 60, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #b4532a 20%, #2a9d8f);
+  --ex-paper: #fbf8f3;
+  --ex-border: #e7e1d8;
+}
+.dark {
+  --vp-c-brand-1: #f0a477;
+  --vp-c-brand-2: #e48d5e;
+  --vp-c-brand-3: #c8673c;
+  --ex-paper: #23211f;
+  --ex-border: #3a3633;
+}
+
+.ex-figure {
+  margin: 20px 0;
+}
+.ex-figure img,
+.ex-pattern img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--ex-border);
+  background: #fbf8f3;
+}
+.ex-figure figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vp-c-text-2);
+}
+.ex-figures {
+  display: grid;
+  grid-template-columns: repeat(var(--ex-columns), minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.ex-figures .ex-figure {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .ex-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ex-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+  margin: 16px 0 8px;
+}
+.ex-pattern {
+  margin: 0;
+}
+.ex-pattern figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vp-c-text-2);
+}
+.ex-pattern figcaption strong {
+  color: var(--vp-c-text-1);
+  font-size: 14px;
+}
+.ex-pattern figcaption > code {
+  font-size: 11.5px;
+  word-break: break-word;
+  align-self: flex-start;
+}
+
+/* Example pages: a picture beside its code on wide screens. */
+.ex-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+/* The hero picture is a wide photo wall, not a square logo. */
+.VPHero .image-container {
+  width: 100%;
+  height: auto;
+  transform: none;
+}
+.VPHero .image-bg {
+  display: none;
+}
+.VPHero .image-src {
+  position: static;
+  transform: none;
+  width: 100%;
+  max-width: 480px;
+  max-height: none;
+  margin: 0 auto;
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(60, 40, 20, 0.18);
+}

@@ -5,6 +5,11 @@ Cairo pentagons, Penrose rhombs, jigsaw pieces, Mondrian-style rectangles and mo
 anything you like in each tile. Photo walls, image galleries, dashboards, card grids, decorative
 backgrounds.
 
+**[Manual](https://mattputnam.github.io/andamento/)** ·
+**[Examples](https://mattputnam.github.io/andamento/examples/)** ·
+**[API reference](https://mattputnam.github.io/andamento/reference/)** ·
+**[Playground](https://mattputnam.github.io/andamento/playground/)**
+
 | Package | What it does |
 |---|---|
 | `@andamento/core` | Pure TypeScript, no DOM. Generates a pattern, applies gap/margin/edge rules, returns `Cell[]`. Includes CSS placement helpers for any framework. |
@@ -568,7 +573,14 @@ npm test          # vitest, all packages
 npm run build     # tsup → dist/ (ESM + CJS + .d.ts)
 npm run typecheck # run after build: packages resolve each other through dist/
 npm run dev       # playground at http://localhost:5173
+npm run docs:dev   # the manual, at /andamento/ on VitePress's dev server (run `npm run build` first)
+npm run docs:build # the whole site (manual, examples, API reference, playground) in docs/.vitepress/dist
 ```
+
+The manual lives in `docs/`. Its pictures are drawn at build time by the modules in
+`docs/examples/`, which the pages also show as code, and the API reference is generated from
+the doc comments by TypeDoc. Pushing to `main` publishes the site to GitHub Pages
+(`.github/workflows/pages.yml`).
 
 ### One picture across all tiles
 

@@ -577,7 +577,9 @@ export function App() {
     <div className="app">
       <aside className="panel">
         <h1>Andamento</h1>
-        <p className="sub">Tiling layouts with any content</p>
+        <p className="sub">
+          Tiling layouts with any content · <a href="https://mattputnam.github.io/andamento/">Manual</a>
+        </p>
 
         <section>
           <h2>Region</h2>

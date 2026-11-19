@@ -1,3 +1,8 @@
+/**
+ * React bindings: `<TileLayout>` (any children, clipped to the tiles), `<SvgTileLayout>` and hooks.
+ *
+ * @module @andamento/react
+ */
 export { TileLayout, coverStyle } from "./TileLayout";
 export type { CellState, TileLayoutProps } from "./TileLayout";
 export { SvgTileLayout, SvgCellImage } from "./SvgTileLayout";

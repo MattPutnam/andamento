@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["examples/**/*.ts", "scripts/**/*.ts", ".vitepress/config.ts"]
+}

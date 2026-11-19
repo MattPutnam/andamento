@@ -1,0 +1,36 @@
+{
+  "$schema": "https://typedoc-plugin-markdown.org/schema.json",
+  "entryPoints": [
+    "../packages/core/src/index.ts",
+    "../packages/svg/src/index.ts",
+    "../packages/dom/src/index.ts",
+    "../packages/react/src/index.tsx",
+    "../packages/vue/src/index.ts"
+  ],
+  "tsconfig": "./tsconfig.typedoc.json",
+  "out": "./reference/api",
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "typedoc-vitepress-theme"
+  ],
+  "docsRoot": ".",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "useCodeBlocks": true,
+  "parametersFormat": "table",
+  "interfacePropertiesFormat": "list",
+  "typeDeclarationFormat": "list",
+  "enumMembersFormat": "table",
+  "sanitizeComments": true,
+  "validation": {
+    "invalidLink": false,
+    "notExported": false
+  },
+  "logLevel": "Warn",
+  "name": "API reference",
+  "disableSources": true
+}

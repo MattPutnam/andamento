@@ -1,3 +1,8 @@
+/**
+ * Pure TypeScript, no DOM: tiling patterns, `createLayout`, content placement, fills, hit testing, keyboard navigation and CSS helpers.
+ *
+ * @module @andamento/core
+ */
 export * from "./geometry";
 export { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
 export { overlay, partition, shapeArea, shapeCentroid } from "./overlay";

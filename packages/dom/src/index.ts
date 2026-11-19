@@ -1,3 +1,8 @@
+/**
+ * No framework: `mountTileLayout()` and the `<andamento-layout>` web component, plus the pieces the framework bindings share.
+ *
+ * @module @andamento/dom
+ */
 export { mountTileLayout } from "./mount";
 export type { TileContent, TileLayoutConfig, TileLayoutHandle } from "./mount";
 export { AndamentoLayoutElement, defineTileLayoutElement } from "./element";

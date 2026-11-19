@@ -1,3 +1,9 @@
 node_modules
 dist
 *.tsbuildinfo
+
+# Docs site: generated
+docs/public/examples/
+docs/reference/api/
+docs/.vitepress/dist/
+docs/.vitepress/cache/

@@ -8,14 +8,17 @@
     "packages/dom",
     "packages/react",
     "packages/vue",
-    "apps/playground"
+    "apps/playground",
+    "docs"
   ],
   "scripts": {
     "build": "npm run build -w @andamento/core && npm run build -w @andamento/svg && npm run build -w @andamento/dom && npm run build -w @andamento/react && npm run build -w @andamento/vue",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "npm run dev -w playground"
+    "dev": "npm run dev -w playground",
+    "docs:dev": "npm run dev -w docs",
+    "docs:build": "npm run build && npm run build -w docs"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

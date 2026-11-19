@@ -1,3 +1,8 @@
+/**
+ * Renders a layout to an SVG string or element, to a canvas, or to a PNG.
+ *
+ * @module @andamento/svg
+ */
 import { cellShape, contentSlots, coverRect, type Focus, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 import { defaultBevel, reliefPaths, shadowOffset, type ReliefOptions } from "./relief";

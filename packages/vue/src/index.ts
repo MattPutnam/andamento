@@ -1,3 +1,8 @@
+/**
+ * Vue 3 bindings: `<TileLayout>`, `<SvgTileLayout>` and composables.
+ *
+ * @module @andamento/vue
+ */
 export { TileLayout } from "./TileLayout";
 export { SvgTileLayout } from "./SvgTileLayout";
 export { useFitCount, useTileLayout } from "./composables";
