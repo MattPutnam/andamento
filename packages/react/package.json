@@ -19,6 +19,6 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit -p ."
   },
-  "dependencies": { "@andamento/core": "0.1.0", "@andamento/svg": "0.1.0" },
+  "dependencies": { "@andamento/core": "0.1.0", "@andamento/dom": "0.1.0", "@andamento/svg": "0.1.0" },
   "peerDependencies": { "react": ">=18" }
 }

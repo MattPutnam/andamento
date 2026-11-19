@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { createLayout, fitCount, type ContentCells, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
+import { layoutResolver, type FitProp } from "@andamento/dom";
 
 /**
  * Compute a layout, recomputing only when the (serialisable) options change.
@@ -23,12 +24,11 @@ export function useFitCount(options: LayoutOptions, count: number, fit: FitOptio
   return useMemo(() => fitCount(options, count, { cells, mode }).layout, [key, count, cells, mode]);
 }
 
-/** How a component's `fit` prop sizes its tiles. */
-export type FitProp = boolean | "atLeast" | "nearest";
+export type { FitProp };
 
 /**
- * Use `layout` if given, otherwise compute one from `options`, fitted to `count` items when
- * `fit` is set. Hooks stay unconditional.
+ * Use `layout` if given, otherwise compute one from `options` (compared by value), fitted to
+ * `count` items when `fit` is set.
  */
 export function useResolvedLayout(
   component: string,
@@ -36,21 +36,7 @@ export function useResolvedLayout(
   layout?: Layout,
   fit?: { fit?: FitProp; count: number; cells?: ContentCells },
 ): Layout {
-  if (!options && !layout) throw new Error(`<${component}> needs either \`options\` or \`layout\``);
-  const fitting = !layout && !!options && !!fit?.fit && fit.count >= 1 && Number.isFinite(fit.count);
-  const key = JSON.stringify(options ?? PLACEHOLDER);
-  const mode = fit?.fit === "nearest" ? "nearest" : "atLeast";
-  const count = fitting ? fit!.count : 0;
-  const cells = fitting ? fit!.cells : undefined;
-  const computed = useMemo(
-    () => (fitting ? fitCount(options!, count, { cells, mode }).layout : createLayout(options ?? PLACEHOLDER)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key, fitting, count, cells, mode],
-  );
-  return layout ?? computed;
+  const resolver = useRef<ReturnType<typeof layoutResolver>>();
+  resolver.current ??= layoutResolver(`<${component}>`);
+  return resolver.current(options, layout, fit);
 }
-
-const PLACEHOLDER: LayoutOptions = {
-  region: { x: 0, y: 0, width: 1, height: 1 },
-  tiling: { type: "grid", width: 1 },
-};

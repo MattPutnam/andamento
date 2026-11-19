@@ -73,7 +73,8 @@ describe("animate", () => {
     const gone = tiles().find((t) => t.textContent === "b")!;
     expect(gone.hasAttribute("data-exiting")).toBe(true);
     expect(gone.getAttribute("aria-hidden")).toBe("true");
-    expect(gone.style.animation).toContain("andamento-exit");
+    // It fades out through the style sheet's [data-exiting] rule.
+    expect(gone.parentElement!.querySelector("style")!.textContent).toMatch(/\[data-exiting\]\{animation:andamento-exit 300ms [^}]*pointer-events:none/);
     act(() => vi.advanceTimersByTime(299));
     expect(tiles().some((t) => t.textContent === "b")).toBe(true);
     act(() => vi.advanceTimersByTime(2));

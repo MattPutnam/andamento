@@ -5,7 +5,6 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -15,42 +14,35 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import {
-  backdropCss,
-  cellCss,
-  cellInDirection,
-  cellsInRect,
-  contentSlots,
-  matchSlots,
-  regionCss,
-  safeAreaCss,
-  screenToLayout,
-  type Cell,
-  type ContentCells,
-  type ContentPlacement,
-  type Layout,
-  type LayoutOptions,
-  type Rect,
-} from "@andamento/core";
-import { cellPath, defaultBevel, neutralPalette, reliefPaths, resolveFills, shadowOffset, type FillSource, type ReliefOptions } from "@andamento/svg";
+  backdropStyle,
+  backgroundStyle,
+  containerStyle,
+  coverStyle as sharedCoverStyle,
+  frameBuilder,
+  keyAction,
+  overlayStyle,
+  resolvePerCell as resolve,
+  ringStrokes,
+  safeBoxStyle,
+  sameRect,
+  shadowShape,
+  tileSheet,
+  tileStyle,
+  tileViewBox,
+  viewRect,
+  watchView,
+  type CellState,
+  type PerCell,
+} from "@andamento/dom";
+import type { FillSource, ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
-/** What a per-cell prop function is told about the cell besides its geometry. */
-export interface CellState {
-  /** The cell has no content (no child, or `renderCell` returned nothing). */
-  empty: boolean;
-  /**
-   * Position among the cells that hold content, in reading order (the child index), or
-   * -1. With `renderCell`, every cell allowed by `contentCells` is numbered.
-   */
-  slot: number;
-}
-
-type PerCell<T> = T | ((cell: Cell, state: CellState) => T);
-const resolve = <T,>(v: PerCell<T> | undefined, cell: Cell, state: CellState): T | undefined =>
-  typeof v === "function" ? (v as (c: Cell, s: CellState) => T)(cell, state) : v;
+export type { CellState };
 
 const isEmpty = (n: ReactNode) => n == null || n === false || n === true || n === "";
+const css = (s: object) => s as CSSProperties;
 
 export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   /** Layout options; or pass a precomputed `layout` instead. */
@@ -189,10 +181,10 @@ export function TileLayout(props: TileLayoutProps) {
     aspects,
     choose,
     safeArea,
-    fill = neutralPalette,
+    fill,
     fit,
     backdrop,
-    relief: reliefProp,
+    relief,
     navigable,
     onCellActivate,
     cellLabel,
@@ -212,28 +204,20 @@ export function TileLayout(props: TileLayoutProps) {
   const items = renderCell ? [] : Children.toArray(children);
   const layout = useResolvedLayout("TileLayout", options, given, { fit: !renderCell && fit, count: items.length, cells: contentCells });
   const { bounds } = layout;
-  const count = renderCell ? Infinity : items.length;
-  const slots = useMemo(
-    () =>
-      aspects && !renderCell
-        ? matchSlots(layout, Array.from({ length: count }, (_, i) => aspects[i] ?? 1), { cells: contentCells, placement, choose })
-        : contentSlots(layout, count, { cells: contentCells, placement }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, count, contentCells, placement, aspects?.join(","), choose, !renderCell],
-  );
-  const fills = useMemo(() => resolveFills(layout, fill), [layout, fill]);
-  const relief = reliefProp === true ? {} : reliefProp || undefined;
-  const reliefKey = relief ? JSON.stringify(relief) : "";
-  // Bevels are worked out per tile as it's first drawn (and kept), not for every tile up front.
-  const bevelCache = useMemo(() => new Map<number, ReturnType<typeof reliefPaths>>(), [layout, reliefKey]);
-  const bevelWidth = useMemo(() => (relief ? (relief.bevel ?? defaultBevel(layout)) : 0), [layout, reliefKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const bevelFor = (i: number) => {
-    if (!relief || bevelWidth <= 0) return undefined;
-    let b = bevelCache.get(i);
-    if (!b) bevelCache.set(i, (b = reliefPaths(layout, layout.cells[i]!, relief, bevelWidth)));
-    return b;
-  };
-  const cast = relief && shadowOffset(relief);
+  // Slots, fills and bevels, reused from the last render where nothing they depend on changed.
+  const buildFrame = useRef<ReturnType<typeof frameBuilder>>();
+  buildFrame.current ??= frameBuilder();
+  const frame = buildFrame.current(layout, {
+    count: renderCell ? Infinity : items.length,
+    aspects: renderCell ? undefined : aspects,
+    contentCells,
+    placement,
+    choose,
+    fill,
+    relief,
+    animate,
+  });
+  const { slots, anim } = frame;
 
   // Key by child where possible, so a child keeps its state (video position, inputs,
   // animations) when the layout changes underneath it.
@@ -270,17 +254,8 @@ export function TileLayout(props: TileLayoutProps) {
   const hasContent = (i: number) =>
     allEntries ? !allEntries[i]!.empty : renderCell ? slots[i]! >= 0 : slots[i]! >= 0 && !isEmpty(items[slots[i]!]);
 
-  // Animation: transitions on each tile's box and clip path (resampled to a fixed number of
-  // points so shapes can morph), and enter / exit animations for tiles that come and go.
-  const anim = animate
-    ? {
-        duration: (typeof animate === "object" ? animate.duration : undefined) ?? 400,
-        easing: (typeof animate === "object" ? animate.easing : undefined) ?? "cubic-bezier(0.2, 0.8, 0.2, 1)",
-      }
-    : undefined;
-  const timing = anim ? `${anim.duration}ms ${anim.easing}` : "";
-  const boxTransition = anim ? ["left", "top", "width", "height"].map((p) => `${p} ${timing}`).join(", ") : undefined;
-  const tileTransition = anim ? `${boxTransition}, clip-path ${timing}, background-color ${timing}` : undefined;
+  // Animation: enter / exit animations for tiles that come and go (the tiles' own
+  // transitions are in their style).
   const mounted = useRef(false);
   const lastKeys = useRef(new Set<Key>());
   const entering = useRef(new Set<Key>());
@@ -307,151 +282,110 @@ export function TileLayout(props: TileLayoutProps) {
     entries = [...shown].sort((a, b) => a - b).map(makeEntry);
   }
   // List positions, as screen readers can't count tiles that aren't there.
-  const positions = useMemo(() => {
-    if (!virtual) return undefined;
-    const pos = new Map<number, number>();
-    for (const c of layout.cells) if (hasContent(c.index)) pos.set(c.index, pos.size + 1);
-    return pos;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [virtual, layout, slots, items.length, !renderCell]);
+  let positions: Map<number, number> | undefined;
+  if (virtual) {
+    positions = new Map();
+    for (const c of layout.cells) if (hasContent(c.index)) positions.set(c.index, positions.size + 1);
+  }
 
   // Animation bookkeeping uses every tile's key, so tiles scrolling in and out of view
   // don't count as coming and going.
   const allKeys = anim ? new Set(layout.cells.map((_, i) => keyOf(i))) : undefined;
   for (const e of entries) if (anim && mounted.current && !lastKeys.current.has(e.key)) entering.current.add(e.key);
 
-  const moveTo = (cell: Cell | undefined) => {
-    if (!cell) return false;
-    setActiveId(cell.id);
-    const el = tiles.current.get(cell.id);
-    // A tile out of view isn't mounted yet: focus it once it is.
-    if (el) el.focus();
-    else pendingFocus.current = cell.id;
-    return true;
-  };
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(e);
     if (e.defaultPrevented || !navigable || e.altKey || e.ctrlKey || e.metaKey) return;
     // Only when a tile itself has focus, not an input or button inside it.
     const entry = entries.find((x) => tiles.current.get(x.cell.id) === e.target);
     if (!entry || !focusable.has(entry.cell.id)) return;
-    const accept = (c: Cell) => focusable.has(c.id);
-    const ordered = layout.cells.filter(accept).map((cell) => ({ cell }));
-    let handled = false;
-    switch (e.key) {
-      case "ArrowUp": handled = moveTo(cellInDirection(layout, entry.cell, "up", accept)); break;
-      case "ArrowDown": handled = moveTo(cellInDirection(layout, entry.cell, "down", accept)); break;
-      case "ArrowLeft": handled = moveTo(cellInDirection(layout, entry.cell, "left", accept)); break;
-      case "ArrowRight": handled = moveTo(cellInDirection(layout, entry.cell, "right", accept)); break;
-      case "Home": handled = moveTo(ordered[0]?.cell); break;
-      case "End": handled = moveTo(ordered[ordered.length - 1]?.cell); break;
-      case "Enter":
-      case " ":
-        if (onCellActivate) {
-          onCellActivate(entry.cell, entry.state);
-          handled = true;
-        }
-        break;
-    }
+    const action = keyAction(layout, entry.cell, e.key, (c: Cell) => focusable.has(c.id), !!onCellActivate);
+    if (!action) return;
     // Arrow keys at the edge are still ours: don't scroll the page.
-    if (handled || e.key.startsWith("Arrow")) e.preventDefault();
+    e.preventDefault();
+    if ("activate" in action) onCellActivate!(entry.cell, entry.state);
+    else if ("move" in action) {
+      setActiveId(action.move.id);
+      const el = tiles.current.get(action.move.id);
+      // A tile out of view isn't mounted yet: focus it once it is.
+      if (el) el.focus();
+      else pendingFocus.current = action.move.id;
+    }
   };
 
   const rendered = entries.map(({ i, cell, content, key, empty, state }) => {
-        const slot = slots[i]!;
-        const bevel = bevelFor(i);
-        const css = cellCss(cell, layout, 4, anim ? { points: MORPH_POINTS } : {});
-        // Tiles with nothing in them are decoration: hidden from assistive technology.
-        const silent = empty && isEmpty(content);
-        const canFocus = focusable.has(cell.id);
-        return (
-          <div
-            key={key}
-            ref={(el) => {
-              if (el) tiles.current.set(cell.id, el);
-              else tiles.current.delete(cell.id);
-            }}
-            role={silent ? undefined : list ? "listitem" : undefined}
-            aria-hidden={silent ? true : undefined}
-            aria-label={silent ? undefined : resolve(cellLabel, cell, state)}
-            aria-setsize={positions && list && !silent ? positions.size : undefined}
-            aria-posinset={positions && list && !silent ? positions.get(i) : undefined}
-            tabIndex={canFocus ? (cell.id === active ? 0 : -1) : undefined}
-            onFocus={canFocus ? (e) => e.target === e.currentTarget && setActiveId(cell.id) : undefined}
-            onClick={onCellActivate && !empty ? () => onCellActivate(cell, state) : undefined}
-            className={resolve(cellClassName, cell, state)}
-            data-cell-id={cell.id}
-            data-index={cell.index}
-            data-empty={empty ? "" : undefined}
-            data-boundary={cell.boundary ? "" : undefined}
-            data-entering={entering.current.has(key) ? "" : undefined}
-            style={{
-              position: "absolute",
-              boxSizing: "border-box",
-              overflow: "hidden",
-              ...css,
-              ...(tileTransition ? { transition: tileTransition } : undefined),
-              // With safeArea, content no longer covers its tile, so every tile shows its fill.
-              ...((empty || safeArea) && backdrop == null ? { background: fills[i] } : undefined),
-              ...(onCellActivate && !empty ? { cursor: "pointer" } : undefined),
-              ...resolve(cellStyle, cell, state),
-            }}
-          >
-            {backdrop != null && (
-              // z-index -1 puts it behind the content but inside the tile: the tile's
-              // clip-path makes it a stacking context.
-              <div aria-hidden style={{ position: "absolute", zIndex: -1, pointerEvents: "none", ...backdropCss(cell, layout), transition: boxTransition }}>
-                {backdrop}
-              </div>
-            )}
-            {safeArea && content != null && !isEmpty(content) ? (
-              <div
-                data-safe-area=""
-                style={{
-                  position: "absolute",
-                  boxSizing: "border-box",
-                  ...safeAreaCss(cell, layout, { aspect: !renderCell && !empty && aspects ? (aspects[slot] ?? 1) : undefined }),
-                  transition: boxTransition,
-                }}
-              >
-                {content}
-              </div>
-            ) : (
-              content
-            )}
-            {bevel && bevel.length > 0 && (
-              // Over the content; the tile's box is its bounding box, so map that to the viewBox.
-              // When animating, the bevel is for the new shape, so it fades in as the tile arrives.
-              <svg
-                key={anim ? css.clipPath : undefined}
-                aria-hidden
-                data-bevel=""
-                data-late={anim ? "" : undefined}
-                viewBox={`${cell.bbox.x} ${cell.bbox.y} ${cell.bbox.width} ${cell.bbox.height}`}
-                preserveAspectRatio="none"
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-              >
-                {bevel.map((p, k) => (
-                  <path key={k} d={p.d} fill={p.fill} fillOpacity={p.opacity} />
-                ))}
-              </svg>
-            )}
-            {canFocus && focusRing !== false && (
-              // The tile's outline, stroked across its edge; the clip keeps the inner half.
-              <svg
-                aria-hidden
-                data-focus-ring=""
-                viewBox={`${cell.bbox.x} ${cell.bbox.y} ${cell.bbox.width} ${cell.bbox.height}`}
-                preserveAspectRatio="none"
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-              >
-                <path d={cellPath(layout, cell)} fill="none" stroke="#fff" strokeWidth={8} vectorEffect="non-scaling-stroke" />
-                <path d={cellPath(layout, cell)} fill="none" stroke={focusRing} strokeWidth={4} vectorEffect="non-scaling-stroke" />
-              </svg>
-            )}
+    const slot = slots[i]!;
+    const bevel = frame.bevel(i);
+    const tile = tileStyle(frame, cell, { empty, safeArea, backdrop: backdrop != null, clickable: !!onCellActivate && !empty });
+    // Tiles with nothing in them are decoration: hidden from assistive technology.
+    const silent = empty && isEmpty(content);
+    const canFocus = focusable.has(cell.id);
+    const viewBox = tileViewBox(cell);
+    return (
+      <div
+        key={key}
+        ref={(el) => {
+          if (el) tiles.current.set(cell.id, el);
+          else tiles.current.delete(cell.id);
+        }}
+        role={silent ? undefined : list ? "listitem" : undefined}
+        aria-hidden={silent ? true : undefined}
+        aria-label={silent ? undefined : resolve(cellLabel, cell, state)}
+        aria-setsize={positions && list && !silent ? positions.size : undefined}
+        aria-posinset={positions && list && !silent ? positions.get(i) : undefined}
+        tabIndex={canFocus ? (cell.id === active ? 0 : -1) : undefined}
+        onFocus={canFocus ? (e) => e.target === e.currentTarget && setActiveId(cell.id) : undefined}
+        onClick={onCellActivate && !empty ? () => onCellActivate(cell, state) : undefined}
+        className={resolve(cellClassName, cell, state)}
+        data-cell-id={cell.id}
+        data-index={cell.index}
+        data-empty={empty ? "" : undefined}
+        data-boundary={cell.boundary ? "" : undefined}
+        data-entering={entering.current.has(key) ? "" : undefined}
+        style={{ ...css(tile), ...resolve(cellStyle, cell, state) }}
+      >
+        {backdrop != null && (
+          // z-index -1 puts it behind the content but inside the tile: the tile's
+          // clip-path makes it a stacking context.
+          <div aria-hidden style={css(backdropStyle(frame, cell))}>
+            {backdrop}
           </div>
-        );
-      });
+        )}
+        {safeArea && content != null && !isEmpty(content) ? (
+          <div data-safe-area="" style={css(safeBoxStyle(frame, cell, !renderCell && !empty && aspects ? (aspects[slot] ?? 1) : undefined))}>
+            {content}
+          </div>
+        ) : (
+          content
+        )}
+        {bevel && bevel.length > 0 && (
+          // Over the content; the tile's box is its bounding box, so map that to the viewBox.
+          // When animating, the bevel is for the new shape, so it fades in as the tile arrives.
+          <svg
+            key={anim ? String(tile.clipPath) : undefined}
+            aria-hidden
+            data-bevel=""
+            data-late={anim ? "" : undefined}
+            viewBox={viewBox}
+            preserveAspectRatio="none"
+            style={css(overlayStyle)}
+          >
+            {bevel.map((p, k) => (
+              <path key={k} d={p.d} fill={p.fill} fillOpacity={p.opacity} />
+            ))}
+          </svg>
+        )}
+        {canFocus && focusRing !== false && (
+          // The tile's outline, stroked across its edge; the clip keeps the inner half.
+          <svg aria-hidden data-focus-ring="" viewBox={viewBox} preserveAspectRatio="none" style={css(overlayStyle)}>
+            {ringStrokes(frame, cell, focusRing).map((p, k) => (
+              <path key={k} d={p.d} fill="none" stroke={p.stroke} strokeWidth={p.width} vectorEffect="non-scaling-stroke" />
+            ))}
+          </svg>
+        )}
+      </div>
+    );
+  });
 
   // After each commit: tiles that just went away stay a moment to fade out.
   useIsomorphicLayoutEffect(() => {
@@ -486,45 +420,15 @@ export function TileLayout(props: TileLayoutProps) {
   });
 
   // Virtualisation: measure what's in view, again on scroll (of the page or any container)
-  // and resize, at most once a frame. The visible part is widened by the overscan and
-  // snapped outwards to a coarse grid, so small scrolls don't re-render.
+  // and resize, at most once a frame.
   useIsomorphicLayoutEffect(() => {
     if (!virtual) return;
     const el = container.current;
     if (!el) return;
-    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f: () => void) => setTimeout(f, 16) as unknown as number;
-    const cancel = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : (h: number) => clearTimeout(h);
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      const box = el.getBoundingClientRect();
-      const seen = visibleClientRect(el, box);
-      const scale = Math.min(box.width / (bounds.width || 1), box.height / (bounds.height || 1));
-      if (!seen || !(scale > 0)) {
-        setView((v) => (v && v.width < 0 ? v : { x: 0, y: 0, width: -1, height: -1 }));
-        return;
-      }
-      const a = screenToLayout(layout, box, seen.left - overscan, seen.top - overscan);
-      const b = screenToLayout(layout, box, seen.right + overscan, seen.bottom + overscan);
-      const q = Math.max(overscan / 2, 50) / scale;
-      const x0 = Math.floor(a.x / q) * q, y0 = Math.floor(a.y / q) * q;
-      const next = { x: x0, y: y0, width: Math.ceil(b.x / q) * q - x0, height: Math.ceil(b.y / q) * q - y0 };
-      setView((v) => (v && v.x === next.x && v.y === next.y && v.width === next.width && v.height === next.height ? v : next));
-    };
-    const schedule = () => {
-      if (!frame) frame = raf(measure);
-    };
-    measure();
-    window.addEventListener("scroll", schedule, { capture: true, passive: true });
-    window.addEventListener("resize", schedule);
-    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : undefined;
-    observer?.observe(el);
-    return () => {
-      if (frame) cancel(frame);
-      window.removeEventListener("scroll", schedule, { capture: true });
-      window.removeEventListener("resize", schedule);
-      observer?.disconnect();
-    };
+    return watchView(el, () => {
+      const next = viewRect(el, layout, overscan);
+      setView((v) => (sameRect(v ?? undefined, next) ? v : next));
+    });
   }, [virtual, layout, overscan]);
   useEffect(() => {
     const set = timers.current;
@@ -534,6 +438,8 @@ export function TileLayout(props: TileLayoutProps) {
     ? [...exiting].filter(([k]) => !lastKeys.current.has(k) && !rendered.some((el) => el.key === k))
     : [];
 
+  const sheet = tileSheet({ focusRing: !!navigable && focusRing !== false, anim });
+  const shadow = shadowShape(frame, entries.map((e) => e.cell));
   return (
     <div
       data-andamento=""
@@ -541,39 +447,21 @@ export function TileLayout(props: TileLayoutProps) {
       role={role ?? "list"}
       {...rest}
       onKeyDown={handleKeyDown}
-      style={{ position: "relative", width: "100%", aspectRatio: `${bounds.width} / ${bounds.height}`, ...style }}
+      style={{ ...css(containerStyle(layout)), ...style }}
     >
-      {navigable && focusRing !== false && <style>{FOCUS_CSS}</style>}
-      {anim && <style>{animationCss(anim.duration, anim.easing)}</style>}
-      {background && (
-        <div
-          aria-hidden
-          style={{ position: "absolute", inset: 0, background, clipPath: regionCss(layout), transition: anim ? `clip-path ${timing}` : undefined }}
-        />
-      )}
-      {cast && (
-        <svg
-          aria-hidden
-          data-andamento-shadow=""
-          viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}
-          preserveAspectRatio="none"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", clipPath: regionCss(layout) }}
-        >
+      {sheet && <style>{sheet}</style>}
+      {background && <div aria-hidden style={css(backgroundStyle(frame, background))} />}
+      {shadow && (
+        <svg aria-hidden data-andamento-shadow="" viewBox={shadow.viewBox} preserveAspectRatio="none" style={css(shadow.style)}>
           <filter id={`${uid}-shadow`} x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation={cast.blur} />
+            <feGaussianBlur stdDeviation={shadow.blur} />
           </filter>
-          <path
-            d={entries.map((e) => cellPath(layout, e.cell)).join("")}
-            fillRule="evenodd"
-            transform={`translate(${cast.dx} ${cast.dy})`}
-            fill="#000"
-            fillOpacity={cast.opacity}
-            filter={`url(#${uid}-shadow)`}
-          />
+          <path d={shadow.d} fillRule="evenodd" transform={shadow.transform} fill="#000" fillOpacity={shadow.opacity} filter={`url(#${uid}-shadow)`} />
         </svg>
       )}
       {rendered}
       {leaving.map(([k, el]) =>
+        // Fades out through the [data-exiting] rule in the style sheet.
         cloneElement(el as ReactElement<Record<string, unknown>>, {
           key: k,
           ref: null,
@@ -584,58 +472,13 @@ export function TileLayout(props: TileLayoutProps) {
           "aria-hidden": true,
           "data-entering": undefined,
           "data-exiting": "",
-          style: {
-            ...((el.props as { style?: CSSProperties }).style ?? {}),
-            pointerEvents: "none",
-            animation: `andamento-exit ${timing} forwards`,
-          },
         }),
       )}
     </div>
   );
 }
 
-/**
- * The part of `el` (whose box is `box`) visible on screen: within the window and every
- * ancestor that clips its overflow. Undefined when none of it is.
- */
-function visibleClientRect(el: Element, box: DOMRect) {
-  let left = Math.max(box.left, 0);
-  let top = Math.max(box.top, 0);
-  let right = Math.min(box.right, window.innerWidth || document.documentElement.clientWidth);
-  let bottom = Math.min(box.bottom, window.innerHeight || document.documentElement.clientHeight);
-  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
-    const s = getComputedStyle(p);
-    if (/(auto|scroll|hidden|clip)/.test(`${s.overflow} ${s.overflowX} ${s.overflowY}`)) {
-      const r = p.getBoundingClientRect();
-      left = Math.max(left, r.left);
-      top = Math.max(top, r.top);
-      right = Math.min(right, r.right);
-      bottom = Math.min(bottom, r.bottom);
-    }
-  }
-  return right > left && bottom > top ? { left, top, right, bottom } : undefined;
-}
-
-/** Clip paths get this many points when animating, so any two tile shapes can morph. */
-const MORPH_POINTS = 72;
-
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-const animationCss = (duration: number, easing: string) =>
-  "@keyframes andamento-enter{from{opacity:0;transform:scale(.85)}}" +
-  "@keyframes andamento-exit{to{opacity:0;transform:scale(.85)}}" +
-  "@keyframes andamento-late{0%,70%{opacity:0}to{opacity:1}}" +
-  `[data-andamento]>[data-entering]{animation:andamento-enter ${duration}ms ${easing} backwards}` +
-  `[data-andamento]>[data-cell-id]>[data-late]{animation:andamento-late ${duration}ms linear backwards}` +
-  "@media (prefers-reduced-motion:reduce){[data-andamento]>[data-cell-id],[data-andamento]>[data-cell-id] *{transition:none!important;animation:none!important}" +
-  "[data-andamento]>[data-exiting]{display:none}}";
-
-// The ring shows only on keyboard focus; a CSS outline would be clipped away anyway.
-const FOCUS_CSS =
-  "[data-andamento]>[data-cell-id]:focus{outline:none}" +
-  "[data-andamento]>[data-cell-id]>[data-focus-ring]{display:none}" +
-  "[data-andamento]>[data-cell-id]:focus-visible>[data-focus-ring]{display:block}";
-
 /** Style that makes an <img> or <video> cover its tile, like `object-fit: cover`. */
-export const coverStyle: CSSProperties = { display: "block", width: "100%", height: "100%", objectFit: "cover" };
+export const coverStyle: CSSProperties = css(sharedCoverStyle);
