@@ -219,6 +219,17 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
     defaults: { ih: 41, size: 50, amount: 0.15, edges: "wave" },
     rotates: true,
   },
+  flow: {
+    label: "Andamento flow",
+    params: [
+      { key: "size", label: "Row height", min: 3, max: 30, step: 0.5 },
+      { key: "length", label: "Tessera length (× height)", min: 0.6, max: 3, step: 0.1 },
+      { key: "jitter", label: "Length variety", min: 0, max: 0.9, step: 0.05 },
+      { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
+    ],
+    defaults: { size: 7, length: 1.3, jitter: 0.3, seed: 1, mode: "centreEdges" },
+    rotates: false,
+  },
   mondrian: {
     label: "Mondrian",
     params: [
@@ -318,6 +329,24 @@ const CONTENT: [Content, string][] = [
 const CARD_WORDS = ["Hello", "Tiles", "Any content", "Buttons", "Text", "Video", "Charts", "Links", "Cards", "Forms"];
 
 /** Isohedral playground params: shape parameters are stored as p0, p1, … next to ih. */
+/** Flow rows for the playground: round the middle, along a wave, along the outline, or both. */
+function flowSpec(p: Record<string, number | string>, w: number, h: number) {
+  const base = { type: "flow" as const, size: Number(p.size), length: Number(p.length), jitter: Number(p.jitter), seed: Number(p.seed) };
+  const wave = Array.from({ length: 49 }, (_, i) => ({ x: (w * i) / 48, y: h / 2 + (h / 5) * Math.sin((i / 48) * Math.PI * 3) }));
+  switch (p.mode) {
+    case "edges":
+      return { ...base, followEdges: true };
+    case "centre":
+      return { ...base, centers: [{ x: w / 2, y: h / 2 }] };
+    case "wave":
+      return { ...base, guides: [{ points: wave }] };
+    case "two":
+      return { ...base, centers: [{ x: w * 0.3, y: h * 0.4 }, { x: w * 0.72, y: h * 0.62 }] };
+    default:
+      return { ...base, centers: [{ x: w * 0.38, y: h * 0.45 }], followEdges: true };
+  }
+}
+
 function isohedralSpec(p: Record<string, number | string>) {
   const ih = Number(p.ih);
   const info = isohedralInfo(ih);
@@ -364,7 +393,13 @@ export function App() {
   const [emptyFill, setEmptyFill] = useState<EmptyFill>("neutral");
 
   const def = TILINGS[type];
-  const tiling = (type === "isohedral" ? isohedralSpec(params.isohedral) : { type, ...params[type] }) as TilingSpec;
+  const tiling = (
+    type === "isohedral"
+      ? isohedralSpec(params.isohedral)
+      : type === "flow"
+        ? flowSpec(params.flow, wall.width, longWall ? wall.width * 15 : wall.height)
+        : { type, ...params[type] }
+  ) as TilingSpec;
   const wallHeight = longWall ? wall.width * 15 : wall.height;
   const sizeAt =
     density === "centre"
@@ -614,6 +649,18 @@ export function App() {
               <select value={String(params.penrose.variant)} onChange={(e) => setParam("variant", e.target.value)}>
                 <option value="rhombs">Rhombs</option>
                 <option value="kitesAndDarts">Kites and darts</option>
+              </select>
+            </label>
+          )}
+          {type === "flow" && (
+            <label className="row">
+              <span>Rows follow</span>
+              <select value={String(params.flow.mode)} onChange={(e) => setParam("mode", e.target.value)}>
+                <option value="centreEdges">A point and the edges</option>
+                <option value="centre">A point</option>
+                <option value="two">Two points</option>
+                <option value="wave">A wave</option>
+                <option value="edges">The edges</option>
               </select>
             </label>
           )}

@@ -6,6 +6,8 @@ import { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./sub
 import { HAT_WIDTH, hatsCovering, LABEL_INDEX } from "./hat";
 import { generateIsohedral } from "./isohedral";
 import { SPECTRE_LABEL_INDEX, SPECTRE_WIDTH, spectresCovering } from "./spectre";
+import { generateFlow, type FlowSpec } from "./flow";
+export type { FlowSpec } from "./flow";
 
 /*
  * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
@@ -254,6 +256,7 @@ export interface MondrianSpec {
 }
 
 export type TilingSpec =
+  | FlowSpec
   | GridSpec
   | RunningBondSpec
   | HerringboneSpec
@@ -314,6 +317,8 @@ export const penrose = (p: Omit<PenroseSpec, "type">): PenroseSpec => ({ type: "
 export const periodic = (p: Omit<PeriodicSpec, "type">): PeriodicSpec => ({ type: "periodic", ...p });
 export const tiles = (p: Omit<TilesSpec, "type">): TilesSpec => ({ type: "tiles", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
+/** Andamento: tesserae in rows following guide curves, centres or the region's outline. See `FlowSpec`. */
+export const flow = (p: Omit<FlowSpec, "type">): FlowSpec => ({ type: "flow", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
 export interface RawTile {
@@ -338,6 +343,10 @@ export interface GenerateContext {
    * wanted at a point, as a factor (at most 1) of the spec's size.
    */
   sizeAt?: (p: Vec) => number;
+  /** The exact area to tile (outline and holes, less margin), for generators that follow it. */
+  outline?: Polygon[];
+  /** Layout units per generator unit (the pattern scale), for specs given in layout units. */
+  unit?: number;
 }
 
 /**
@@ -372,7 +381,7 @@ const FISH_SCALE_STEPS = 12;
 const CAIRO_BAR = (Math.sqrt(7) - 1) / 6;
 
 /** Tilings generated procedurally (seeded) rather than from a repeating motif. */
-export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec;
+export type ProceduralSpec = MondrianSpec | VoronoiSpec | DelaunaySpec | AshlarSpec | JigsawSpec | FlowSpec;
 
 export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | PenroseSpec | HatSpec | SpectreSpec | IsohedralSpec | TilesSpec>): PeriodicDefinition {
   switch (spec.type) {
@@ -753,6 +762,8 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
       return spec.tiles.map((t, i) => ({ id: t.id ?? `t${i}`, polygon: t.polygon.map((v) => vec(v.x, v.y)), protoTile: t.protoTile ?? 0 }));
     case "mondrian":
       return generateMondrian(spec, ctx);
+    case "flow":
+      return generateFlow(spec, ctx);
     case "voronoi":
       return generateVoronoi(spec, ctx);
     case "delaunay":

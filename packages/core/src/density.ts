@@ -124,34 +124,35 @@ function subdivide(parents: RawTile[], ctx: RefineContext, level: number): RawTi
     // leave a hole.
     shapes.forEach((s, j) => pieces.push({ id: j ? `${id}~${j}` : id, polygon: s.outer, protoTile: t.protoTile, nominal }));
   }
-  return mergeSlivers(pieces, ctx);
+  return mergeSlivers(pieces, ctx.scaleRef, ctx.tol);
 }
 
 /**
  * Merge pieces under 30% of their full tile's area into the neighbour they share the most
  * with (or any neighbour sharing an edge), so cuts don't leave crumbs.
  */
-function mergeSlivers(pieces: (RawTile & { nominal: number })[], ctx: RefineContext): RawTile[] {
+export function mergeSlivers(pieces: (RawTile & { nominal: number; group?: number })[], scaleRef: number, tol0: number): RawTile[] {
   const alive = pieces.map(() => true);
   const polys = pieces.map((p) => p.polygon);
   const small = pieces.map((p, i) => i).filter((i) => area(polys[i]!) < 0.3 * pieces[i]!.nominal).sort((a, b) => area(polys[a]!) - area(polys[b]!));
   const boxes = polys.map(bbox);
-  const tol = Math.max(ctx.tol * 10, 1e-9);
+  const tol = Math.max(tol0 * 10, 1e-9);
   for (const i of small) {
     if (!alive[i]) continue;
     const bi = boxes[i]!;
+    // The biggest neighbour sharing an edge, from the same group (a flow row) if there is one.
     let best = -1, bestArea = -1;
     for (let j = 0; j < pieces.length; j++) {
       if (j === i || !alive[j]) continue;
       const bj = boxes[j]!;
       if (bj.x > bi.x + bi.width + tol || bi.x > bj.x + bj.width + tol || bj.y > bi.y + bi.height + tol || bi.y > bj.y + bj.height + tol) continue;
       if (!sharesEdge(polys[i]!, polys[j]!, tol)) continue;
-      const a = area(polys[j]!);
+      const a = area(polys[j]!) + (pieces[j]!.group !== undefined && pieces[j]!.group === pieces[i]!.group ? 1e12 : 0);
       if (a > bestArea) { bestArea = a; best = j; }
     }
     if (best < 0) continue;
     const a = polys[i]!, b = polys[best]!;
-    const union = overlay([a, b], (p) => pointInPolygon(p, a) || pointInPolygon(p, b), ctx.scaleRef);
+    const union = overlay([a, b], (p) => pointInPolygon(p, a) || pointInPolygon(p, b), scaleRef);
     if (union.length !== 1 || union[0]!.holes.length) continue;
     polys[best] = union[0]!.outer;
     boxes[best] = bbox(polys[best]!);

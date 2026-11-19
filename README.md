@@ -463,6 +463,41 @@ round and is cut, rounded and given neighbours like any other. Featured cells ha
 take the first content: `<TileLayout>`'s first child goes to the first feature, and so on;
 the rest follow `placement` as usual.
 
+### Andamento flow
+
+```ts
+createLayout({ region, tiling: flow({ size: 8 }) }); // rows along the edges
+createLayout({ region, tiling: flow({ size: 8, centers: [{ x: 300, y: 200 }], followEdges: true }) });
+createLayout({ region, tiling: flow({ size: 8, guides: [{ points: curve }] }) });
+```
+
+*Andamento* is the flow of a mosaic: tesserae laid in rows (courses) that follow the
+shapes of the picture. The `flow` tiling lays its rows along three kinds of guide:
+- **The region's outline:** this is `followEdges`, the default when there's nothing else.
+  Rows run round any holes too, as in opus vermiculatum.
+- **Centre points:** each gets a round tessera, ringed by row after row.
+- **Guide curves:** open or closed polylines in layout units. A row runs along each curve, with
+  more rows parallel to it on both sides.
+
+Where rows from different guides meet, they end against each other the way a mosaicist's
+would: mitred at corners, and fitted together where rings meet straight rows.
+
+The options:
+- **`size`:** the row height.
+- **`length`:** the tessera length along its row, as a multiple of `size` (default 1.3).
+- **`jitter`:** how much tessera lengths vary (default 0.3).
+- **`seed`:** varies the random lengths.
+- **Row colours:** rows alternate `protoTile` 0 and 1, so `protoTileFill` can colour by row.
+
+How it's built:
+- **Rows:** each row is a band of a distance field. Its edges are the field's level lines, and
+  tesserae are cut across it between seeds spaced along its centre line.
+- **Exact cover:** the bands and cuts are assembled into tiles that cover the region exactly,
+  with leftover crumbs merged into a neighbour in the same row.
+- **Speed:** a 400 × 300 region with rows 10 high (about 1,000 tesserae) takes about a quarter
+  of a second.
+- **Limits:** `rotation`, `origin` and `sizeAt` don't apply. `tileScale` scales the rows.
+
 ### Tile size by density
 
 ```ts

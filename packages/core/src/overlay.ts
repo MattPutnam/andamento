@@ -27,6 +27,62 @@ type Seg = { ax: number; ay: number; bx: number; by: number };
  * `scale` is the size of the scene; tolerances are relative to it.
  */
 export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale: number): Shape[] {
+  const { vx, vy, pieces, eps, delta } = splitSegments(outlines, scale);
+  const from: number[] = [], to: number[] = [];
+  for (const [a, b] of pieces) {
+    const { left, right } = sides(vx, vy, a, b, delta, inside);
+    if (left && !right) { from.push(a); to.push(b); }
+    else if (right && !left) { from.push(b); to.push(a); }
+  }
+  return assemble(chainLoops(from, to, vx, vy, eps, scale), delta);
+}
+
+/**
+ * Split the plane into regions by a labelling function: each point gets a label (a number;
+ * negative for "nothing"), and every region of equal label is returned as shapes. The
+ * labels may only change across the given outlines (closed loops; pass an open polyline's
+ * segments as two-point "loops"), which are cut where they meet like `overlay`'s.
+ */
+export function partition(outlines: Polygon[], label: (p: Vec) => number, scale: number): Map<number, Shape[]> {
+  const { vx, vy, pieces, eps, delta } = splitSegments(outlines, scale);
+  const edges = new Map<number, { from: number[]; to: number[] }>();
+  const add = (l: number, a: number, b: number) => {
+    if (l < 0) return;
+    let e = edges.get(l);
+    if (!e) edges.set(l, (e = { from: [], to: [] }));
+    e.from.push(a);
+    e.to.push(b);
+  };
+  for (const [a, b] of pieces) {
+    const { left, right } = sides(vx, vy, a, b, delta, label);
+    if (left === right) continue;
+    // Each region keeps its boundary on its left.
+    add(left, a, b);
+    add(right, b, a);
+  }
+  const out = new Map<number, Shape[]>();
+  for (const [l, e] of edges) {
+    const shapes = assemble(chainLoops(e.from, e.to, vx, vy, eps, scale), delta);
+    if (shapes.length) out.set(l, shapes);
+  }
+  return out;
+}
+
+/** What `f` says just left and just right of the middle of piece a→b. */
+function sides<T>(vx: number[], vy: number[], a: number, b: number, delta: number, f: (p: Vec) => T): { left: T; right: T } {
+  const ax = vx[a]!, ay = vy[a]!, bx = vx[b]!, by = vy[b]!;
+  const len = Math.hypot(bx - ax, by - ay);
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  // Left normal of (dx, dy) is (-dy, dx).
+  const nx = (-(by - ay) / len) * delta, ny = ((bx - ax) / len) * delta;
+  return { left: f(vec(mx + nx, my + ny)), right: f(vec(mx - nx, my - ny)) };
+}
+
+/**
+ * Every outline cut at every point where it meets another: the pieces (as vertex index
+ * pairs, deduplicated) and the shared vertices.
+ */
+function splitSegments(outlines: Polygon[], scale: number) {
   const eps = 1e-9 * scale;
   const delta = 1e-7 * scale;
 
@@ -118,7 +174,7 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
 
   // Pieces between consecutive cuts, deduplicated (overlapping runs give the same piece twice).
   const seen = new Set<string>();
-  const from: number[] = [], to: number[] = [];
+  const pieces: [number, number][] = [];
   for (const c of cuts) {
     const idx = Array.from({ length: c.length / 3 }, (_, k) => k).sort((a, b) => c[a * 3]! - c[b * 3]!);
     let prev = vertex(c[idx[0]! * 3 + 1]!, c[idx[0]! * 3 + 2]!);
@@ -128,22 +184,19 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
       const key = prev < v ? `${prev},${v}` : `${v},${prev}`;
       if (!seen.has(key)) {
         seen.add(key);
-        const ax = vx[prev]!, ay = vy[prev]!, bx = vx[v]!, by = vy[v]!;
-        const len = Math.hypot(bx - ax, by - ay);
-        const mx = (ax + bx) / 2, my = (ay + by) / 2;
-        // Left normal of (dx, dy) is (-dy, dx).
-        const nx = (-(by - ay) / len) * delta, ny = ((bx - ax) / len) * delta;
-        const left = inside(vec(mx + nx, my + ny));
-        const right = inside(vec(mx - nx, my - ny));
-        if (left && !right) { from.push(prev); to.push(v); }
-        else if (right && !left) { from.push(v); to.push(prev); }
+        pieces.push([prev, v]);
       }
       prev = v;
     }
   }
+  return { vx, vy, pieces, eps, delta };
+}
 
-  // Chain boundary pieces into loops. Where several continue from one vertex (shapes
-  // touching at a point), take the sharpest left turn, which keeps the loops separate.
+/**
+ * Chain directed boundary pieces into closed loops. Where several continue from one vertex
+ * (shapes touching at a point), take the sharpest left turn, which keeps the loops separate.
+ */
+function chainLoops(from: number[], to: number[], vx: number[], vy: number[], eps: number, scale: number): Polygon[] {
   const outgoing = new Map<number, number[]>();
   from.forEach((v, e) => {
     const list = outgoing.get(v);
@@ -152,37 +205,70 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
   });
   const used = new Uint8Array(from.length);
   const loops: Polygon[] = [];
+  // Where a chain dead-ends, carry on from an unused piece starting a hair away: points
+  // where segments meet at a shallow angle can land a few rounding errors apart.
+  const slop = 1e-6 * scale;
+  const cell = slop * 4;
+  const near = new Map<string, number[]>();
+  from.forEach((v, e) => {
+    const key = `${Math.floor(vx[v]! / cell)},${Math.floor(vy[v]! / cell)}`;
+    const list = near.get(key);
+    if (list) list.push(e);
+    else near.set(key, [e]);
+  });
+  const nearby = (x: number, y: number): number[] => {
+    const gx = Math.floor(x / cell), gy = Math.floor(y / cell);
+    const out: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const e of near.get(`${gx + dx},${gy + dy}`) ?? []) {
+          if (!used[e] && Math.hypot(vx[from[e]!]! - x, vy[from[e]!]! - y) <= slop) out.push(e);
+        }
+      }
+    }
+    return out;
+  };
   for (let e0 = 0; e0 < from.length; e0++) {
     if (used[e0]) continue;
     used[e0] = 1;
     const start = from[e0]!;
-    const loop: Vec[] = [vec(vx[start]!, vy[start]!)];
-    let e = e0;
+    // The chain so far; a piece leading nowhere (a misjudged crumb where lines nearly meet)
+    // is dropped and the chain backs up to try the next turn.
+    const path = [e0];
     let closed = false;
-    for (let guard = 0; guard <= from.length; guard++) {
+    for (let guard = 0; guard <= 4 * from.length && path.length; guard++) {
+      const e = path[path.length - 1]!;
       const v = to[e]!;
       if (v === start) { closed = true; break; }
-      loop.push(vec(vx[v]!, vy[v]!));
       const inx = vx[v]! - vx[from[e]!]!, iny = vy[v]! - vy[from[e]!]!;
       let best = -1, bestTurn = -Infinity;
-      for (const f of outgoing.get(v) ?? []) {
-        if (used[f]) continue;
+      const consider = (f: number) => {
         const ox = vx[to[f]!]! - vx[v]!, oy = vy[to[f]!]! - vy[v]!;
         const turn = Math.atan2(inx * oy - iny * ox, inx * ox + iny * oy);
         if (turn > bestTurn) { bestTurn = turn; best = f; }
+      };
+      for (const f of outgoing.get(v) ?? []) if (!used[f]) consider(f);
+      if (best < 0) {
+        // Carry on from an unused piece starting a hair away, or close if the start is.
+        if (Math.hypot(vx[v]! - vx[start]!, vy[v]! - vy[start]!) <= slop) { closed = true; break; }
+        for (const f of nearby(vx[v]!, vy[v]!)) consider(f);
       }
-      if (best < 0) break;
-      used[best] = 1;
-      e = best;
+      if (best >= 0) {
+        used[best] = 1;
+        path.push(best);
+      } else path.pop();
     }
     if (closed) {
+      const loop = path.map((e) => vec(vx[from[e]!]!, vy[from[e]!]!));
       const clean = dropCollinear(loop, eps);
       if (clean.length >= 3 && Math.abs(signedArea(clean)) > eps * scale) loops.push(clean);
     }
   }
+  return loops;
+}
 
-  // Positive loops are outlines, negative ones holes; each hole goes in the smallest
-  // outline around it.
+/** Positive loops are outlines, negative ones holes; each hole goes in the smallest outline around it. */
+function assemble(loops: Polygon[], delta: number): Shape[] {
   const outers = loops.filter((l) => signedArea(l) > 0).sort((a, b) => area(a) - area(b));
   const shapes: Shape[] = outers.map((outer) => ({ outer, holes: [] }));
   for (const hole of loops.filter((l) => signedArea(l) < 0)) {
@@ -195,6 +281,7 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
   }
   return shapes;
 }
+
 
 function dropCollinear(loop: Vec[], eps: number): Vec[] {
   let pts = loop;

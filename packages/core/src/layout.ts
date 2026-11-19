@@ -219,10 +219,13 @@ export function createLayout(options: LayoutOptions): Layout {
     rotation: options.rotation ?? 0,
     origin: k0 === 1 ? origin : down(origin),
     maxTiles: options.maxTiles ?? 20000,
+    // The exact area to tile and the pattern scale, for generators that follow the outline.
+    outline: (simple ? [inner] : loops).map((l) => (k0 === 1 ? l : l.map(down))),
+    unit: k0,
     ...(field && smooth ? { sizeAt: (p: Vec) => Math.min(1, field(vec(p.x * k0, p.y * k0)) / range.max) } : {}),
   });
   if (k0 !== 1) raw = raw.map((t) => ({ ...t, polygon: t.polygon.map((v) => vec(v.x * k0, v.y * k0)) }));
-  if (field && !smooth && options.tiling.type !== "tiles" && range.min < range.max / Math.SQRT2) {
+  if (field && !smooth && options.tiling.type !== "tiles" && options.tiling.type !== "flow" && range.min < range.max / Math.SQRT2) {
     raw = refineTiles(raw, {
       spec: options.tiling,
       rotation: options.rotation ?? 0,

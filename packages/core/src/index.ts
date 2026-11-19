@@ -1,6 +1,6 @@
 export * from "./geometry";
 export { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
-export { overlay, shapeArea, shapeCentroid } from "./overlay";
+export { overlay, partition, shapeArea, shapeCentroid } from "./overlay";
 export type { Shape } from "./overlay";
 export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
