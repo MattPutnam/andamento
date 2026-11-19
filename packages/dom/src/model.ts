@@ -5,6 +5,7 @@ import {
   cellInDirection,
   contentSlots,
   createLayout,
+  objectPosition,
   fitCount,
   matchSlots,
   regionCss,
@@ -14,6 +15,7 @@ import {
   type Cell,
   type ContentCells,
   type ContentPlacement,
+  type Focus,
   type Layout,
   type LayoutOptions,
   type Rect,
@@ -183,8 +185,13 @@ export const backgroundStyle = (frame: Frame, background: string): StyleMap => (
  * A tile's element: placed over its cell's bounding box and clipped to its shape. Empty
  * tiles (and every tile with `safeArea`) show their fill unless there's a backdrop.
  */
-export function tileStyle(frame: Frame, cell: Cell, o: { empty: boolean; safeArea?: SafeAreaProp; backdrop?: boolean; clickable?: boolean }): StyleMap {
+export function tileStyle(
+  frame: Frame,
+  cell: Cell,
+  o: { empty: boolean; safeArea?: SafeAreaProp; backdrop?: boolean; clickable?: boolean; focus?: Focus; aspect?: number },
+): StyleMap {
   return {
+    ...(o.focus && !o.empty ? focusStyle(frame, cell, o.focus, o.aspect) : {}),
     position: "absolute",
     boxSizing: "border-box",
     overflow: "hidden",
@@ -193,6 +200,18 @@ export function tileStyle(frame: Frame, cell: Cell, o: { empty: boolean; safeAre
     background: (o.empty || o.safeArea) && !o.backdrop ? frame.fills[cell.index] : undefined,
     cursor: o.clickable ? "pointer" : undefined,
   };
+}
+
+/**
+ * The `--andamento-object-position` a tile sets for its content's focal point, which
+ * `coverStyle` uses as its `object-position`. Exact with the image's `aspect` (given, or the focus's own; see
+ * `objectPosition`); without, the focus as a percentage, which CSS keeps at the same place
+ * in the tile's box rather than in the middle of what shows.
+ */
+export function focusStyle(frame: Frame, cell: Cell, focus: Focus, aspect?: number): StyleMap {
+  const shape = aspect ?? focus.aspect;
+  const pos = shape && shape > 0 ? objectPosition(cell, frame.layout, { aspect: shape, focus }) : `${focus.x * 100}% ${focus.y * 100}%`;
+  return { "--andamento-object-position": pos };
 }
 
 /** A backdrop copy inside a tile: behind its content, covering the whole layout. */
@@ -364,4 +383,11 @@ function visibleClientRect(el: Element, box: DOMRect) {
 }
 
 /** Style that makes an <img> or <video> cover its tile, like `object-fit: cover`. */
-export const coverStyle: StyleMap = { display: "block", width: "100%", height: "100%", objectFit: "cover" };
+export const coverStyle: StyleMap = {
+  display: "block",
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  // Set by the tile from the item's focal point (see `focalPoints`); centred otherwise.
+  objectPosition: "var(--andamento-object-position, 50% 50%)",
+};

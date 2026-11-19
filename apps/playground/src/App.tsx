@@ -1,8 +1,8 @@
 import { createElement, useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import { colorCells, createLayout, edgeSize, rectPolygon, imageSize, loadImagePixels, radialSize, type Pixels, fitCount, gradientFill, paletteFill, protoTileFill, randomFill, isohedralInfo, isohedralTypes, type Cell, type EdgeMode, type Layout, type LayoutOptions, type TilingSpec, type TilingType } from "@andamento/core";
 import { defaultPalette, renderToPng, renderToString } from "@andamento/svg";
-import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, type ContentPlacement, type FillSource } from "@andamento/react";
-import { placeholderPhotos } from "./photos";
+import { TileLayout, cellFromPointer, coverStyle, neutralPalette, useImageAspects, useImageFill, useImageFocus, type ContentPlacement, type FillSource, type Focus } from "@andamento/react";
+import { placeholderFocus, placeholderPhotos } from "./photos";
 import { ElementPreview, VuePreview, type PreviewItem, type PreviewProps } from "./Bindings";
 
 interface Param {
@@ -372,6 +372,8 @@ export function App() {
   const [mosaicPalette, setMosaicPalette] = useState(false);
   const [matchShapes, setMatchShapes] = useState<"off" | "placement" | "shape">("off");
   const [safe, setSafe] = useState(false);
+  // What each photo keeps in view as its tile crops it.
+  const [focusMode, setFocusMode] = useState<"off" | "sun" | "auto">("off");
   // In a window layout: fit content to the whole tile or to the part that shows.
   const [safeWithin, setSafeWithin] = useState<"tile" | "visible">("tile");
   const [reliefMode, setReliefMode] = useState<"off" | "bevel" | "shadow">("off");
@@ -469,6 +471,11 @@ export function App() {
   // Photo shapes, for matching photos to tile shapes.
   // Also with safe areas, so each photo's box has its shape and shows it whole.
   const photoAspects = useImageAspects(content === "photos" && (matchShapes !== "off" || safe) ? photos : undefined);
+  // Focal points: the placeholders' suns, or a guess from each photo's pixels.
+  // (Your own photos have no sun, so they use the guess.)
+  const autoFocus = useImageFocus(content === "photos" && focusMode !== "off" && (focusMode === "auto" || uploads.length > 0) ? photos : undefined);
+  const photoFocus: Focus[] | undefined =
+    content !== "photos" || focusMode === "off" ? undefined : focusMode === "sun" && !uploads.length ? placeholderFocus(photos.length) : autoFocus;
   const cellFill = content === "colors" ? defaultPalette : content === "mosaic" ? (mosaic ?? neutralPalette) : EMPTY_FILLS[emptyFill];
   const colors = useMemo(() => (layout ? colorCells(layout, defaultPalette.length) : []), [layout]);
   const colorOf = (i: number) => defaultPalette[colors[i] ?? 0]!;
@@ -476,6 +483,7 @@ export function App() {
   // Any React content works as children: one child per tile, in reading order.
   const numItems = layout ? (itemCount > 0 ? itemCount : layout.cells.length) : 0;
   const childAspects = photoAspects && Array.from({ length: numItems }, (_, i) => photoAspects[i % photoAspects.length]!);
+  const childFocus = photoFocus && Array.from({ length: numItems }, (_, i) => photoFocus[i % photoFocus.length]!);
   const children = Array.from({ length: itemsShown ? numItems : 0 }, (_, i) => {
     if (content === "photos") return <img key={i} src={photos[i % photos.length]} alt="" style={coverStyle} className="photo" />;
     if (content === "cards")
@@ -523,6 +531,7 @@ export function App() {
       images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
       imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : safe ? photoAspects : undefined,
       imageFit: safe ? "contain" : "cover",
+      imageFocus: photoFocus,
       containWithin: safeWithin,
       choose: matchShapes === "shape" ? "shape" : "placement",
       repeatImages: itemCount === 0,
@@ -785,6 +794,16 @@ export function App() {
                   </select>
                 </label>
               )}
+              {content === "photos" && !safe && (
+                <label className="row">
+                  <span>Keep in view</span>
+                  <select value={focusMode} onChange={(e) => setFocusMode(e.target.value as typeof focusMode)}>
+                    <option value="off">Middle of each photo</option>
+                    {!uploads.length && <option value="sun">The sun</option>}
+                    <option value="auto">Found automatically</option>
+                  </select>
+                </label>
+              )}
               <label className="row">
                 <span>Placement</span>
                 <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)}>
@@ -846,6 +865,7 @@ export function App() {
               contentCells,
               placement,
               aspects: childAspects,
+              focalPoints: childFocus,
               safeArea: safe && safeWithin,
               choose: matchShapes === "shape" ? "shape" : "placement",
               backdrop: content === "picture" ? picture : undefined,
@@ -883,6 +903,7 @@ export function App() {
               fill={cellFill}
               backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
               aspects={childAspects}
+              focalPoints={childFocus}
               safeArea={safe && safeWithin}
               cellStyle={safe && content === "cards" ? (_cell, s) => (s.slot >= 0 ? { background: colorOf(s.slot) } : {}) : undefined}
               choose={matchShapes === "shape" ? "shape" : "placement"}

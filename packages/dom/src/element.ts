@@ -1,4 +1,4 @@
-import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
+import type { Cell, ContentCells, ContentPlacement, Focus, Layout, LayoutOptions } from "@andamento/core";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
 import { coverStyle, type CellState, type FitProp, type PerCell, type SafeAreaProp, type StyleMap } from "./model";
 import { mountTileLayout, type TileContent, type TileLayoutConfig, type TileLayoutHandle } from "./mount";
@@ -37,7 +37,10 @@ let slotCount = 0;
  * Set `options` (a `LayoutOptions` object, or JSON in the attribute) or `layout`. Simple
  * settings are attributes too: `navigable`, `animate`, `relief`, `safe-area`, `virtualize`,
  * `fit`, `placement`, `content-cells`, `choose`, `background`, `fill`, `focus-ring`, `label`.
- * Give children `data-aspect` (width / height) to put them in tiles of their shape. A child
+ * Give children `data-aspect` (width / height) to put them in tiles of their shape, and
+ * `data-focus` ("x y", fractions of the width and height) to keep that point of a photo in
+ * view as its tile crops it (style the photo with `coverStyle`, or
+ * `object-position: var(--andamento-object-position)`). A child
  * with `slot="backdrop"` is copied into every tile as one picture across them all.
  *
  * Tiles are in the element's shadow root: style them with `::part(tile)` (also `empty`
@@ -153,6 +156,13 @@ export class AndamentoLayoutElement extends Base {
   set aspects(v: readonly number[] | undefined) {
     this.#set({ aspects: v });
   }
+  /** Focal point of each child; otherwise read from children's `data-focus`. */
+  get focalPoints() {
+    return this.#props.focalPoints;
+  }
+  set focalPoints(v: readonly (Focus | undefined)[] | undefined) {
+    this.#set({ focalPoints: v });
+  }
   get background() {
     return this.#props.background;
   }
@@ -198,7 +208,7 @@ export class AndamentoLayoutElement extends Base {
     this.#observer = new MutationObserver((records) => {
       if (records.some((r) => r.target === this || r.target.parentNode === this)) this.#schedule();
     });
-    this.#observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-aspect", "slot"] });
+    this.#observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-aspect", "data-focus", "slot"] });
     this.#schedule();
   }
 
@@ -278,9 +288,16 @@ export class AndamentoLayoutElement extends Base {
     const aspectAttrs = this.#items.map((c) => Number(c.getAttribute("data-aspect")));
     const aspects = aspectAttrs.some((v) => v > 0) ? aspectAttrs.map((v) => (v > 0 ? v : 1)) : undefined;
 
+    const focusAttrs = this.#items.map((c): Focus | undefined => {
+      const [x, y] = (c.getAttribute("data-focus") ?? "").trim().split(/[\s,]+/).map(Number);
+      return Number.isFinite(x) && Number.isFinite(y) && c.hasAttribute("data-focus") ? { x: x!, y: y! } : undefined;
+    });
+    const focalPoints = focusAttrs.some(Boolean) ? focusAttrs : undefined;
+
     this.#config = {
       ...fromAttrs,
       aspects,
+      focalPoints,
       ...overrides(this.#props),
       items,
       backdrop: backdrop ? this.#backdropFor(backdrop) : undefined,
@@ -303,7 +320,7 @@ export class AndamentoLayoutElement extends Base {
  */
 const overrides = (props: Partial<TileLayoutConfig>): Partial<TileLayoutConfig> =>
   Object.fromEntries(Object.entries(props).filter(([k, v]) => v !== undefined || !ATTRIBUTE_KEYS.has(k)));
-const ATTRIBUTE_KEYS = new Set(["options", "navigable", "animate", "relief", "safeArea", "virtualize", "fit", "placement", "contentCells", "choose", "background", "fill", "focusRing", "label", "aspects"]);
+const ATTRIBUTE_KEYS = new Set(["options", "navigable", "animate", "relief", "safeArea", "virtualize", "fit", "placement", "contentCells", "choose", "background", "fill", "focusRing", "label", "aspects", "focalPoints"]);
 
 /** A copy of the backdrop child for one tile; pictures are made to cover it. */
 function copyBackdrop(el: Element): Node {

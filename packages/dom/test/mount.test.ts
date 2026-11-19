@@ -238,4 +238,16 @@ describe("mountTileLayout", () => {
     handle!.update({ safeArea: "visible" });
     expect(tiles()[2]!.querySelector<HTMLElement>("[data-safe-area]")!.style.getPropertyValue("width")).toBe("50%");
   });
+
+  it("keeps each item's focal point in view", () => {
+    // Tall 50 x 200 tiles, wide photos.
+    const tall = { region: { x: 0, y: 0, width: 100, height: 200 }, tiling: grid({ width: 50, height: 200 }) };
+    mount({ options: tall, items: items(2), aspects: [2, 2], focalPoints: [{ x: 0.3, y: 0.5 }, undefined] });
+    const t = tiles();
+    expect(t[0]!.style.getPropertyValue("--andamento-object-position")).toBe("27.143% 50%");
+    expect(t[1]!.style.getPropertyValue("--andamento-object-position")).toBe("");
+    // Without the photo's shape, the focus as it is.
+    handle!.update({ aspects: undefined });
+    expect(tiles()[0]!.style.getPropertyValue("--andamento-object-position")).toBe("30% 50%");
+  });
 });

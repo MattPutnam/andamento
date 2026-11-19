@@ -5,9 +5,10 @@ export type { SvgTileLayoutProps, SvgCellImageProps, SvgCellRenderContext } from
 export { useFitCount, useTileLayout } from "./useTileLayout";
 export { useImageFill } from "./useImageFill";
 export { useImageAspects } from "./useImageAspects";
+export { useImageFocus } from "./useImageFocus";
 export { cellFromPointer } from "@andamento/dom";
 export type { PerCell, PointerLike } from "@andamento/dom";
 export type { FitProp } from "./useTileLayout";
-export type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions, MatchOptions, SafeAreaOptions, HitOptions } from "@andamento/core";
+export type { Cell, ContentCells, ContentPlacement, Focus, Layout, LayoutOptions, MatchOptions, SafeAreaOptions, HitOptions } from "@andamento/core";
 export { defaultPalette, neutralPalette } from "@andamento/svg";
 export type { FillSource, ReliefOptions } from "@andamento/svg";

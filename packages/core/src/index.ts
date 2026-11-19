@@ -37,3 +37,5 @@ export { gradientFill, imageFill, loadImagePixels, paletteFill, protoTileFill, r
 export type { CellFill, GradientOptions, ImageFillOptions, Pixels } from "./fills";
 export { fitCount } from "./fit";
 export type { FitOptions, FitResult } from "./fit";
+export { coverRect, estimateFocus, objectPosition } from "./focus";
+export type { CoverOptions, Focus } from "./focus";

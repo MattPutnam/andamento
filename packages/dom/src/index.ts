@@ -7,6 +7,7 @@ export {
   backgroundStyle,
   containerStyle,
   coverStyle,
+  focusStyle,
   frameBuilder,
   keyAction,
   layoutResolver,

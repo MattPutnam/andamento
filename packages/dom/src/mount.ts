@@ -1,4 +1,4 @@
-import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
+import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Focus, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
 import {
   backdropStyle,
@@ -51,6 +51,12 @@ export interface TileLayoutConfig {
   aspects?: readonly number[];
   /** With `aspects`: "shape" also picks which tiles hold items by their shape. */
   choose?: "placement" | "shape";
+  /**
+   * Focal point of each item (fractions of its width and height; see `estimateFocus`): what
+   * a photo keeps in view as its tile crops it. Each tile sets `--andamento-object-position`,
+   * which `coverStyle` uses; exact when the photo's shape is known (`aspects`, or the focus's `aspect`).
+   */
+  focalPoints?: readonly (Focus | undefined)[];
   /**
    * Put each tile's content in the tile's safe area, not its bounding box (see `safeArea`).
    * For tiles an `edges: "window"` layout cuts, `true` or "tile" fits the whole tile and
@@ -312,7 +318,14 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
       attr(el, "data-boundary", !!cell.boundary);
       for (const [k, v] of Object.entries(resolvePerCell(c.cellAttributes, cell, state) ?? {})) attr(el, k, v);
       applyStyle(el, {
-        ...tileStyle(frame, cell, { empty, safeArea: c.safeArea, backdrop: c.backdrop != null, clickable: !!c.onCellActivate && !empty }),
+        ...tileStyle(frame, cell, {
+          empty,
+          safeArea: c.safeArea,
+          backdrop: c.backdrop != null,
+          clickable: !!c.onCellActivate && !empty,
+          focus: slot >= 0 ? c.focalPoints?.[slot] : undefined,
+          aspect: slot >= 0 ? c.aspects?.[slot] : undefined,
+        }),
         ...resolvePerCell(c.cellStyle, cell, state),
       });
 

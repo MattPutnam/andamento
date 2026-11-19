@@ -1,5 +1,5 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
-import { cellShape, safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
+import { cellShape, coverRect, safeArea, type Cell, type Focus, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import { cellA11y, cellPath, defaultBevel, regionPath, viewPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
@@ -41,6 +41,12 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
    * the whole tile ("tile", the default) or in the part that shows ("visible").
    */
   containWithin?: "tile" | "visible";
+  /**
+   * Focal point of each image (by position; fractions of its width and height, see
+   * `estimateFocus`), kept in view when "cover" crops it (see `coverRect`). Needs each image's
+   * shape, from `imageAspects` or the focus's `aspect`.
+   */
+  imageFocus?: readonly (Focus | undefined)[];
   /**
    * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
    * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
@@ -87,6 +93,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     choose,
     imageFit,
     containWithin,
+    imageFocus,
     fit,
     fill,
     stroke,
@@ -191,6 +198,11 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
                     ? safeArea(cell, layout, { aspect: imageAspects && style.slot >= 0 ? imageAspects[style.slot] : undefined, within: containWithin })
                     : undefined
                 }
+                cover={(() => {
+                  const focus = imageFit !== "contain" && style.image && style.slot >= 0 ? (Array.isArray(images) ? imageFocus?.[style.slot % images.length] : undefined) : undefined;
+                  const aspect = focus ? (imageAspects?.[style.slot % imageAspects.length] ?? focus.aspect) : undefined;
+                  return focus && aspect ? coverRect(cell, layout, { aspect, focus }) : undefined;
+                })()}
               />}
             {bevels?.[i]!.map((p, k) => <path key={k} className="andamento-bevel" d={p.d} fill={p.fill} fillOpacity={p.opacity} />)}
             {stroke && <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} />}
@@ -202,11 +214,11 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
   );
 }
 
-function DefaultCell({ cell, ctx, noFill, box }: { cell: Cell; ctx: SvgCellRenderContext; noFill: boolean; box?: Rect }) {
+function DefaultCell({ cell, ctx, noFill, box, cover }: { cell: Cell; ctx: SvgCellRenderContext; noFill: boolean; box?: Rect; cover?: Rect }) {
   return (
     <>
       {!noFill && <path d={ctx.path} fill={ctx.fill} fillRule="evenodd" />}
-      {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} box={box} />}
+      {ctx.image && <SvgCellImage cell={cell} href={ctx.image} clipPath={ctx.clipPath} box={box} cover={cover} />}
     </>
   );
 }
@@ -221,14 +233,16 @@ export interface SvgCellImageProps extends Omit<SVGProps<SVGImageElement>, "href
    * covering the cell.
    */
   box?: Rect;
+  /** Cover this rectangle instead of the cell's box (e.g. `coverRect(cell, layout, { aspect, focus })`). */
+  cover?: Rect;
 }
 
 /**
  * An SVG <image> that covers the cell (like CSS `object-fit: cover`), clipped to its shape;
  * or, with `box`, shown whole inside the box (like `object-fit: contain`).
  */
-export function SvgCellImage({ cell, href, clipPath, box, ...rest }: SvgCellImageProps) {
-  const b = box ?? cellShape(cell).bbox;
+export function SvgCellImage({ cell, href, clipPath, box, cover, ...rest }: SvgCellImageProps) {
+  const b = box ?? cover ?? cellShape(cell).bbox;
   return (
     <image
       href={href}

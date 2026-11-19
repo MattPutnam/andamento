@@ -108,6 +108,38 @@ any shape, convex or not, and is cached per cell; without `aspect` it finds the
 largest-area rectangle of any shape. With `edges: "window"`, tiles cut by the region fit the
 whole tile unless you ask for `"visible"` (see [Window edges](#window-edges)).
 
+#### Focal points
+
+A photo covering its tile is cropped round its middle, which can lose the subject in a
+triangle, a tall thin tile or a tile cut by the region edge. Give each child a focal point
+(fractions of the photo's width and height) and its tile moves the photo so that point is
+as near the middle of what shows as covering the tile allows:
+
+```tsx
+const focus = useImageFocus(photos); // or your own: [{ x: 0.3, y: 0.25 }, …]
+<TileLayout options={options} focalPoints={focus}>
+  {photos.map((src) => <img key={src} src={src} alt="" style={coverStyle} />)}
+</TileLayout>
+```
+
+- Each tile sets `--andamento-object-position`, which `coverStyle` uses as `object-position`
+  (use `var(--andamento-object-position)` with your own styles).
+- The placement is exact when the photo's shape is known: from `aspects`, or a focal point's
+  own `aspect` (`{ x, y, aspect }`; `useImageFocus` includes it). Without it, the focus is used
+  as the `object-position` percentage as it is.
+- The target is the middle of the tile's safe area, so in a window layout it's the part
+  that shows (see [Window edges](#window-edges)).
+- `estimateFocus(pixels)` (core) guesses the focal point: the spot whose colour and
+  brightness stand out most from their surroundings, leaning a little to the middle. It suits
+  a subject against a plainer background; for busy pictures, give the focus yourself.
+  `useImageFocus(srcs)` (React) loads each image and runs it.
+- Vue takes `focalPoints` too; `<andamento-layout>` reads `data-focus="0.3 0.25"` on children
+  (or a `focalPoints` property); `mountTileLayout` takes `focalPoints`.
+- SVG and canvas: `imageFocus` (by position in `images`) with `imageAspects`, or focal
+  points with an `aspect`; the canvas renderers measure the images themselves. In core,
+  `coverRect(cell, layout, { aspect, focus })` gives where to draw an image and
+  `objectPosition(…)` the CSS for it.
+
 #### Grout and relief
 
 ```tsx

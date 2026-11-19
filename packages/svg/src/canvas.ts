@@ -1,4 +1,4 @@
-import { cellShape, roundCorners, safeArea, type Cell, type Layout, type Polygon, type Rect } from "@andamento/core";
+import { cellShape, coverRect, roundCorners, safeArea, type Cell, type Layout, type Polygon, type Rect } from "@andamento/core";
 import { resolveCellStyles, type RenderOptions } from "./index";
 import { defaultBevel, reliefLayers, shadowOffset, type ReliefOptions } from "./relief";
 
@@ -38,7 +38,7 @@ export type CanvasImage = { width: number; height: number };
 export interface CanvasRenderOptions
   extends Pick<
     RenderOptions,
-    "images" | "repeatImages" | "contentCells" | "placement" | "imageAspects" | "choose" | "imageFit" | "containWithin" | "fill" | "stroke" | "strokeWidth" | "background"
+    "images" | "repeatImages" | "contentCells" | "placement" | "imageAspects" | "choose" | "imageFit" | "containWithin" | "imageFocus" | "fill" | "stroke" | "strokeWidth" | "background"
   > {
   /** Raised tiles, as for SVG. */
   relief?: boolean | ReliefOptions;
@@ -143,7 +143,13 @@ export function drawLayout(
       if (options.imageFit === "contain") {
         const aspect = options.imageAspects && style.slot >= 0 ? options.imageAspects[style.slot % options.imageAspects.length] : undefined;
         drawContain(ctx, img, safeArea(cell, layout, { aspect, within: options.containWithin }));
-      } else drawCover(ctx, img, cellShape(cell).bbox);
+      } else {
+        const focus = style.slot >= 0 ? (Array.isArray(options.images) ? options.imageFocus?.[style.slot % options.images.length] : undefined) : undefined;
+        if (focus && img.width && img.height) {
+          const r = coverRect(cell, layout, { aspect: img.width / img.height, focus });
+          ctx.drawImage(img as never, 0, 0, img.width, img.height, r.x, r.y, r.width, r.height);
+        } else drawCover(ctx, img, cellShape(cell).bbox);
+      }
       ctx.restore();
     }
     if (relief && bevel > 0) {

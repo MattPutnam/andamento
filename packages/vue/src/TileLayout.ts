@@ -15,7 +15,7 @@ import {
   type VNode,
   type VNodeChild,
 } from "vue";
-import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
+import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Focus, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import {
   backdropStyle,
   backgroundStyle,
@@ -83,6 +83,12 @@ export const TileLayout = defineComponent({
     placement: String as PropType<ContentPlacement>,
     /** Width / height of each item, to put items in tiles of similar shape. */
     aspects: Array as PropType<readonly number[]>,
+    /**
+     * Focal point of each child (fractions of its width and height; see `estimateFocus`): what
+     * a photo keeps in view as its tile crops it. Each tile sets `--andamento-object-position`,
+     * which `coverStyle` uses as `object-position`; exact when the photo's shape is known (`aspects`, or the focus's `aspect`).
+     */
+    focalPoints: Array as PropType<readonly (Focus | undefined)[]>,
     /** With `aspects`: "shape" also picks which tiles hold items by their shape. */
     choose: String as PropType<"placement" | "shape">,
     /**
@@ -260,7 +266,14 @@ export const TileLayout = defineComponent({
         const silent = empty && isEmpty(content);
         const canFocus = focusable.has(cell.id);
         const key = keyOf(i);
-        const style = tileStyle(frame, cell, { empty, safeArea: props.safeArea, backdrop: hasBackdrop, clickable: !!props.onCellActivate && !empty });
+        const style = tileStyle(frame, cell, {
+          empty,
+          safeArea: props.safeArea,
+          backdrop: hasBackdrop,
+          clickable: !!props.onCellActivate && !empty,
+          focus: !slots.cell && slot >= 0 ? props.focalPoints?.[slot] : undefined,
+          aspect: !slots.cell && slot >= 0 ? props.aspects?.[slot] : undefined,
+        });
         const bevel = frame.bevel(i);
         const viewBox = tileViewBox(cell);
         const children: VNodeChild[] = [];

@@ -116,4 +116,13 @@ describe("<andamento-layout>", () => {
     await tick();
     expect(tiles()).toHaveLength(6);
   });
+
+  it("reads children's data-focus", async () => {
+    const tall = { region: { x: 0, y: 0, width: 100, height: 200 }, tiling: grid({ width: 50, height: 200 }) };
+    await make(`<andamento-layout options='${JSON.stringify(tall)}'><img data-aspect="2" data-focus="0.3 0.5"><img></andamento-layout>`);
+    // Matching by shape decides which tile each child goes in.
+    const tileOf = (child: Element) => tiles().find((t) => shownIn(t) === child)!;
+    expect(tileOf(el.children[0]!).style.getPropertyValue("--andamento-object-position")).toBe("27.143% 50%");
+    expect(tileOf(el.children[1]!).style.getPropertyValue("--andamento-object-position")).toBe("");
+  });
 });

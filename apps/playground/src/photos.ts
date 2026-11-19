@@ -24,3 +24,8 @@ export function placeholderPhotos(count: number): string[] {
   }
   return out;
 }
+
+/** Where each placeholder photo's sun is, and the photo's shape: its focal point. */
+export function placeholderFocus(count: number): { x: number; y: number; aspect: number }[] {
+  return Array.from({ length: count }, (_, i) => ({ x: 0.25 + ((i * 13) % 50) / 100, y: 0.32, aspect: i % 3 === 1 ? 3 / 4 : 4 / 3 }));
+}

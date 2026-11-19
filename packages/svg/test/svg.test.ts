@@ -123,4 +123,12 @@ describe("svg image alternatives", () => {
     expect(cut).toContain("300");
     expect(renderToString(createLayout({ region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }) }))).not.toContain("andamento-view");
   });
+
+  it("draws a covering image around its focal point", () => {
+    const tall = createLayout({ region: { x: 0, y: 0, width: 100, height: 200 }, tiling: grid({ width: 50, height: 200 }) });
+    const svg = renderToString(tall, { images: ["a.jpg", "b.jpg"], imageAspects: [2, 2], imageFocus: [{ x: 0.3, y: 0.5 }] });
+    // a.jpg: 400 wide, 30% across at the tile's middle (x = 25); b.jpg covers its tile, centred by preserveAspectRatio.
+    expect(svg).toMatch(/<image href="a\.jpg" x="-95" y="0" width="400" height="200"/);
+    expect(svg).toMatch(/<image href="b\.jpg" x="50" y="0" width="50" height="200"/);
+  });
 });

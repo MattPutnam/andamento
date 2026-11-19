@@ -1,4 +1,4 @@
-import { cellShape, contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
+import { cellShape, contentSlots, coverRect, type Focus, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 import { defaultBevel, reliefPaths, shadowOffset, type ReliefOptions } from "./relief";
 export { defaultBevel, reliefLayers, reliefPaths, shadowOffset } from "./relief";
@@ -39,6 +39,14 @@ export interface RenderOptions {
    * shows ("visible"). See `SafeAreaOptions.within`.
    */
   containWithin?: "tile" | "visible";
+  /**
+   * Focal point of each image in `images` (by position; fractions of its width and height,
+   * see `estimateFocus`): what to keep in view when "cover" crops it. It goes as near the
+   * middle of what shows of its cell as covering the cell allows (see `coverRect`). Needs
+   * each image's shape, from `imageAspects` or the focus's `aspect` (the canvas renderers
+   * measure the images themselves).
+   */
+  imageFocus?: readonly (Focus | undefined)[];
   /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
   choose?: "placement" | "shape";
   /**
@@ -246,7 +254,13 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
       parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));
       const contain = opts.imageFit === "contain";
       const aspect = contain && opts.imageAspects && style.slot >= 0 ? opts.imageAspects[style.slot % opts.imageAspects.length] : undefined;
-      const box = contain ? safeArea(cell, layout, { aspect, within: opts.containWithin }) : cellShape(cell).bbox;
+      const focus = !contain && style.slot >= 0 ? (Array.isArray(opts.images) ? opts.imageFocus?.[style.slot % opts.images.length] : undefined) : undefined;
+      const shape = focus ? (opts.imageAspects?.[style.slot % opts.imageAspects.length] ?? focus.aspect) : undefined;
+      const box = contain
+        ? safeArea(cell, layout, { aspect, within: opts.containWithin })
+        : focus && shape
+          ? coverRect(cell, layout, { aspect: shape, focus })
+          : cellShape(cell).bbox;
       parts.push(
         el("image", {
           href: style.image,

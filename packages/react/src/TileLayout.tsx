@@ -14,7 +14,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
+import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Focus, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import {
   backdropStyle,
   backgroundStyle,
@@ -91,6 +91,12 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
   safeArea?: SafeAreaProp;
   /** With `aspects`: "shape" also picks which tiles hold children by their shape, ignoring `placement`. */
   choose?: "placement" | "shape";
+  /**
+   * Focal point of each child (fractions of its width and height; see `estimateFocus`): what
+   * a photo keeps in view as its tile crops it. Each tile sets `--andamento-object-position`,
+   * which `coverStyle` uses as `object-position`; exact when the photo's shape is known (`aspects`, or the focus's `aspect`).
+   */
+  focalPoints?: readonly (Focus | undefined)[];
   /**
    * Color of empty tiles: a color, a palette (neighbouring tiles get different entries),
    * or a function per cell. Defaults to `neutralPalette`; use "transparent" for none.
@@ -183,6 +189,7 @@ export function TileLayout(props: TileLayoutProps) {
     placement,
     aspects,
     choose,
+    focalPoints,
     safeArea,
     fill,
     fit,
@@ -319,7 +326,14 @@ export function TileLayout(props: TileLayoutProps) {
   const rendered = entries.map(({ i, cell, content, key, empty, state }) => {
     const slot = slots[i]!;
     const bevel = frame.bevel(i);
-    const tile = tileStyle(frame, cell, { empty, safeArea, backdrop: backdrop != null, clickable: !!onCellActivate && !empty });
+    const tile = tileStyle(frame, cell, {
+      empty,
+      safeArea,
+      backdrop: backdrop != null,
+      clickable: !!onCellActivate && !empty,
+      focus: !renderCell && slot >= 0 ? focalPoints?.[slot] : undefined,
+      aspect: !renderCell && slot >= 0 ? aspects?.[slot] : undefined,
+    });
     // Tiles with nothing in them are decoration: hidden from assistive technology.
     const silent = empty && isEmpty(content);
     const canFocus = focusable.has(cell.id);
