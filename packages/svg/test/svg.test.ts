@@ -112,4 +112,15 @@ describe("svg image alternatives", () => {
     // Without alternatives, nothing changes: one image with a title.
     expect(renderToString(layout, { images: ["a.jpg"], title: "x" })).toMatch(/<svg [^>]*role="img"/);
   });
+
+  it("draws window cells whole, clipped to the view", () => {
+    const l = createLayout({ region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }), edges: "window" });
+    const svg = renderToString(l, { idPrefix: "w", relief: { shadow: 3 } });
+    expect(svg).toContain('<clipPath id="w-view">');
+    expect(svg).toMatch(/<g class="andamento-view" clip-path="url\(#w-view\)">.*class="andamento-shadow"/);
+    // The cut tile's path runs to x = 300, past the region.
+    const cut = svg.match(/data-cell-id="[^"]*" data-index="2"[^>]*><path d="([^"]*)"/)![1]!;
+    expect(cut).toContain("300");
+    expect(renderToString(createLayout({ region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }) }))).not.toContain("andamento-view");
+  });
 });

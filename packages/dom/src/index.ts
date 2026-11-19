@@ -24,7 +24,7 @@ export {
   viewRect,
   watchView,
 } from "./model";
-export type { CellState, FitProp, Frame, FrameOptions, PerCell, StyleMap } from "./model";
+export type { CellState, FitProp, Frame, FrameOptions, PerCell, SafeAreaProp, StyleMap } from "./model";
 export { cellFromPointer } from "./pointer";
 export type { PointerLike } from "./pointer";
 export { defaultPalette, neutralPalette } from "@andamento/svg";

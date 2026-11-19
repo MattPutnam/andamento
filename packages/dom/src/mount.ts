@@ -21,6 +21,7 @@ import {
   type CellState,
   type FitProp,
   type PerCell,
+  type SafeAreaProp,
   type StyleMap,
 } from "./model";
 
@@ -50,8 +51,12 @@ export interface TileLayoutConfig {
   aspects?: readonly number[];
   /** With `aspects`: "shape" also picks which tiles hold items by their shape. */
   choose?: "placement" | "shape";
-  /** Put each tile's content in the tile's safe area, not its bounding box (see `safeArea`). */
-  safeArea?: boolean;
+  /**
+   * Put each tile's content in the tile's safe area, not its bounding box (see `safeArea`).
+   * For tiles an `edges: "window"` layout cuts, `true` or "tile" fits the whole tile and
+   * "visible" the part that shows.
+   */
+  safeArea?: SafeAreaProp;
   /** Color of empty tiles: a color, a palette or a function per cell. Defaults to `neutralPalette`. */
   fill?: FillSource;
   /** Size the tiles to the items: `true`/"atLeast" or "nearest". Ignored with `layout` or `renderCell`. */
@@ -336,7 +341,7 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
           tile.safe.setAttribute("data-safe-area", "");
         }
         const aspect = !c.renderCell && !empty && c.aspects ? (c.aspects[slot] ?? 1) : undefined;
-        applyStyle(tile.safe, safeBoxStyle(frame, cell, aspect));
+        applyStyle(tile.safe, safeBoxStyle(frame, cell, aspect, c.safeArea));
         setChildren(tile.safe, [node]);
         kids.push(tile.safe);
       } else if (node) kids.push(node);

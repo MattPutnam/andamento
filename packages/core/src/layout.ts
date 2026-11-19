@@ -25,8 +25,12 @@ import { fieldRange, refineTiles } from "./density";
  * - "clip":     cut tiles to the region outline (a full-bleed look).
  * - "inside":   keep only tiles that fit entirely inside the region.
  * - "overflow": keep every tile that touches the region, uncut.
+ * - "window":   tiles stay whole and the region is a window onto them: renderers shape,
+ *               round, bevel and fill each tile as the whole tile (`Cell.tile`) and hide
+ *               what falls outside the region (`Layout.view`). A cut edge is a straight
+ *               line through the tile, not a new corner.
  */
-export type EdgeMode = "clip" | "inside" | "overflow";
+export type EdgeMode = "clip" | "inside" | "overflow" | "window";
 
 export interface LayoutOptions {
   /**
@@ -56,7 +60,7 @@ export interface LayoutOptions {
   edges?: EdgeMode;
   /**
    * Drop edge tiles that end up smaller than this fraction (0–1) of a full tile,
-   * so you don't get slivers. Applies to "clip" and "overflow". Defaults to 0.
+   * so you don't get slivers. Applies to "clip", "overflow" and "window". Defaults to 0.
    */
   minFill?: number;
   /**
@@ -123,6 +127,13 @@ export interface Cell {
   holes?: Polygon[];
   /** The full pattern tile before gap and edge handling. */
   original: Polygon;
+  /**
+   * With `edges: "window"`, for a cell the region outline cuts: the whole tile (after the
+   * gap), which renderers shape, round and fill, letting the region hide the rest. `polygon`
+   * is still the visible part (its largest piece, when the outline cuts the tile in two).
+   * See `cellShape` and `visibleShapes`.
+   */
+  tile?: Polygon;
   bbox: Rect;
   centroid: Vec;
   area: number;
@@ -147,6 +158,11 @@ export interface Layout {
   bounds: Rect;
   /** Corner radius renderers apply to every cell (0 for sharp corners). */
   cornerRadius: number;
+  /**
+   * With `edges: "window"`: the area tiles show in (the region less its margin and holes).
+   * Renderers hide whatever part of a tile lies outside it.
+   */
+  view?: Shape[];
   cells: Cell[];
 }
 
@@ -298,6 +314,24 @@ export function createLayout(options: LayoutOptions): Layout {
       pieces = (edges === "overflow" ? [tile] : cut).map((outer) => ({ outer, holes: [] }));
     }
 
+    if (edges === "window" && boundary) {
+      // One cell for the whole tile: its largest visible piece, with the tile to draw.
+      const shape = pieces[0]!;
+      const withHoles = shape.holes.length > 0;
+      return [{
+        id,
+        polygon: shape.outer,
+        ...(withHoles ? { holes: shape.holes.map((h) => ensurePositive(h)) } : {}),
+        original,
+        tile,
+        bbox: bbox(shape.outer),
+        centroid: withHoles ? shapeCentroid(shape) : centroid(shape.outer),
+        area: withHoles ? shapeArea(shape) : area(shape.outer),
+        boundary,
+        protoTile,
+      }];
+    }
+
     return pieces.map((shape, k) => {
       const withHoles = shape.holes.length > 0;
       return {
@@ -350,7 +384,8 @@ export function createLayout(options: LayoutOptions): Layout {
     index,
     neighbors: neighbors[index]!.map((k) => drafts[k]!.id),
   }));
-  return { region, holes, bounds, cornerRadius, cells };
+  const view = edges === "window" ? (simple ? [{ outer: inner, holes: [] }] : usable) : undefined;
+  return { region, holes, bounds, cornerRadius, ...(view ? { view } : {}), cells };
 }
 
 type FeatureDraft = { id: string; original: Polygon; boundary: boolean; protoTile: number };

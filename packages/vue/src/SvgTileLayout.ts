@@ -25,6 +25,7 @@ export const SvgTileLayout = defineComponent({
     imageAspects: Array as PropType<readonly number[]>,
     choose: String as PropType<"placement" | "shape">,
     imageFit: String as PropType<"cover" | "contain">,
+    containWithin: String as PropType<"tile" | "visible">,
     /** Size the tiles to the `images` array: `true`/"atLeast" or "nearest". */
     fit: { type: [Boolean, String] as PropType<FitProp>, default: false },
     fill: [String, Array, Function] as PropType<FillSource>,

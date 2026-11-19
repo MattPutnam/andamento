@@ -1,7 +1,11 @@
 import { signedArea, type Polygon, type Rect, type Vec } from "./geometry";
-import { roundedPolygon } from "./rounding";
 import type { Cell, Layout } from "./layout";
+import type { Shape } from "./overlay";
 import { safeArea, type SafeAreaOptions } from "./safe";
+import { roundCorners } from "./rounding";
+import { ensurePositive } from "./geometry";
+import { inShapes } from "./overlay";
+import { cellShape, visibleShapes } from "./shape";
 
 /**
  * CSS placement for one cell, as percentages of the layout bounds, so the result
@@ -81,32 +85,230 @@ export function resamplePolygon(poly: Polygon, n: number, box: Rect): Polygon {
   return out;
 }
 
+/**
+ * `poly` with its corners rounded (by `radius`, or a radius per corner) as exactly `n`
+ * points, laid out the same way whatever the radius: every corner gets the same number of
+ * points (all on the vertex when it's sharp, spread along the arc when it's rounded), and
+ * the rest go along the edges by the sharp outline's edge lengths. So a tile morphs
+ * smoothly as its corner radius changes, as well as into other shapes (see
+ * `resamplePolygon` for the start point and direction). Gives the plain rounded polygon
+ * when `n` is too few for the corners.
+ */
+export function morphPolygon(poly: Polygon, radius: number | readonly number[], n: number, box: Rect): Polygon {
+  const m = poly.length;
+  if (m < 3) return poly;
+  let pts = poly.map((p, i) => ({ p, r: typeof radius === "number" ? radius : (radius[i] ?? 0) }));
+  if (signedArea(poly) < 0) pts = pts.reverse();
+  const w = box.width || 1, h = box.height || 1;
+  const key = (p: Vec) => (p.x - box.x) / w + (p.y - box.y) / h;
+  let start = 0;
+  for (let i = 1; i < m; i++) if (key(pts[i]!.p) < key(pts[start]!.p) - 1e-9) start = i;
+  pts = [...pts.slice(start), ...pts.slice(0, start)];
+  const sharp = pts.map((q) => q.p);
+  const corners = roundCorners(sharp, pts.map((q) => q.r));
+  // Points per corner: up to 9 (10° steps round a right angle), leaving about half for the edges.
+  const per = Math.min(9, Math.floor(n / (2 * m)));
+  if (per < 1) {
+    const out: Vec[] = [];
+    for (const c of corners) out.push(...arcPoints(c, Math.max(1, Math.ceil(Math.abs(c.sweep) / (Math.PI / 18)) + 1)));
+    return out;
+  }
+  const lens = sharp.map((a, i) => Math.hypot(sharp[(i + 1) % m]!.x - a.x, sharp[(i + 1) % m]!.y - a.y));
+  const total = lens.reduce((s, l) => s + l, 0) || 1;
+  const extra = n - per * m;
+  const share = lens.map((l) => (l / total) * extra);
+  const count = share.map(Math.floor);
+  let left = extra - count.reduce((s, c) => s + c, 0);
+  const order = share.map((s, i) => [s - Math.floor(s), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; left > 0; k++, left--) count[order[k % m]![1]]! += 1;
+  const out: Vec[] = [];
+  for (let i = 0; i < m; i++) {
+    const c = corners[i]!;
+    out.push(...arcPoints(c, per));
+    // Along the straight part of the edge, from this corner's arc to the next one's.
+    const a = c.end, b = corners[(i + 1) % m]!.start;
+    for (let k = 1; k <= count[i]!; k++) {
+      const t = k / (count[i]! + 1);
+      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  return out;
+}
+
+/**
+ * `pts` (a closed outline, positively oriented, as from `morphPolygon`) cut to `view`
+ * without changing its point count: each run of points outside the view is laid along the
+ * view's edge from where the outline leaves it to where it comes back, through the view's
+ * corners on the way. Points inside stay put, so the result morphs as smoothly as `pts`.
+ * Undefined when that can't describe the cut (nothing inside, or the outline leaving by one
+ * loop of the view and coming back by another); draw the exact shape then.
+ */
+function cutToView(pts: Vec[], view: readonly Shape[]): Vec[] | undefined {
+  // Outlines with the view on their left, as the tile's: outers positive, holes negative.
+  const loops = view.flatMap((v) => [ensurePositive(v.outer), ...v.holes.map((h) => ensurePositive(h).slice().reverse())]);
+  const n = pts.length;
+  // Points on the view's edge count as inside: they're on the cut shape's outline either way.
+  let lo = Infinity, hi = -Infinity;
+  for (const p of pts) { lo = Math.min(lo, p.x, p.y); hi = Math.max(hi, p.x, p.y); }
+  const eps = 1e-7 * (hi - lo || 1);
+  const inside = pts.map((p) => inShapes(p, loops) || nearEdge(p, loops, eps));
+  const first = inside.indexOf(true);
+  if (first < 0) return undefined;
+  if (inside.every(Boolean)) return pts;
+  const out = pts.slice();
+  // Walk the runs of outside points, starting just after an inside one.
+  for (let k = 1; k <= n; ) {
+    const i = (first + k) % n;
+    if (inside[i]) { k++; continue; }
+    let len = 0;
+    while (!inside[(i + len) % n]) len++;
+    const before = pts[(i - 1 + n) % n]!, after = pts[(i + len) % n]!;
+    const exit = crossing(before, pts[i]!, loops), entry = crossing(after, pts[(i + len - 1) % n]!, loops);
+    if (!exit || !entry || exit.loop !== entry.loop) return undefined;
+    const path = viewPath(loops[exit.loop]!, exit, entry);
+    placeAlong(path, len).forEach((p, j) => (out[(i + j) % n] = p));
+    k += len;
+  }
+  return out;
+}
+
+function nearEdge(p: Vec, loops: Polygon[], eps: number): boolean {
+  for (const loop of loops) {
+    for (let e = 0, m = loop.length; e < m; e++) {
+      const a = loop[e]!, b = loop[(e + 1) % m]!;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      if (Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy) <= eps) return true;
+    }
+  }
+  return false;
+}
+
+interface Crossing { loop: number; edge: number; t: number; point: Vec }
+
+/** Where the segment from `from` (inside the view) towards `to` first meets the view's edge. */
+function crossing(from: Vec, to: Vec, loops: Polygon[]): Crossing | undefined {
+  let best: Crossing | undefined, bestU = Infinity;
+  const dx = to.x - from.x, dy = to.y - from.y;
+  loops.forEach((loop, l) => {
+    for (let e = 0, m = loop.length; e < m; e++) {
+      const a = loop[e]!, b = loop[(e + 1) % m]!;
+      const ex = b.x - a.x, ey = b.y - a.y;
+      const den = dx * ey - dy * ex;
+      if (den === 0) continue;
+      const u = ((a.x - from.x) * ey - (a.y - from.y) * ex) / den;
+      const t = ((a.x - from.x) * dy - (a.y - from.y) * dx) / den;
+      if (u >= -1e-9 && u <= 1 + 1e-9 && t >= -1e-9 && t <= 1 + 1e-9 && u < bestU) {
+        bestU = u;
+        best = { loop: l, edge: e, t, point: { x: from.x + dx * u, y: from.y + dy * u } };
+      }
+    }
+  });
+  return best;
+}
+
+/** The view's edge from `exit` forwards to `entry`, through the corners between. */
+function viewPath(loop: Polygon, exit: Crossing, entry: Crossing): Vec[] {
+  const path = [exit.point];
+  if (exit.edge === entry.edge && entry.t >= exit.t) return [...path, entry.point];
+  const m = loop.length;
+  for (let e = exit.edge; ; e = (e + 1) % m) {
+    path.push(loop[(e + 1) % m]!);
+    if ((e + 1) % m === entry.edge) break;
+  }
+  return [...path, entry.point];
+}
+
+/**
+ * `k` points along `path`: its ends and corners first (as many as fit), the rest spread
+ * along its segments by length, so the cut keeps its sharp corners.
+ */
+function placeAlong(path: Vec[], k: number): Vec[] {
+  if (k === 1) return [path[0]!];
+  let keep = path;
+  if (keep.length > k) {
+    // Not enough points for every corner: keep the ends and as many corners as fit, evenly.
+    keep = Array.from({ length: k }, (_, j) => path[Math.round((j * (path.length - 1)) / (k - 1))]!);
+  }
+  const segs = keep.length - 1;
+  const lens = keep.slice(1).map((p, j) => Math.hypot(p.x - keep[j]!.x, p.y - keep[j]!.y));
+  const total = lens.reduce((s, l) => s + l, 0) || 1;
+  const extra = k - keep.length;
+  const share = lens.map((l) => (l / total) * extra);
+  const count = share.map(Math.floor);
+  let left = extra - count.reduce((s, c) => s + c, 0);
+  const order = share.map((s, j) => [s - Math.floor(s), j] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let q = 0; left > 0; q++, left--) count[order[q % segs]![1]]! += 1;
+  const out: Vec[] = [];
+  for (let j = 0; j < segs; j++) {
+    const a = keep[j]!, b = keep[j + 1]!;
+    out.push(a);
+    for (let q = 1; q <= count[j]!; q++) {
+      const t = q / (count[j]! + 1);
+      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  out.push(keep[keep.length - 1]!);
+  return out;
+}
+
+/** `k` points along a rounded corner's arc, start to end (all on the vertex when it's sharp). */
+function arcPoints(c: ReturnType<typeof roundCorners>[number], k: number): Vec[] {
+  if (c.radius === 0) return Array.from({ length: k }, () => c.vertex);
+  if (k === 1) {
+    const a = Math.atan2(c.start.y - c.center.y, c.start.x - c.center.x) + c.sweep / 2;
+    return [{ x: c.center.x + c.radius * Math.cos(a), y: c.center.y + c.radius * Math.sin(a) }];
+  }
+  const a0 = Math.atan2(c.start.y - c.center.y, c.start.x - c.center.x);
+  return Array.from({ length: k }, (_, s) => {
+    const a = a0 + (c.sweep * s) / (k - 1);
+    return { x: c.center.x + c.radius * Math.cos(a), y: c.center.y + c.radius * Math.sin(a) };
+  });
+}
+
 /** Options for `cellCss`. */
 export interface CellCssOptions {
   /**
-   * Give every clip path exactly this many points (see `resamplePolygon`), so CSS can
+   * Give every clip path exactly this many points (see `morphPolygon`), so CSS can
    * animate one tile shape into another. Cells with holes keep their own.
    */
   points?: number;
 }
 
-/** CSS placement for `cell` within `layout`, including rounded corners if the layout has them. */
+/**
+ * `polygon(...)` for several shapes (outlines with holes) at once: an even–odd polygon
+ * that visits each extra loop from the first outline's first point and comes back.
+ */
+export function cssShapes(shapes: readonly Shape[], box: Rect, precision = 4): string {
+  if (shapes.length === 0) return "polygon(0 0)";
+  const [first, ...rest] = shapes;
+  return cssPolygon(first!.outer, box, precision, [...first!.holes, ...rest.flatMap((s) => [s.outer, ...s.holes])]);
+}
+
+/**
+ * CSS placement for `cell` within `layout`, including rounded corners if the layout has
+ * them. A window cell (see `cellShape`) is placed over its whole tile and clipped to the
+ * part of it inside `layout.view`.
+ */
 export function cellCss(cell: Cell, layout: Layout, precision = 4, options: CellCssOptions = {}): CellCss {
   const { bounds } = layout;
-  const b = cell.bbox;
+  const b = cellShape(cell).bbox;
+  const shapes = visibleShapes(cell, layout);
+  const single = shapes.length === 1 && shapes[0]!.holes.length === 0;
+  let morph: Polygon | undefined;
+  if (options.points && single) {
+    const s = cellShape(cell);
+    morph = morphPolygon(s.outline, layout.cornerRadius, options.points, b);
+    // A window cell: the whole tile's points, with those outside the view moved onto its edge.
+    if (cell.tile && layout.view) morph = cutToView(morph, layout.view);
+  }
   return {
     left: pct(((b.x - bounds.x) / bounds.width) * 100, precision),
     top: pct(((b.y - bounds.y) / bounds.height) * 100, precision),
     width: pct((b.width / bounds.width) * 100, precision),
     height: pct((b.height / bounds.height) * 100, precision),
-    clipPath: cssPolygon(
-      options.points && !cell.holes?.length
-        ? resamplePolygon(roundedPolygon(cell.polygon, layout.cornerRadius), options.points, b)
-        : roundedPolygon(cell.polygon, layout.cornerRadius),
-      b,
-      precision,
-      (cell.holes ?? []).map((h) => roundedPolygon(h, layout.cornerRadius)),
-    ),
+    clipPath:
+      morph ? cssPolygon(morph, b, precision) : cssShapes(shapes, b, precision),
   };
 }
 
@@ -118,7 +320,7 @@ export function cellCss(cell: Cell, layout: Layout, precision = 4, options: Cell
  */
 export function backdropCss(cell: Cell, layout: Layout, precision = 4): Omit<CellCss, "clipPath"> {
   const { bounds } = layout;
-  const b = cell.bbox;
+  const b = cellShape(cell).bbox;
   const w = b.width || 1;
   const h = b.height || 1;
   return {
@@ -134,7 +336,7 @@ export function backdropCss(cell: Cell, layout: Layout, precision = 4): Omit<Cel
  * (see `safeArea`): the largest rectangle that isn't clipped by the tile's shape.
  */
 export function safeAreaCss(cell: Cell, layout: Layout, options: SafeAreaOptions = {}, precision = 4): Omit<CellCss, "clipPath"> {
-  const b = cell.bbox;
+  const b = cellShape(cell).bbox;
   const s = safeArea(cell, layout, options);
   const w = b.width || 1;
   const h = b.height || 1;
@@ -149,6 +351,14 @@ export function safeAreaCss(cell: Cell, layout: Layout, options: SafeAreaOptions
 /** `polygon(...)` for the layout's region, with its holes, relative to the bounds. */
 export function regionCss(layout: Layout, precision = 4): string {
   return cssPolygon(layout.region, layout.bounds, precision, layout.holes);
+}
+
+/**
+ * `polygon(...)` for the area tiles show in, relative to the bounds: `layout.view` in a
+ * window layout, else the region with its holes.
+ */
+export function viewCss(layout: Layout, precision = 4): string {
+  return layout.view ? cssShapes(layout.view, layout.bounds, precision) : regionCss(layout, precision);
 }
 
 /** Value for the CSS `aspect-ratio` property of a container holding `layout`. */

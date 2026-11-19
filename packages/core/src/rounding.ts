@@ -22,19 +22,21 @@ const unit = (v: Vec): Vec => {
 };
 
 /**
- * Fit a circular arc of `radius` into every corner of `poly`.
+ * Fit a circular arc of `radius` into every corner of `poly`. `radius` may instead give
+ * each corner its own (0 keeps that corner sharp).
  *
  * Each corner's radius is reduced where needed so an arc never uses more than
  * half of either adjacent edge, so short edges and sharp corners stay valid and
  * neighbouring arcs never overlap.
  */
-export function roundCorners(poly: Polygon, radius: number): RoundedCorner[] {
+export function roundCorners(poly: Polygon, radius: number | readonly number[]): RoundedCorner[] {
   const n = poly.length;
   return poly.map((v, i) => {
+    const want = typeof radius === "number" ? radius : (radius[i] ?? 0);
     const prev = poly[(i - 1 + n) % n]!;
     const next = poly[(i + 1) % n]!;
     const flat: RoundedCorner = { vertex: v, start: v, end: v, center: v, radius: 0, sweep: 0 };
-    if (radius <= 0 || n < 3) return flat;
+    if (!(want > 0) || n < 3) return flat;
 
     const toPrev = sub(prev, v);
     const toNext = sub(next, v);
@@ -50,7 +52,7 @@ export function roundCorners(poly: Polygon, radius: number): RoundedCorner[] {
     if (half < 1e-9 || Math.PI - angle < 1e-9) return flat;
 
     // Distance from the vertex to where the arc meets each edge.
-    let r = radius;
+    let r = want;
     let t = r / Math.tan(half);
     const limit = Math.min(lenPrev, lenNext) / 2;
     if (t > limit) {
@@ -76,8 +78,8 @@ export function roundCorners(poly: Polygon, radius: number): RoundedCorner[] {
  * by straight segments of at most `maxStep` radians (default 10°). Useful where
  * curves aren't available, such as CSS `clip-path: polygon()`.
  */
-export function roundedPolygon(poly: Polygon, radius: number, maxStep = Math.PI / 18): Polygon {
-  if (radius <= 0) return poly;
+export function roundedPolygon(poly: Polygon, radius: number | readonly number[], maxStep = Math.PI / 18): Polygon {
+  if (typeof radius === "number" ? radius <= 0 : !radius.some((r) => r > 0)) return poly;
   const out: Polygon = [];
   for (const c of roundCorners(poly, radius)) {
     if (c.radius === 0) {

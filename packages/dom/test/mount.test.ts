@@ -228,4 +228,14 @@ describe("mountTileLayout", () => {
     expect(host.children).toHaveLength(0);
     expect(nodes[0]!.parentNode).toBeNull();
   });
+
+  it("places window tiles whole and fits content to the tile or what shows", () => {
+    const windowed = { region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }), edges: "window" as const };
+    mount({ options: windowed, items: items(3), safeArea: true });
+    const t = tiles()[2]!;
+    expect(t.style.getPropertyValue("width")).toBe("40%");
+    expect(t.querySelector<HTMLElement>("[data-safe-area]")!.style.getPropertyValue("width")).toBe("100%");
+    handle!.update({ safeArea: "visible" });
+    expect(tiles()[2]!.querySelector<HTMLElement>("[data-safe-area]")!.style.getPropertyValue("width")).toBe("50%");
+  });
 });

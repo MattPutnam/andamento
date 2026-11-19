@@ -35,6 +35,7 @@ import {
   viewRect,
   watchView,
   type CellState,
+  type SafeAreaProp,
   type FitProp,
   type PerCell,
   type StyleMap,
@@ -84,8 +85,11 @@ export const TileLayout = defineComponent({
     aspects: Array as PropType<readonly number[]>,
     /** With `aspects`: "shape" also picks which tiles hold items by their shape. */
     choose: String as PropType<"placement" | "shape">,
-    /** Put each tile's content in the tile's safe area (see `safeArea`). */
-    safeArea: Boolean,
+    /**
+     * Put each tile's content in the tile's safe area (see `safeArea`). For tiles an
+     * `edges: "window"` layout cuts, `true` or "tile" fits the whole tile, "visible" the part that shows.
+     */
+    safeArea: { type: [Boolean, String] as PropType<SafeAreaProp>, default: false },
     /** Color of empty tiles: a color, a palette or a function per cell. Defaults to `neutralPalette`. */
     fill: [String, Array, Function] as PropType<FillSource>,
     /** Size the tiles to the items: `true`/"atLeast" or "nearest". */
@@ -263,7 +267,7 @@ export const TileLayout = defineComponent({
         if (hasBackdrop) children.push(h("div", { "aria-hidden": "true", style: backdropStyle(frame, cell) }, slots.backdrop!()));
         if (props.safeArea && !isEmpty(content)) {
           const aspect = !slots.cell && !empty && props.aspects ? (props.aspects[slot] ?? 1) : undefined;
-          children.push(h("div", { "data-safe-area": "", style: safeBoxStyle(frame, cell, aspect) }, content));
+          children.push(h("div", { "data-safe-area": "", style: safeBoxStyle(frame, cell, aspect, props.safeArea) }, content));
         } else if (content) children.push(...content);
         if (bevel?.length)
           children.push(

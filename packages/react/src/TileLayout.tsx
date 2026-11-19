@@ -34,6 +34,7 @@ import {
   viewRect,
   watchView,
   type CellState,
+  type SafeAreaProp,
   type PerCell,
 } from "@andamento/dom";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
@@ -83,9 +84,11 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    * instead of filling the tile's bounding box. Useful for text in triangles or hexagons.
    * With `aspects`, each child's box has the child's shape, so it shows whole and uncropped.
    * The box has `data-safe-area`; style its contents to fill it. Tiles show `fill` around
-   * their content.
+   * their content. For tiles an `edges: "window"` layout cuts, `true` or "tile" fits the
+   * whole tile (content near the edge is partly hidden, like the tile) and "visible" the
+   * part that shows.
    */
-  safeArea?: boolean;
+  safeArea?: SafeAreaProp;
   /** With `aspects`: "shape" also picks which tiles hold children by their shape, ignoring `placement`. */
   choose?: "placement" | "shape";
   /**
@@ -352,7 +355,7 @@ export function TileLayout(props: TileLayoutProps) {
           </div>
         )}
         {safeArea && content != null && !isEmpty(content) ? (
-          <div data-safe-area="" style={css(safeBoxStyle(frame, cell, !renderCell && !empty && aspects ? (aspects[slot] ?? 1) : undefined))}>
+          <div data-safe-area="" style={css(safeBoxStyle(frame, cell, !renderCell && !empty && aspects ? (aspects[slot] ?? 1) : undefined, safeArea))}>
             {content}
           </div>
         ) : (

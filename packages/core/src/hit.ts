@@ -1,7 +1,7 @@
-import { vec, type Polygon, type Rect, type Vec } from "./geometry";
+import { bbox, vec, type Polygon, type Rect, type Vec } from "./geometry";
 import type { Cell, Layout } from "./layout";
-import { pointInPolygon } from "./offset";
-import { roundedPolygon } from "./rounding";
+import { inShapes } from "./overlay";
+import { visibleShapes } from "./shape";
 
 /**
  * Hit testing: which cell is under a point, or near it, or inside a rectangle. Uses each
@@ -10,8 +10,10 @@ import { roundedPolygon } from "./rounding";
  */
 
 interface Index {
-  /** Visible outlines per cell (by position in `layout.cells`): outline first, then holes. */
+  /** Visible outlines per cell (by position in `layout.cells`): every piece's outline and holes, even–odd. */
   loops: Polygon[][];
+  /** Bounding box of each cell's visible shape. */
+  boxes: Rect[];
   x0: number;
   y0: number;
   size: number;
@@ -27,24 +29,25 @@ function index(layout: Layout): Index {
   const hit = indexes.get(layout);
   if (hit) return hit;
   const cells = layout.cells;
-  const loops = cells.map((c) => [c.polygon, ...(c.holes ?? [])].map((p) => roundedPolygon(p, layout.cornerRadius)));
+  const loops = cells.map((c) => visibleShapes(c, layout).flatMap((s) => [s.outer, ...s.holes]));
+  const boxes = loops.map((ls) => (ls.length ? bbox(ls.flat()) : { x: 0, y: 0, width: 0, height: 0 }));
   // Cells may stick out of the bounds ("overflow"), so index their own extent.
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const c of cells) {
-    x0 = Math.min(x0, c.bbox.x); y0 = Math.min(y0, c.bbox.y);
-    x1 = Math.max(x1, c.bbox.x + c.bbox.width); y1 = Math.max(y1, c.bbox.y + c.bbox.height);
+  for (const b of boxes) {
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
   }
   if (!cells.length) { x0 = y0 = 0; x1 = y1 = 1; }
   // Buckets about the size of a typical cell.
-  const mean = cells.reduce((s, c) => s + c.bbox.width * c.bbox.height, 0) / Math.max(1, cells.length);
+  const mean = boxes.reduce((s, b) => s + b.width * b.height, 0) / Math.max(1, cells.length);
   const size = Math.max(Math.sqrt(mean), (x1 - x0 + y1 - y0) / 2048, 1e-9);
   const cols = Math.max(1, Math.ceil((x1 - x0) / size)), rows = Math.max(1, Math.ceil((y1 - y0) / size));
   const buckets: number[][] = Array.from({ length: cols * rows }, () => []);
-  cells.forEach((c, i) => {
-    const [ca, ra, cb, rb] = span(c.bbox, x0, y0, size, cols, rows);
+  boxes.forEach((b, i) => {
+    const [ca, ra, cb, rb] = span(b, x0, y0, size, cols, rows);
     for (let r = ra; r <= rb; r++) for (let q = ca; q <= cb; q++) buckets[r * cols + q]!.push(i);
   });
-  const built = { loops, x0, y0, size, cols, rows, buckets };
+  const built = { loops, boxes, x0, y0, size, cols, rows, buckets };
   indexes.set(layout, built);
   return built;
 }
@@ -68,7 +71,7 @@ function candidates(ix: Index, r: Rect): number[] {
   return [...out].sort((a, b) => a - b);
 }
 
-const inLoops = (p: Vec, loops: Polygon[]) => pointInPolygon(p, loops[0]!) && !loops.slice(1).some((h) => pointInPolygon(p, h));
+const inLoops = (p: Vec, loops: Polygon[]) => inShapes(p, loops);
 
 /** Distance from `p` to the nearest edge of any of `loops`. */
 function edgeDistance(p: Vec, loops: Polygon[]): number {
@@ -145,12 +148,12 @@ export function cellsInRect(layout: Layout, rect: Rect, options: { contain?: boo
   const out: Cell[] = [];
   for (const i of candidates(ix, r)) {
     const c = layout.cells[i]!;
-    const b = c.bbox;
+    const b = ix.boxes[i]!;
     if (b.x > r.x + r.width || b.x + b.width < r.x || b.y > r.y + r.height || b.y + b.height < r.y) continue;
     const loops = ix.loops[i]!;
     if (options.contain) {
       // Inside the rectangle when its outline is (holes lie within the outline).
-      if (loops[0]!.every((p) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) out.push(c);
+      if (loops.every((l) => l.every((p) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height))) out.push(c);
     } else if (meets(loops, r)) out.push(c);
   }
   return out;
@@ -164,7 +167,7 @@ function normalise(r: Rect): Rect {
 /** A shape and a rectangle overlap: a point of one inside the other, or edges crossing. */
 function meets(loops: Polygon[], r: Rect): boolean {
   const inRect = (p: Vec) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
-  if (loops[0]!.some(inRect)) return true;
+  if (loops.some((l) => l.some(inRect))) return true;
   const corners = [vec(r.x, r.y), vec(r.x + r.width, r.y), vec(r.x + r.width, r.y + r.height), vec(r.x, r.y + r.height)];
   if (corners.some((p) => inLoops(p, loops))) return true;
   // Edges crossing the rectangle's sides (e.g. a thin sliver passing through it).

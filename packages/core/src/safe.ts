@@ -1,6 +1,8 @@
-import type { Polygon, Rect } from "./geometry";
+import { bbox, type Polygon, type Rect, type Vec } from "./geometry";
 import type { Cell, Layout } from "./layout";
+import { shapeArea, shapeCentroid } from "./overlay";
 import { roundedPolygon } from "./rounding";
+import { cellShape, visibleShapes } from "./shape";
 
 export interface SafeAreaOptions {
   /**
@@ -8,35 +10,61 @@ export interface SafeAreaOptions {
    * the largest-area rectangle of any shape (for text and other content that reflows).
    */
   aspect?: number;
+  /**
+   * For a cell an `edges: "window"` layout cuts: "tile" (the default) fits the whole tile,
+   * as if the region weren't there, so content near the edge is partly hidden like the
+   * tile; "visible" fits the part that shows. Other cells are the same either way.
+   */
+  within?: "tile" | "visible";
 }
 
 /**
- * The largest axis-aligned rectangle that fits wholly inside a cell's visible shape (its
- * outline, holes and rounded corners), so content placed there isn't clipped. With
- * `aspect`, the largest rectangle of that shape. Among equally large positions it picks
- * the one nearest the cell's centre. In layout coordinates; see `safeAreaCss` for CSS.
+ * The largest axis-aligned rectangle that fits wholly inside a cell's shape (its outline,
+ * holes and rounded corners), so content placed there isn't clipped. With `aspect`, the
+ * largest rectangle of that shape. Among equally large positions it picks the one nearest
+ * the cell's centre. In layout coordinates; see `safeAreaCss` for CSS.
  *
  * Works for any shape, convex or not. Results are cached per cell.
  */
-export function safeArea(cell: Cell, layout: Pick<Layout, "cornerRadius">, options: SafeAreaOptions = {}): Rect {
+export function safeArea(cell: Cell, layout: Pick<Layout, "cornerRadius" | "view">, options: SafeAreaOptions = {}): Rect {
   const radius = layout.cornerRadius;
   const fixed = options.aspect !== undefined && options.aspect > 0 && Number.isFinite(options.aspect) ? options.aspect : undefined;
-  const key = `${radius}:${fixed ?? "free"}`;
+  const within = cell.tile && options.within === "visible" && layout.view ? "visible" : "tile";
+  const key = `${radius}:${fixed ?? "free"}:${within}`;
   let cached = cache.get(cell);
   if (!cached) cache.set(cell, (cached = new Map()));
   const hit = cached.get(key);
   if (hit) return hit;
-  const result = compute(cell, radius, fixed);
+  let target: Target;
+  if (within === "visible") {
+    const piece = visibleShapes(cell, layout)[0]!;
+    target = { outline: piece.outer, holes: piece.holes, rounded: true, bbox: bbox(piece.outer), centroid: shapeCentroid(piece), area: shapeArea(piece) };
+  } else {
+    const s = cellShape(cell);
+    target = { outline: s.outline, holes: s.holes, rounded: false, bbox: s.bbox, centroid: s.centroid, area: s.area };
+  }
+  const result = compute(target, radius, fixed);
   cached.set(key, result);
   return result;
 }
 
 const cache = new WeakMap<Cell, Map<string, Rect>>();
 
-function compute(cell: Cell, radius: number, aspect: number | undefined): Rect {
+/** The shape to fit in: an outline (sharp, or already rounded) with its holes. */
+interface Target {
+  outline: Polygon;
+  holes: Polygon[];
+  rounded: boolean;
+  bbox: Rect;
+  centroid: Vec;
+  area: number;
+}
+
+function compute(cell: Target, radius: number, aspect: number | undefined): Rect {
   const b = cell.bbox;
-  const outline = roundedPolygon(cell.polygon, radius);
-  const holes = (cell.holes ?? []).map((h) => roundedPolygon(h, radius));
+  const r = cell.rounded ? 0 : radius;
+  const outline = roundedPolygon(cell.outline, r);
+  const holes = cell.holes.map((h) => roundedPolygon(h, r));
   const empty = { x: cell.centroid.x, y: cell.centroid.y, width: 0, height: 0 };
   if (outline.length < 3 || !(b.width > 0) || !(b.height > 0)) return empty;
 
@@ -82,7 +110,7 @@ function compute(cell: Cell, radius: number, aspect: number | undefined): Rect {
  * square, i.e. the point farthest from the outline in the L∞ (chessboard) distance, which
  * a branch-and-bound over square cells finds (as polylabel does for circles).
  */
-function fitAspect(loops: Polygon[], cell: Cell, a: number, tolerance: number): { rect: Rect; area: number } {
+function fitAspect(loops: Polygon[], cell: { centroid: Vec }, a: number, tolerance: number): { rect: Rect; area: number } {
   const sx = 1 / Math.sqrt(a), sy = Math.sqrt(a);
   // Segments in scaled space, flat: ax, ay, bx, by.
   const segs: number[] = [];

@@ -1,6 +1,7 @@
 import {
   backdropCss,
   cellCss,
+  cellShape,
   cellInDirection,
   contentSlots,
   createLayout,
@@ -9,6 +10,7 @@ import {
   regionCss,
   safeAreaCss,
   screenToLayout,
+  viewCss,
   type Cell,
   type ContentCells,
   type ContentPlacement,
@@ -34,6 +36,13 @@ export interface CellState {
   /** Position among the cells that hold content, in reading order (the item index), or -1. */
   slot: number;
 }
+
+/**
+ * Put each tile's content in its safe area: `true` or "tile" fits the whole tile (for a tile
+ * an `edges: "window"` layout cuts, content near the edge is then partly hidden like the
+ * tile), "visible" fits the part that shows. See `SafeAreaOptions.within`.
+ */
+export type SafeAreaProp = boolean | "tile" | "visible";
 
 /** A value, or a function giving it per cell. */
 export type PerCell<T> = T | ((cell: Cell, state: CellState) => T);
@@ -174,7 +183,7 @@ export const backgroundStyle = (frame: Frame, background: string): StyleMap => (
  * A tile's element: placed over its cell's bounding box and clipped to its shape. Empty
  * tiles (and every tile with `safeArea`) show their fill unless there's a backdrop.
  */
-export function tileStyle(frame: Frame, cell: Cell, o: { empty: boolean; safeArea?: boolean; backdrop?: boolean; clickable?: boolean }): StyleMap {
+export function tileStyle(frame: Frame, cell: Cell, o: { empty: boolean; safeArea?: SafeAreaProp; backdrop?: boolean; clickable?: boolean }): StyleMap {
   return {
     position: "absolute",
     boxSizing: "border-box",
@@ -196,17 +205,20 @@ export const backdropStyle = (frame: Frame, cell: Cell): StyleMap => ({
 });
 
 /** The box holding a tile's content with `safeArea`. */
-export const safeBoxStyle = (frame: Frame, cell: Cell, aspect?: number): StyleMap => ({
+export const safeBoxStyle = (frame: Frame, cell: Cell, aspect?: number, safe?: SafeAreaProp): StyleMap => ({
   position: "absolute",
   boxSizing: "border-box",
-  ...safeAreaCss(cell, frame.layout, { aspect }),
+  ...safeAreaCss(cell, frame.layout, { aspect, within: safe === "visible" ? "visible" : "tile" }),
   transition: frame.boxTransition,
 });
 
 /** Style of an <svg> drawn over a tile (bevel, focus ring), with `viewBox` set to `tileViewBox`. */
 export const overlayStyle: StyleMap = { position: "absolute", inset: "0", width: "100%", height: "100%", pointerEvents: "none" };
 
-export const tileViewBox = (cell: Cell) => `${cell.bbox.x} ${cell.bbox.y} ${cell.bbox.width} ${cell.bbox.height}`;
+export const tileViewBox = (cell: Cell) => {
+  const b = cellShape(cell).bbox;
+  return `${b.x} ${b.y} ${b.width} ${b.height}`;
+};
 
 /** The focus ring's two strokes: white under the color, so it shows on any content. */
 export const ringStrokes = (frame: Frame, cell: Cell, color: string) => {
@@ -224,7 +236,7 @@ export function shadowShape(frame: Frame, cells: readonly Cell[]) {
   const { bounds } = frame.layout;
   return {
     viewBox: `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
-    style: { ...overlayStyle, clipPath: regionCss(frame.layout) } as StyleMap,
+    style: { ...overlayStyle, clipPath: viewCss(frame.layout) } as StyleMap,
     blur: s.blur,
     d: cells.map((c) => cellPath(frame.layout, c)).join(""),
     transform: `translate(${s.dx} ${s.dy})`,

@@ -1,4 +1,4 @@
-import { roundCorners, safeArea, type Cell, type Layout, type Polygon, type Rect } from "@andamento/core";
+import { cellShape, roundCorners, safeArea, type Cell, type Layout, type Polygon, type Rect } from "@andamento/core";
 import { resolveCellStyles, type RenderOptions } from "./index";
 import { defaultBevel, reliefLayers, shadowOffset, type ReliefOptions } from "./relief";
 
@@ -38,7 +38,7 @@ export type CanvasImage = { width: number; height: number };
 export interface CanvasRenderOptions
   extends Pick<
     RenderOptions,
-    "images" | "repeatImages" | "contentCells" | "placement" | "imageAspects" | "choose" | "imageFit" | "fill" | "stroke" | "strokeWidth" | "background"
+    "images" | "repeatImages" | "contentCells" | "placement" | "imageAspects" | "choose" | "imageFit" | "containWithin" | "fill" | "stroke" | "strokeWidth" | "background"
   > {
   /** Raised tiles, as for SVG. */
   relief?: boolean | ReliefOptions;
@@ -73,7 +73,7 @@ export function drawLayout(
   const styles = resolveCellStyles(layout, options);
   const loaded = options.loaded ?? new Map<string, CanvasImage>();
   const radius = layout.cornerRadius;
-  const cellLoops = (c: Cell) => [c.polygon, ...(c.holes ?? [])];
+  const cellLoops = (c: Cell) => { const s = cellShape(c); return [s.outline, ...s.holes]; };
 
   ctx.save();
   toLayout();
@@ -84,6 +84,13 @@ export function drawLayout(
     for (const p of [layout.region, ...layout.holes]) tracePolygon(ctx, p, 0);
     ctx.fillStyle = options.background;
     ctx.fill("evenodd");
+  }
+
+  if (layout.view) {
+    // A window layout: tiles are drawn whole and cut to the view.
+    ctx.beginPath();
+    for (const v of layout.view) for (const p of [v.outer, ...v.holes]) tracePolygon(ctx, p, 0);
+    ctx.clip("evenodd");
   }
 
   const relief = options.relief === true ? {} : options.relief || undefined;
@@ -135,8 +142,8 @@ export function drawLayout(
       ctx.clip("evenodd");
       if (options.imageFit === "contain") {
         const aspect = options.imageAspects && style.slot >= 0 ? options.imageAspects[style.slot % options.imageAspects.length] : undefined;
-        drawContain(ctx, img, safeArea(cell, layout, { aspect }));
-      } else drawCover(ctx, img, cell.bbox);
+        drawContain(ctx, img, safeArea(cell, layout, { aspect, within: options.containWithin }));
+      } else drawCover(ctx, img, cellShape(cell).bbox);
       ctx.restore();
     }
     if (relief && bevel > 0) {

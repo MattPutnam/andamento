@@ -2,6 +2,7 @@ import { vec, type Polygon, type Vec } from "./geometry";
 import type { Cell, Layout } from "./layout";
 import { pointInPolygon } from "./offset";
 import { roundCorners } from "./rounding";
+import { cellShape, type CellShape } from "./shape";
 
 /**
  * Where light comes from, as a unit vector pointing from the surface towards the light.
@@ -31,15 +32,17 @@ export interface BevelFacet {
 }
 
 /**
- * The bevel round a cell's edges (outline, holes and rounded corners), as a band of
+ * The bevel round a cell's edges (outline, holes and rounded corners; the whole tile for a
+ * window cell, see `cellShape`), as a band of
  * sloped faces `width` wide, each shaded by how it faces the light. Draw light faces with
  * translucent white and dark ones with translucent black over the cell, and the tile looks
  * raised, like a real tile or tessera. The band is narrowed where a cell is too thin for it.
  */
 export function bevelFacets(cell: Cell, layout: Pick<Layout, "cornerRadius">, options: BevelOptions): BevelFacet[] {
   const want = Math.max(0, options.width);
-  if (want === 0 || cell.polygon.length < 3) return [];
-  const loops = [cell.polygon, ...(cell.holes ?? [])].map((p) => prepare(p, cell, layout.cornerRadius)).filter((l) => l.outer.length >= 3);
+  const shape = cellShape(cell);
+  if (want === 0 || shape.outline.length < 3) return [];
+  const loops = [shape.outline, ...shape.holes].map((p) => prepare(p, shape, layout.cornerRadius)).filter((l) => l.outer.length >= 3);
   if (loops.length === 0) return [];
 
   // Narrow the band until the inner outline is clean.
@@ -83,7 +86,7 @@ interface Loop {
   kind: ({ arc: true; center: Vec; radius: number; convex: boolean; vertex: Vec; n1: Vec; n2: Vec } | { arc: false; n1: Vec; n2: Vec })[];
 }
 
-function prepare(poly: Polygon, cell: Cell, radius: number): Loop {
+function prepare(poly: Polygon, cell: CellShape, radius: number): Loop {
   const corners = roundCorners(poly, radius);
   const n = poly.length;
   // Which side of the loop is the tile: test a point just left of the longest edge.
@@ -97,7 +100,7 @@ function prepare(poly: Polygon, cell: Cell, radius: number): Loop {
   const eps = 1e-6 * Math.max(cell.bbox.width, cell.bbox.height, 1e-12);
   const left = vec(-(b.y - a.y) / ll, (b.x - a.x) / ll);
   const probe = vec((a.x + b.x) / 2 + left.x * eps, (a.y + b.y) / 2 + left.y * eps);
-  const inside = pointInPolygon(probe, cell.polygon) && !(cell.holes ?? []).some((h) => pointInPolygon(probe, h));
+  const inside = pointInPolygon(probe, cell.outline) && !cell.holes.some((h) => pointInPolygon(probe, h));
   const side = inside ? 1 : -1;
   const inward = (p: Vec, q: Vec): Vec => {
     const l = Math.hypot(q.x - p.x, q.y - p.y) || 1;

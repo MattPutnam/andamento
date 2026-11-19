@@ -105,7 +105,8 @@ whole inside its cell's safe area, at its `imageAspects` shape. In core,
 `safeArea(cell, layout, { aspect })` returns the rectangle in layout units and
 `safeAreaCss(cell, layout, { aspect })` places it inside the cell's element. It works for
 any shape, convex or not, and is cached per cell; without `aspect` it finds the
-largest-area rectangle of any shape.
+largest-area rectangle of any shape. With `edges: "window"`, tiles cut by the region fit the
+whole tile unless you ask for `"visible"` (see [Window edges](#window-edges)).
 
 #### Grout and relief
 
@@ -178,8 +179,10 @@ removing or reordering children.
 - **Bevels:** a `relief` bevel fades in for the new shape as the tile arrives.
 
 It is all CSS transitions, with no animation loop in JavaScript. Every tile's `clip-path`
-is given the same number of points (see `resamplePolygon`, and `cellCss(…, { points })` in
-core), which is what lets CSS morph between any two shapes. Cells with holes switch shape
+is given the same number of points (see `morphPolygon`, and `cellCss(…, { points })` in
+core), which is what lets CSS morph between any two shapes. Each corner gets the same number
+of points whether it's sharp or rounded, so changing `cornerRadius` only grows or shrinks
+the corners. Cells with holes, and window cells the region cuts in two, switch shape
 without morphing. Animation is off for users who prefer reduced motion. Static SVG output
 doesn't animate.
 
@@ -414,7 +417,7 @@ const layout = createLayout({
   margin: 4,       // kept clear along the region edge and around holes
   cornerRadius: 3, // round tile corners (shrinks to fit small corners)
   rotation: 0,
-  edges: "clip",   // "clip" | "inside" | "overflow"
+  edges: "clip",   // "clip" | "inside" | "overflow" | "window"
   minFill: 0.25,   // drop edge slivers smaller than 25% of a tile
   tileScale: 1,    // scale the whole pattern (see fitCount)
 });
@@ -642,14 +645,40 @@ as usual. `maxTiles` still caps the count.
 The region can be any simple polygon: an L-shaped wall, the space under stairs, an arch
 (approximate the curve with short segments). `holes` are left empty: rectangles or polygons
 that may overlap each other or stick out past the region edge. Tiles are cut around holes
-like they're cut at the region edge (`edges: "inside"` skips any tile that would be cut, and
-`"overflow"` keeps tiles that are partly visible whole), and `margin` keeps a border around
+like they're cut at the region edge (`edges: "inside"` skips any tile that would be cut,
+`"overflow"` keeps tiles that are partly visible whole, and `"window"` keeps them whole but
+hides what's outside; see below), and `margin` keeps a border around
 holes too. A margin can pinch a narrow part of the region shut, splitting it in two.
 
 When a hole sits entirely inside one tile, the cell gets `holes` of its own; `area` and
 `centroid` account for them, `cellCss` returns an even–odd `clip-path`, and `cellPath` adds
 the holes as subpaths. `layout.holes` lists the region's holes, and `regionCss(layout)` /
 `regionPath(layout)` draw the region with them.
+
+#### Window edges
+
+In `"clip"` mode a cut tile *is* the piece left inside the region: rounding, relief and
+content all treat the cut as a real edge, so rounding gives the cut new round corners, the bevel
+runs along it, and a photo is centred in the sliver. That suits work that ends at the region
+edge. With `edges: "window"` the tiles stay whole and the region is just a window onto them:
+
+```ts
+createLayout({ region, tiling: hexagonal({ size: 40 }), cornerRadius: 6, edges: "window" });
+```
+
+- Each cut cell gets `tile`, the whole tile (after the gap); `polygon` is still the part that
+  shows (its largest piece, if the outline cuts the tile in two, which stays one cell).
+  `layout.view` is the area tiles show in: the region less its margin and holes.
+- `cellShape(cell)` gives the shape to draw (the tile, or the cell's own polygon) and
+  `visibleShapes(cell, layout)` the rounded shape less what's outside the view.
+- Every renderer rounds, bevels and fills the whole tile, then hides what's outside the view.
+  The cut is a straight, sharp line. `cellCss` places the element over the whole tile and clips
+  it to what shows. The SVG and canvas renderers clip to `viewPath(layout)`, and hit testing
+  only finds what shows.
+- Content sits where it would in the whole tile, so a photo at the edge is partly hidden.
+  Safe areas fit the whole tile too; to fit the part that shows instead, use
+  `safeArea={"visible"}` (`safe-area="visible"` on the element), `safeArea(cell, layout,
+  { within: "visible" })`, or `containWithin: "visible"` with SVG `imageFit: "contain"`.
 
 Convex regions without holes use a faster clipping path; anything else goes through a general
 polygon overlay, applied only to tiles near an edge, so it costs about the same.

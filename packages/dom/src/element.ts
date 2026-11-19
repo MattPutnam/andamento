@@ -1,6 +1,6 @@
 import type { Cell, ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
-import { coverStyle, type CellState, type FitProp, type PerCell, type StyleMap } from "./model";
+import { coverStyle, type CellState, type FitProp, type PerCell, type SafeAreaProp, type StyleMap } from "./model";
 import { mountTileLayout, type TileContent, type TileLayoutConfig, type TileLayoutHandle } from "./mount";
 
 /** Detail of the `cellactivate` event. */
@@ -119,7 +119,7 @@ export class AndamentoLayoutElement extends Base {
   get safeArea() {
     return this.#props.safeArea;
   }
-  set safeArea(v: boolean | undefined) {
+  set safeArea(v: SafeAreaProp | undefined) {
     this.#set({ safeArea: v });
   }
   get fit() {
@@ -251,6 +251,7 @@ export class AndamentoLayoutElement extends Base {
     const fromAttrs: Partial<TileLayoutConfig> = Object.fromEntries([...ATTRIBUTE_KEYS].map((k) => [k, undefined]));
     if (a("options")) fromAttrs.options = json(a("options")!);
     for (const n of BOOLEAN) if (flag(n)) (fromAttrs as Record<string, unknown>)[n === "safe-area" ? "safeArea" : n] = true;
+    if (a("safe-area") === "tile" || a("safe-area") === "visible") fromAttrs.safeArea = a("safe-area") as "tile" | "visible";
     if (a("fit")) fromAttrs.fit = a("fit") === "nearest" ? "nearest" : a("fit") === "false" ? false : true;
     if (a("placement")) fromAttrs.placement = a("placement") as ContentPlacement;
     if (a("content-cells")) fromAttrs.contentCells = a("content-cells") as ContentCells;

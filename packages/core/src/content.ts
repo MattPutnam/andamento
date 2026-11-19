@@ -1,4 +1,5 @@
 import { centroid } from "./geometry";
+import { cellShape } from "./shape";
 import type { Cell, Layout } from "./layout";
 
 /**
@@ -81,7 +82,7 @@ export function matchSlots(layout: Layout, aspects: readonly number[], options: 
   const { cells = "all", choose = "placement" } = options;
   const accept = cells === "all" ? () => true : cells === "whole" ? (c: Cell) => !c.boundary : cells;
   const logAspect = (a: number) => (a > 0 && Number.isFinite(a) ? Math.log(a) : 0);
-  const cellLog = (c: Cell) => logAspect(c.bbox.width / (c.bbox.height || 1));
+  const cellLog = (c: Cell) => { const b = cellShape(c).bbox; return logAspect(b.width / (b.height || 1)); };
 
   // Featured cells and (for "placement") the cells to use come from contentSlots.
   const base = contentSlots(layout, aspects.length, options);

@@ -1,4 +1,4 @@
-import { contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
+import { cellShape, contentSlots, matchSlots, safeArea, paletteFill, type CellFill, roundCorners, type Cell, type ContentCells, type ContentPlacement, type Layout, type Polygon } from "@andamento/core";
 
 import { defaultBevel, reliefPaths, shadowOffset, type ReliefOptions } from "./relief";
 export { defaultBevel, reliefLayers, reliefPaths, shadowOffset } from "./relief";
@@ -33,6 +33,12 @@ export interface RenderOptions {
    * (see `safeArea`), uncropped. Give `imageAspects` so the safe area has each image's shape.
    */
   imageFit?: "cover" | "contain";
+  /**
+   * With `imageFit: "contain"`, for cells an `edges: "window"` layout cuts: fit the image in
+   * the whole tile ("tile", the default; partly hidden like the tile) or in the part that
+   * shows ("visible"). See `SafeAreaOptions.within`.
+   */
+  containWithin?: "tile" | "visible";
   /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
   choose?: "placement" | "shape";
   /**
@@ -97,11 +103,22 @@ export function polygonToPath(p: Polygon, precision = 3, radius = 0): string {
 }
 
 /**
- * `d` attribute for a cell's visible outline, including the layout's corner rounding and
- * any holes (as extra subpaths; draw with `fill-rule="evenodd"`).
+ * `d` attribute for a cell's outline, including the layout's corner rounding and any holes
+ * (as extra subpaths; draw with `fill-rule="evenodd"`). For a window cell this is the
+ * whole tile (see `cellShape`); clip it to `viewPath`.
  */
 export function cellPath(layout: Layout, cell: Cell, precision = 3): string {
-  return [cell.polygon, ...(cell.holes ?? [])].map((p) => polygonToPath(p, precision, layout.cornerRadius)).join("");
+  const s = cellShape(cell);
+  return [s.outline, ...s.holes].map((p) => polygonToPath(p, precision, layout.cornerRadius)).join("");
+}
+
+/**
+ * `d` attribute for the area tiles show in (draw or clip with `evenodd`): `layout.view` in
+ * a window layout, else the region with its holes.
+ */
+export function viewPath(layout: Layout, precision = 3): string {
+  if (!layout.view) return regionPath(layout, precision);
+  return layout.view.flatMap((v) => [v.outer, ...v.holes]).map((p) => polygonToPath(p, precision)).join("");
 }
 
 /** `d` attribute for the region with its holes (draw with `fill-rule="evenodd"`). */
@@ -176,6 +193,8 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
     children.push(el("path", { d: regionPath(layout, precision), fill: opts.background, "fill-rule": "evenodd", class: "andamento-region" }));
   }
 
+  // In a window layout, everything from here on is drawn whole and cut to the view.
+  const start = children.length;
   if (opts.backdrop) {
     const clipId = `${prefix}-backdrop`;
     const shapes = layout.cells.map((cell) => el("path", { d: cellPath(layout, cell, precision), "clip-rule": "evenodd" }));
@@ -227,7 +246,7 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
       parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));
       const contain = opts.imageFit === "contain";
       const aspect = contain && opts.imageAspects && style.slot >= 0 ? opts.imageAspects[style.slot % opts.imageAspects.length] : undefined;
-      const box = contain ? safeArea(cell, layout, { aspect }) : cell.bbox;
+      const box = contain ? safeArea(cell, layout, { aspect, within: opts.containWithin }) : cellShape(cell).bbox;
       parts.push(
         el("image", {
           href: style.image,
@@ -263,6 +282,12 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
       ),
     );
   });
+  if (layout.view) {
+    const viewId = `${prefix}-view`;
+    const body = children.splice(start);
+    children.push(el("clipPath", { id: viewId }, [el("path", { d: viewPath(layout, precision), "clip-rule": "evenodd" })]));
+    children.push(el("g", { class: "andamento-view", "clip-path": `url(#${viewId})` }, body));
+  }
 
   return el(
     "svg",

@@ -1,7 +1,7 @@
 import { createElement, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { createApp, h, shallowRef, type App } from "vue";
 import type { Cell, ContentCells, ContentPlacement, Layout } from "@andamento/core";
-import { coverStyle, defineTileLayoutElement, type AndamentoLayoutElement, type CellState, type FillSource, type ReliefOptions } from "@andamento/dom";
+import { coverStyle, defineTileLayoutElement, type AndamentoLayoutElement, type CellState, type FillSource, type ReliefOptions, type SafeAreaProp } from "@andamento/dom";
 import { TileLayout as VueTileLayout } from "@andamento/vue";
 
 defineTileLayoutElement();
@@ -21,7 +21,7 @@ export interface PreviewProps {
   contentCells: ContentCells;
   placement: ContentPlacement;
   aspects?: number[];
-  safeArea: boolean;
+  safeArea: SafeAreaProp;
   choose: "placement" | "shape";
   backdrop?: string;
   cellLabel: (cell: Cell, state: CellState) => string | undefined;

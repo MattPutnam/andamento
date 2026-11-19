@@ -372,6 +372,8 @@ export function App() {
   const [mosaicPalette, setMosaicPalette] = useState(false);
   const [matchShapes, setMatchShapes] = useState<"off" | "placement" | "shape">("off");
   const [safe, setSafe] = useState(false);
+  // In a window layout: fit content to the whole tile or to the part that shows.
+  const [safeWithin, setSafeWithin] = useState<"tile" | "visible">("tile");
   const [reliefMode, setReliefMode] = useState<"off" | "bevel" | "shadow">("off");
   const [light, setLight] = useState(315);
   const [activated, setActivated] = useState<string>();
@@ -521,6 +523,7 @@ export function App() {
       images: content === "photos" ? (itemCount > 0 ? photos.slice(0, itemCount) : photos) : undefined,
       imageAspects: itemCount > 0 ? photoAspects?.slice(0, itemCount) : safe ? photoAspects : undefined,
       imageFit: safe ? "contain" : "cover",
+      containWithin: safeWithin,
       choose: matchShapes === "shape" ? "shape" : "placement",
       repeatImages: itemCount === 0,
       contentCells,
@@ -712,6 +715,7 @@ export function App() {
               <option value="clip">Cut to region</option>
               <option value="inside">Whole tiles only</option>
               <option value="overflow">Let them overhang</option>
+              <option value="window">Whole tiles, seen through the region</option>
             </select>
           </label>
           {edges !== "inside" && <Slider label="Drop slivers under" min={0} max={0.9} step={0.05} value={minFill} onChange={setMinFill} />}
@@ -746,6 +750,15 @@ export function App() {
                 <span>Keep inside tile shapes</span>
                 <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
               </label>
+              {safe && edges === "window" && (
+                <label className="row">
+                  <span>At the edge, fit content to</span>
+                  <select value={safeWithin} onChange={(e) => setSafeWithin(e.target.value as "tile" | "visible")}>
+                    <option value="tile">The whole tile</option>
+                    <option value="visible">The part that shows</option>
+                  </select>
+                </label>
+              )}
               {itemCount > 0 && (
                 <label className="row">
                   <span>Fit tiles to items</span>
@@ -833,7 +846,7 @@ export function App() {
               contentCells,
               placement,
               aspects: childAspects,
-              safeArea: safe,
+              safeArea: safe && safeWithin,
               choose: matchShapes === "shape" ? "shape" : "placement",
               backdrop: content === "picture" ? picture : undefined,
               cellLabel: tileLabel,
@@ -870,7 +883,7 @@ export function App() {
               fill={cellFill}
               backdrop={content === "picture" ? <img src={picture} alt="" style={coverStyle} /> : undefined}
               aspects={childAspects}
-              safeArea={safe}
+              safeArea={safe && safeWithin}
               cellStyle={safe && content === "cards" ? (_cell, s) => (s.slot >= 0 ? { background: colorOf(s.slot) } : {}) : undefined}
               choose={matchShapes === "shape" ? "shape" : "placement"}
               aria-label={`${def.label} layout`}

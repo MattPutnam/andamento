@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
-import { safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
-import { cellA11y, cellPath, defaultBevel, regionPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
+import { cellShape, safeArea, type Cell, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
+import { cellA11y, cellPath, defaultBevel, regionPath, viewPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {
@@ -36,6 +36,11 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
    * each image whole inside the cell's safe area (see `safeArea`), at its `imageAspects` shape.
    */
   imageFit?: "cover" | "contain";
+  /**
+   * With `imageFit: "contain"`, for cells an `edges: "window"` layout cuts: fit the image in
+   * the whole tile ("tile", the default) or in the part that shows ("visible").
+   */
+  containWithin?: "tile" | "visible";
   /**
    * Size the tiles to the `images` array (counted by `contentCells`): `true`/"atLeast" or
    * "nearest". Ignored with `layout`, `repeatImages` or an `images` function.
@@ -81,6 +86,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     imageAspects,
     choose,
     imageFit,
+    containWithin,
     fit,
     fill,
     stroke,
@@ -115,6 +121,12 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`${x} ${y} ${width} ${height}`} role={imageAlts?.length ? "group" : title ? "img" : undefined} {...svgProps}>
       {title && <title>{title}</title>}
       {background && <path className="andamento-region" d={regionPath(layout)} fill={background} fillRule="evenodd" />}
+      {layout.view && (
+        <clipPath id={`${prefix}-view`}>
+          <path d={viewPath(layout)} clipRule="evenodd" />
+        </clipPath>
+      )}
+      <g className={layout.view ? "andamento-view" : undefined} clipPath={layout.view ? `url(#${prefix}-view)` : undefined}>
       {backdrop && (
         <>
           <clipPath id={`${prefix}-backdrop`}>
@@ -176,7 +188,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
                 noFill={!!backdrop}
                 box={
                   imageFit === "contain" && style.image
-                    ? safeArea(cell, layout, { aspect: imageAspects && style.slot >= 0 ? imageAspects[style.slot] : undefined })
+                    ? safeArea(cell, layout, { aspect: imageAspects && style.slot >= 0 ? imageAspects[style.slot] : undefined, within: containWithin })
                     : undefined
                 }
               />}
@@ -185,6 +197,7 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
           </g>
         );
       })}
+      </g>
     </svg>
   );
 }
@@ -215,7 +228,7 @@ export interface SvgCellImageProps extends Omit<SVGProps<SVGImageElement>, "href
  * or, with `box`, shown whole inside the box (like `object-fit: contain`).
  */
 export function SvgCellImage({ cell, href, clipPath, box, ...rest }: SvgCellImageProps) {
-  const b = box ?? cell.bbox;
+  const b = box ?? cellShape(cell).bbox;
   return (
     <image
       href={href}
