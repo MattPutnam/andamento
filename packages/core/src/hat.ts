@@ -3,7 +3,7 @@
  * with the H/T/P/F metatile construction.
  *
  * The metatile outlines, the patch rules and the supertile construction below are ported
- * from hatviz (https://github.com/isohedral/hatviz), whose licence follows:
+ * from hatviz (https://github.com/isohedral/hatviz), whose license follows:
  *
  * BSD 3-Clause License
  *
@@ -192,7 +192,7 @@ export function constructPatch(H: MetaTile, T: MetaTile, P: MetaTile, F: MetaTil
 }
 
 /** Move a metatile's outline (and children) so the outline's vertex average is the origin. */
-function recentre(m: MetaTile): MetaTile {
+function recenter(m: MetaTile): MetaTile {
   let cx = 0;
   let cy = 0;
   for (const p of m.shape) {
@@ -237,7 +237,7 @@ export function constructMetatiles(patch: MetaTile): [MetaTile, MetaTile, MetaTi
   const bbb = padd(hOutline[1]!, psub(hOutline[4]!, hOutline[5]!));
   const ccc = apply(rotAbout(bbb, -Math.PI / 3), aaa);
   const T = meta([bbb, ccc, aaa], pick([11]));
-  return [recentre(H), recentre(T), recentre(P), recentre(F)];
+  return [recenter(H), recenter(T), recenter(P), recenter(F)];
 }
 
 /**
@@ -329,7 +329,7 @@ export interface HatTile {
 }
 
 /**
- * Hats covering `box` (in hat units, relative to the pattern's centre): the smallest
+ * Hats covering `box` (in hat units, relative to the pattern's center): the smallest
  * level whose H supertile, grown around the anchor, actually covers the box.
  */
 export function hatsCovering(box: Box, maxTiles: number): HatTile[] {

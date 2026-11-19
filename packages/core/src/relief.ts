@@ -82,7 +82,7 @@ export function bevelFacets(cell: Cell, layout: Pick<Layout, "cornerRadius">, op
 interface Loop {
   outer: Vec[];
   normal: Vec[];
-  /** Per point: a rounded-corner arc point (centre, radius, convex) or a sharp corner. */
+  /** Per point: a rounded-corner arc point (center, radius, convex) or a sharp corner. */
   kind: ({ arc: true; center: Vec; radius: number; convex: boolean; vertex: Vec; n1: Vec; n2: Vec } | { arc: false; n1: Vec; n2: Vec })[];
 }
 
@@ -111,7 +111,7 @@ function prepare(poly: Polygon, cell: CellShape, radius: number): Loop {
   const kind: Loop["kind"] = [];
   for (let i = 0; i < n; i++) {
     const c = corners[i]!;
-    // The nearest distinct neighbours: outlines can repeat a point.
+    // The nearest distinct neighbors: outlines can repeat a point.
     const same = (p: Vec, q: Vec) => Math.abs(p.x - q.x) <= eps * 1e-3 && Math.abs(p.y - q.y) <= eps * 1e-3;
     let prev = poly[(i - 1 + n) % n]!, next = poly[(i + 1) % n]!;
     for (let k = 2; k < n && same(prev, c.vertex); k++) prev = poly[(i - k + n) % n]!;
@@ -125,7 +125,7 @@ function prepare(poly: Polygon, cell: CellShape, radius: number): Loop {
     // The same sampling as roundedPolygon, so the bevel lines up with the clip path.
     const steps = Math.max(1, Math.ceil(Math.abs(c.sweep) / (Math.PI / 18)));
     const a0 = Math.atan2(c.start.y - c.center.y, c.start.x - c.center.x);
-    // Convex (seen from the tile) when the centre is on the tile side of the edge.
+    // Convex (seen from the tile) when the center is on the tile side of the edge.
     const convex = (c.center.x - c.vertex.x) * n1.x + (c.center.y - c.vertex.y) * n1.y > 0;
     for (let s = 0; s <= steps; s++) {
       const p = s === 0 ? c.start : s === steps ? c.end : vec(c.center.x + c.radius * Math.cos(a0 + (c.sweep * s) / steps), c.center.y + c.radius * Math.sin(a0 + (c.sweep * s) / steps));

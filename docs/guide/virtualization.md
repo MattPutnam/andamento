@@ -1,4 +1,4 @@
-# Virtualisation
+# Virtualization
 
 ```tsx
 <TileLayout options={{ region: { x: 0, y: 0, width: 2000, height: 40000 }, tiling }} virtualize>

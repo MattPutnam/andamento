@@ -3,9 +3,9 @@ import { area, cleanPolygon, ensurePositive, signedArea, vec, type Polygon, type
 /*
  * Inward offset (inset) for simple polygons that may be non-convex.
  *
- * Every edge moves inward by `distance` and neighbouring offset edges are joined at
+ * Every edge moves inward by `distance` and neighboring offset edges are joined at
  * the intersection of their lines (a mitre join). That's exact at convex corners;
- * at concave corners it keeps a sharp corner, which is what makes neighbouring
+ * at concave corners it keeps a sharp corner, which is what makes neighboring
  * tiles stay exactly `2 × distance` apart, edge for edge.
  *
  * Two things can go wrong as the edges move:
@@ -103,7 +103,7 @@ function offsetLoops(p: Polygon, distance: number): Polygon[] {
   const version = new Array<number>(n).fill(0);
   let count = n;
 
-  /** Signed length of edge k between its current neighbours' joins, at offset t. */
+  /** Signed length of edge k between its current neighbors' joins, at offset t. */
   const lengthAt = (k: number, t: number) => {
     join(prev[k]!, k, t);
     const sx = jx, sy = jy;
@@ -119,7 +119,7 @@ function offsetLoops(p: Polygon, distance: number): Polygon[] {
   };
 
   // Edge events: drop edges in the order they collapse. Between events, lengths change
-  // linearly with t, and a collapse only changes its two neighbours' collapse times, so
+  // linearly with t, and a collapse only changes its two neighbors' collapse times, so
   // those are kept in a heap ordered by (time, edge index) and updated locally.
   type Event = { time: number; edge: number; version: number };
   const heap: Event[] = [];

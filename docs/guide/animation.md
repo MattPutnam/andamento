@@ -12,7 +12,7 @@ reordering children.
 - **Moving and reshaping:** a child keeps its tile element (give children keys), and the
   tile glides to its new place while its shape morphs, a square into a hexagon say.
 - **Coming and going:** new tiles fade in, and removed ones stay a moment to fade out.
-- **Colours:** empty-tile fills cross-fade.
+- **Colors:** empty-tile fills cross-fade.
 - **Bevels:** a `relief` bevel fades in for the new shape as the tile arrives.
 
 Switch patterns here to see it:

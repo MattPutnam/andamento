@@ -25,7 +25,7 @@ layouts can be saved as JSON and restored. The options are covered in
 [Layout options](/guide/layout-options), [Regions, holes and edges](/guide/regions),
 [Featured tiles](/guide/featured) and [Tile size by density](/guide/density).
 
-**Units are yours.** Use centimetres for a floor plan, pixels for a web page, or anything else.
+**Units are yours.** Use centimeters for a floor plan, pixels for a web page, or anything else.
 The renderers scale the layout to fit, so for a web page only the region's proportions
 matter. The tiling sizes are in the same units as the region.
 
@@ -59,7 +59,7 @@ Each tile is a `Cell`:
 | `tile` | With `edges: "window"`, for a cut cell: the whole tile. |
 | `bbox`, `centroid`, `area` | Measured on `polygon` (and its holes). |
 | `boundary` | The tile crosses the region's outline (it was cut, or sticks out). |
-| `protoTile` | Which kind of tile this is within the pattern: herringbone's two directions, rhombille's three faces, a hat or a mirrored hat. Handy for colouring. |
+| `protoTile` | Which kind of tile this is within the pattern: herringbone's two directions, rhombille's three faces, a hat or a mirrored hat. Handy for coloring. |
 | `neighbors` | Ids of the cells that share an edge with this one. |
 | `featured`, `merged`, `featuredItem` | For a [featured tile](/guide/featured): its position in `features`, the ids of the tiles merged into it, and the item it's for. |
 

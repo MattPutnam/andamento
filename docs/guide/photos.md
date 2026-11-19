@@ -16,7 +16,7 @@ tall ones.
 
 <<< @/examples/fitting.ts#matching
 
-- **What's minimised:** the arrangement minimises the total crop, measured as the difference
+- **What's minimized:** the arrangement minimizes the total crop, measured as the difference
   in log aspect ratio. Matching in sorted order solves that exactly.
 - **Which tiles:** by default the same tiles are used as without matching (per `placement`),
   only rearranged. `choose="shape"` also picks which tiles get content by their shape, e.g. the
@@ -40,7 +40,7 @@ const aspects = useImageAspects(photos);
 Content normally fills its tile's bounding box and is clipped to the tile's shape, so text in a
 triangle or hexagon loses its corners. With `safeArea`, each tile's content goes in a box at
 the tile's **safe area**: the largest rectangle that fits inside its shape (holes and rounded
-corners included), centred where it could slide. Add `aspects` and each box has its child's own
+corners included), centerd where it could slide. Add `aspects` and each box has its child's own
 shape, so a photo or card shows whole and uncropped, as big as the tile allows.
 
 <Figure name="fitting-contain" caption="SVG with imageFit: &quot;contain&quot; and imageAspects: every photo whole." />
@@ -71,7 +71,7 @@ as fractions of its width and height, and its tile moves the photo so that point
 middle of what shows as covering the tile allows.
 
 <Figures :items="[
-  { name: 'fitting-centred', caption: 'Cropped round the middle: most suns are cut off' },
+  { name: 'fitting-centerd', caption: 'Cropped round the middle: most suns are cut off' },
   { name: 'fitting-focused', caption: 'With imageFocus: every sun in view' },
 ]" />
 
@@ -91,7 +91,7 @@ const focus = useImageFocus(photos); // or your own: [{ x: 0.3, y: 0.25 }, …]
   is used as the `object-position` percentage as it is.
 - **The target:** the middle of the tile's safe area, so in a window layout it's the part that
   shows.
-- **Guessing the focus:** `estimateFocus(pixels)` in core finds the spot whose colour and
+- **Guessing the focus:** `estimateFocus(pixels)` in core finds the spot whose color and
   brightness stand out most from their surroundings, leaning a little to the middle. It suits a
   subject against a plainer background; for busy pictures, give the focus yourself.
   `useImageFocus(srcs)` in React loads each image and runs it.

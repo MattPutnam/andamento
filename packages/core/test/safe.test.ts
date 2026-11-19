@@ -42,7 +42,7 @@ function fits(cell: Cell, layout: Layout, r: Rect, n = 24) {
   return true;
 }
 
-/** Brute force: a grid of centres and aspects, binary-searching the size of each. */
+/** Brute force: a grid of centers and aspects, binary-searching the size of each. */
 function bruteForce(cell: Cell, layout: Layout, aspect?: number) {
   const b = cell.bbox;
   let best = 0;
@@ -68,7 +68,7 @@ function bruteForce(cell: Cell, layout: Layout, aspect?: number) {
 }
 
 describe("safeArea", () => {
-  it("is the cell itself for a rectangle, or a centred fit for a fixed aspect", () => {
+  it("is the cell itself for a rectangle, or a centerd fit for a fixed aspect", () => {
     const l = one({ x: 0, y: 0, width: 20, height: 10 });
     const c = l.cells[0]!;
     expect(safeArea(c, l)).toEqual({ x: 0, y: 0, width: 20, height: 10 });
@@ -100,7 +100,7 @@ describe("safeArea", () => {
     expect(fits(c, l, r)).toBe(true);
   });
 
-  it("centres the area when it could slide", () => {
+  it("centers the area when it could slide", () => {
     // A 30 x 10 parallelogram-free case: a long hexagon-ish strip; square content slides along it.
     const l = one([vec(0, 5), vec(5, 0), vec(35, 0), vec(40, 5), vec(35, 10), vec(5, 10)]);
     const r = safeArea(l.cells[0]!, l, { aspect: 1 });

@@ -42,7 +42,7 @@ describe("contentSlots", () => {
   it("spreads items evenly with placement: spread", () => {
     const slots = contentSlots(square, 4, { placement: "spread" });
     const chosen = filled(slots).map((i) => square.cells[i]!.centroid);
-    // One per quadrant, near the quadrant centres (25, 25) etc.
+    // One per quadrant, near the quadrant centers (25, 25) etc.
     for (const q of [[25, 25], [75, 25], [25, 75], [75, 75]]) {
       expect(chosen.some((p) => Math.hypot(p.x - q[0]!, p.y - q[1]!) <= 8)).toBe(true);
     }

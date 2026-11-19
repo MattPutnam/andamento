@@ -8,7 +8,7 @@ import { mulberry32 } from "./random";
  */
 export type CellFill = (cell: Cell, layout: Layout) => string;
 
-/** Neighbouring cells get different colors from `colors` (as far as the palette allows). */
+/** Neighboring cells get different colors from `colors` (as far as the palette allows). */
 export function paletteFill(colors: readonly string[]): CellFill {
   if (colors.length === 0) throw new RangeError("paletteFill needs at least one color");
   const cache = new WeakMap<Layout, number[]>();
@@ -43,7 +43,7 @@ export interface GradientOptions {
    * (y grows downward). Defaults to 0.
    */
   angle?: number;
-  /** "radial" runs from the region's centre (first stop) out to its corners (last stop). */
+  /** "radial" runs from the region's center (first stop) out to its corners (last stop). */
   shape?: "linear" | "radial";
 }
 
@@ -141,7 +141,7 @@ export interface Pixels {
 export interface ImageFillOptions {
   /**
    * How the image is laid over the layout bounds: "cover" (default; cropped to fill them,
-   * centred, like the `backdrop` prop), "contain" (whole image, centred) or "stretch".
+   * centerd, like the `backdrop` prop), "contain" (whole image, centerd) or "stretch".
    */
   fit?: "cover" | "contain" | "stretch";
   /**
@@ -206,7 +206,7 @@ export function imageFill(pixels: Pixels, options: ImageFillOptions = {}): CellF
           if (inside(x, y)) add(x, y);
         }
       }
-      // A tile too thin for the grid to land in: use its centre.
+      // A tile too thin for the grid to land in: use its center.
       if (w === 0) add(cell.centroid.x, cell.centroid.y);
       if (w === 0) return fallback;
       const avg: Triple = [fromLinear(r / w), fromLinear(g / w), fromLinear(bl / w)];

@@ -21,9 +21,9 @@ in reading order across the tiles chosen.
 </TileLayout>
 ```
 
-Empty tiles are drawn in `fill`: a colour, a palette (neighbouring tiles get different
+Empty tiles are drawn in `fill`: a color, a palette (neighboring tiles get different
 entries), or a function of the cell. The default for the HTML components is `neutralPalette`,
-soft greys that keep the pattern visible. Use `fill="transparent"` to hide empty tiles, or
+soft grays that keep the pattern visible. Use `fill="transparent"` to hide empty tiles, or
 `fallback` to render something in them.
 
 ## Keeping content out of cut tiles

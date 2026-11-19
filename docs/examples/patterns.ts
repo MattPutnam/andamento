@@ -7,10 +7,10 @@ export interface PatternEntry {
   title: string;
   note: string;
   group: "Bricks and boards" | "Regular polygons" | "Curved and interlocking" | "Aperiodic" | "Escher-style" | "Random" | "Flow";
-  /** Colour by `protoTile` (the tile's kind within the pattern) rather than by neighbour. */
+  /** Color by `protoTile` (the tile's kind within the pattern) rather than by neighbor. */
   byKind?: boolean;
   /** Put the pattern's origin in the middle of the region. */
-  centred?: boolean;
+  centerd?: boolean;
 }
 
 const W = 240, H = 150;
@@ -33,10 +33,10 @@ export const patterns: PatternEntry[] = [
   { group: "Regular polygons", title: "Cairo", spec: { type: "cairo", size: 40 }, note: "Pentagons, as paved on the streets of Cairo.", byKind: true },
   { group: "Curved and interlocking", title: "Fish scale", spec: { type: "fishScale", size: 36 }, note: "Overlapping arcs. Tiles are non-convex." },
   { group: "Curved and interlocking", title: "Jigsaw", spec: { type: "jigsaw", size: 34, seed: 1 }, note: "Puzzle pieces; `seed` picks each tab's direction." },
-  { group: "Aperiodic", title: "Penrose rhombs", spec: { type: "penrose", size: 24, variant: "rhombs" }, note: "Thick and thin rhombs that never repeat. `origin` places the star.", byKind: true, centred: true },
-  { group: "Aperiodic", title: "Penrose kites and darts", spec: { type: "penrose", size: 30, variant: "kitesAndDarts" }, note: "The other Penrose set.", byKind: true, centred: true },
-  { group: "Aperiodic", title: "Hat", spec: { type: "hat", size: 26 }, note: "The 2023 monotile: one shape, never repeating. Mirrored hats are protoTile 4.", byKind: true, centred: true },
-  { group: "Aperiodic", title: "Spectre", spec: { type: "spectre", size: 28 }, note: "A monotile that needs no mirrored copies.", byKind: true, centred: true },
+  { group: "Aperiodic", title: "Penrose rhombs", spec: { type: "penrose", size: 24, variant: "rhombs" }, note: "Thick and thin rhombs that never repeat. `origin` places the star.", byKind: true, centerd: true },
+  { group: "Aperiodic", title: "Penrose kites and darts", spec: { type: "penrose", size: 30, variant: "kitesAndDarts" }, note: "The other Penrose set.", byKind: true, centerd: true },
+  { group: "Aperiodic", title: "Hat", spec: { type: "hat", size: 26 }, note: "The 2023 monotile: one shape, never repeating. Mirrored hats are protoTile 4.", byKind: true, centerd: true },
+  { group: "Aperiodic", title: "Spectre", spec: { type: "spectre", size: 28 }, note: "A monotile that needs no mirrored copies.", byKind: true, centerd: true },
   { group: "Escher-style", title: "Isohedral IH41", spec: { type: "isohedral", ih: 41, size: 50, amount: 0.15 }, note: "One of the 81 isohedral types, with wavy edges.", byKind: true },
   { group: "Escher-style", title: "Isohedral IH28", spec: { type: "isohedral", ih: 28, size: 50, amount: 0.2 }, note: "Every tile the same shape, in two orientations.", byKind: true },
   { group: "Escher-style", title: "Isohedral IH7", spec: { type: "isohedral", ih: 7, size: 46, amount: 0.18 }, note: "Three orientations round each point.", byKind: true },
@@ -44,7 +44,7 @@ export const patterns: PatternEntry[] = [
   { group: "Random", title: "Delaunay", spec: { type: "delaunay", size: 40, relax: 2, seed: 1 }, note: "Random triangles." },
   { group: "Random", title: "Ashlar", spec: { type: "ashlar", height: 22, minLength: 20, maxLength: 70, heightVariation: 0.3, seed: 1 }, note: "Stone courses of random lengths and heights." },
   { group: "Random", title: "Mondrian", spec: { type: "mondrian", minSize: 30, maxSize: 90, splitChance: 0.4, snap: 5, seed: 3 }, note: "Random rectangles, split and split again." },
-  { group: "Flow", title: "Flow", spec: { type: "flow", size: 8, centers: [{ x: 160, y: 70 }], followEdges: true }, note: "Rows of tesserae following the edges and ringing a centre point.", byKind: true },
+  { group: "Flow", title: "Flow", spec: { type: "flow", size: 8, centers: [{ x: 160, y: 70 }], followEdges: true }, note: "Rows of tesserae following the edges and ringing a center point.", byKind: true },
 ];
 
 /** How a spec is written with the core's helper functions, e.g. `hexagonal({ size: 26 })`. */
@@ -63,7 +63,7 @@ export function specCode(spec: TilingSpec): string {
 
 export const slug = (p: PatternEntry) => p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-const colours = ["#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#264653", "#8ab17d"];
+const colors = ["#2a9d8f", "#e9c46a", "#f4a261", "#e76f51", "#264653", "#8ab17d"];
 
 /** One picture per pattern, keyed by slug. */
 export function gallery(): Record<string, string> {
@@ -73,10 +73,10 @@ export function gallery(): Record<string, string> {
       region: { x: 0, y: 0, width: W, height: H },
       tiling: p.spec,
       gap: p.spec.type === "flow" ? 0.8 : 1.5,
-      ...(p.centred ? { origin: { x: W / 2, y: H / 2 } } : {}),
+      ...(p.centerd ? { origin: { x: W / 2, y: H / 2 } } : {}),
     });
     out[slug(p)] = renderToString(layout, {
-      fill: p.byKind ? protoTileFill(colours) : colours,
+      fill: p.byKind ? protoTileFill(colors) : colors,
       background: "#fbf8f3",
       title: p.title,
       idPrefix: slug(p),

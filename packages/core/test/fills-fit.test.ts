@@ -19,7 +19,7 @@ const square = createLayout({ region: { x: 0, y: 0, width: 100, height: 100 }, t
 const cell = (x: number, y: number) => square.cells.find((c) => c.bbox.x === x * 10 && c.bbox.y === y * 10)!;
 
 describe("fill helpers", () => {
-  it("paletteFill colors neighbours differently", () => {
+  it("paletteFill colors neighbors differently", () => {
     const f = paletteFill(["#a00", "#0a0", "#00a"]);
     for (const c of square.cells) {
       for (const id of c.neighbors) expect(f(c, square)).not.toBe(f(square.cells.find((d) => d.id === id)!, square));

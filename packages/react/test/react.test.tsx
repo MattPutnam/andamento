@@ -95,7 +95,7 @@ describe("<TileLayout> empty tiles and content placement", () => {
     const backgrounds = [...html.matchAll(/data-empty=""[^>]*background:([^;"]+)/g)].map((m) => m[1]);
     expect(backgrounds).toHaveLength(5);
     expect(backgrounds.every((b) => neutralPalette.includes(b!))).toBe(true);
-    // Neighbours differ.
+    // Neighbors differ.
     expect(backgrounds[0]).not.toBe(backgrounds[1]); // tiles 1 and 2
     // The filled tile gets no fill.
     expect(tile(html, 0)[0]).not.toContain("background");

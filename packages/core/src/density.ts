@@ -44,7 +44,7 @@ interface RefineContext {
  * Make tiles smaller where the size field asks: tiles wanting to be under about half their
  * size are replaced, as a group, by the same tiling at half the scale, cut to the area
  * they covered; and so on down. Fine tiles cut into slivers at the edge of a finer area
- * are merged into a neighbour. Tilings that halve exactly (a grid from the same origin, say)
+ * are merged into a neighbor. Tilings that halve exactly (a grid from the same origin, say)
  * nest without cuts.
  */
 export function refineTiles(raw: RawTile[], ctx: RefineContext): RawTile[] {
@@ -120,7 +120,7 @@ function subdivide(parents: RawTile[], ctx: RefineContext, level: number): RawTi
     // Across the edge of the finer area: keep the part inside it.
     const loops = under.map((i) => parents[i]!.polygon);
     const shapes = overlay([polygon, ...loops], (p) => pointInPolygon(p, polygon) && loops.some((l) => pointInPolygon(p, l)), ctx.scaleRef);
-    // Even tiny pieces are kept (they're merged into a neighbour below): dropping one would
+    // Even tiny pieces are kept (they're merged into a neighbor below): dropping one would
     // leave a hole.
     shapes.forEach((s, j) => pieces.push({ id: j ? `${id}~${j}` : id, polygon: s.outer, protoTile: t.protoTile, nominal }));
   }
@@ -128,8 +128,8 @@ function subdivide(parents: RawTile[], ctx: RefineContext, level: number): RawTi
 }
 
 /**
- * Merge pieces under 30% of their full tile's area into the neighbour they share the most
- * with (or any neighbour sharing an edge), so cuts don't leave crumbs.
+ * Merge pieces under 30% of their full tile's area into the neighbor they share the most
+ * with (or any neighbor sharing an edge), so cuts don't leave crumbs.
  */
 export function mergeSlivers(pieces: (RawTile & { nominal: number; group?: number })[], scaleRef: number, tol0: number): RawTile[] {
   const alive = pieces.map(() => true);
@@ -140,7 +140,7 @@ export function mergeSlivers(pieces: (RawTile & { nominal: number; group?: numbe
   for (const i of small) {
     if (!alive[i]) continue;
     const bi = boxes[i]!;
-    // The biggest neighbour sharing an edge, from the same group (a flow row) if there is one.
+    // The biggest neighbor sharing an edge, from the same group (a flow row) if there is one.
     let best = -1, bestArea = -1;
     for (let j = 0; j < pieces.length; j++) {
       if (j === i || !alive[j]) continue;

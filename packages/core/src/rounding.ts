@@ -27,7 +27,7 @@ const unit = (v: Vec): Vec => {
  *
  * Each corner's radius is reduced where needed so an arc never uses more than
  * half of either adjacent edge, so short edges and sharp corners stay valid and
- * neighbouring arcs never overlap.
+ * neighboring arcs never overlap.
  */
 export function roundCorners(poly: Polygon, radius: number | readonly number[]): RoundedCorner[] {
   const n = poly.length;

@@ -2,7 +2,7 @@ import { bbox, transform, vec, type Polygon, type Rect, type Vec } from "./geome
 import type { GenerateContext, RawTile } from "./tilings";
 
 /*
- * Substitution (subdivision) tilings: start from a patch of large pieces centred on
+ * Substitution (subdivision) tilings: start from a patch of large pieces centerd on
  * the origin, then repeatedly replace every piece with smaller pieces according to
  * fixed rules. Penrose, Ammann–Beenker and Conway–Radin pinwheel tilings are built this
  * way (the last is unrelated to the repeating `pinwheel` pattern).
@@ -16,7 +16,7 @@ export interface Piece {
 }
 
 export interface SubstitutionRule {
-  /** Pieces at scale 1, centred on the origin. */
+  /** Pieces at scale 1, centerd on the origin. */
   seed: Omit<Piece, "path">[];
   /** Radius of a disc around the origin that the seed patch fully covers, at scale 1. */
   coverRadius: number;
@@ -38,7 +38,7 @@ export interface SubstitutionRule {
 
 /**
  * Subdivide `rule`'s seed until the final tiles have edge `size`, keeping only pieces
- * near the region, and assemble them. `ctx.origin` places the centre of the seed patch;
+ * near the region, and assemble them. `ctx.origin` places the center of the seed patch;
  * `ctx.rotation` turns the whole pattern.
  */
 export function generateSubstitution(
@@ -49,7 +49,7 @@ export function generateSubstitution(
   idPrefix = "s",
 ): RawTile[] {
   const theta = (ctx.rotation * Math.PI) / 180;
-  // Work in the pattern's own frame: origin at the patch centre, unrotated.
+  // Work in the pattern's own frame: origin at the patch center, unrotated.
   const local = transform(
     ctx.region.map((v) => vec(v.x - ctx.origin.x, v.y - ctx.origin.y)),
     -theta,
@@ -130,7 +130,7 @@ export const penroseRhombs: SubstitutionRule = {
   seed: Array.from({ length: 10 }, (_, i) => {
     let b = vec(Math.cos(((2 * i - 1) * Math.PI) / 10), Math.sin(((2 * i - 1) * Math.PI) / 10));
     let c = vec(Math.cos(((2 * i + 1) * Math.PI) / 10), Math.sin(((2 * i + 1) * Math.PI) / 10));
-    // Mirror every other triangle so neighbours pair up into rhombs.
+    // Mirror every other triangle so neighbors pair up into rhombs.
     if (i % 2 === 0) [b, c] = [c, b];
     return { kind: 0, points: [vec(0, 0), b, c] };
   }),

@@ -49,7 +49,7 @@ line in the pictures is the region.
 ### Window edges
 
 In `"clip"` mode a cut tile *is* the piece left inside the region. Rounding, relief and
-content all treat the cut as a real edge: the bevel runs along it and a photo is centred in
+content all treat the cut as a real edge: the bevel runs along it and a photo is centerd in
 the sliver. That suits work that ends at the region's edge, like a tiled floor.
 
 With `edges: "window"` the tiles stay whole and the region only hides part of them:

@@ -158,7 +158,7 @@ describe("holes", () => {
     expect(none.cells).toHaveLength(66);
   });
 
-  it("works with gap, rounding and neighbours", () => {
+  it("works with gap, rounding and neighbors", () => {
     const l = createLayout({ region: L, holes: [rectPolygon(80, 80, 100, 60)], tiling: herringbone({ length: 80, width: 40 }), gap: 4, cornerRadius: 3 });
     expect(l.cells.every((c) => c.neighbors.every((id) => l.cells.some((d) => d.id === id)))).toBe(true);
     expect(l.cells.some((c) => c.neighbors.length > 0)).toBe(true);

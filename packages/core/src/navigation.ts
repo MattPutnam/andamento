@@ -7,7 +7,7 @@ const DIRS: Record<Direction, [number, number]> = { up: [0, -1], down: [0, 1], l
 /**
  * The cell to move to from `from` in a direction, for arrow-key navigation over any tiling.
  *
- * Looks at cells whose centre lies ahead (within 60° of the direction first, then anywhere
+ * Looks at cells whose center lies ahead (within 60° of the direction first, then anywhere
  * ahead) and picks the nearest, with sideways distance counting double, so moving keeps to
  * a "row" or "column" where the tiling has one. `accept` limits it to some cells (those
  * with content, say). Returns undefined at the edge.

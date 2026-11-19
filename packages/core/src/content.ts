@@ -111,7 +111,7 @@ export interface MatchOptions extends ContentOptions {
  * is what content is laid out in.
  *
  * Featured cells still take their items first (see `contentSlots`). The rest are matched to
- * minimise the total crop (measured as the difference in log aspect ratio, which is optimal
+ * minimize the total crop (measured as the difference in log aspect ratio, which is optimal
  * to match by sorting both sides). Returns the item index per cell (by `cell.index`), or -1.
  */
 export function matchSlots(layout: Layout, aspects: readonly number[], options: MatchOptions = {}): number[] {
@@ -145,7 +145,7 @@ export function matchSlots(layout: Layout, aspects: readonly number[], options: 
 
 /**
  * Choose `a.length` of the (sorted) values `c` to pair, in order, with the (sorted) values
- * `a`, minimising the total |a - c|. Order-preserving pairings are optimal for this cost,
+ * `a`, minimizing the total |a - c|. Order-preserving pairings are optimal for this cost,
  * so a dynamic program over (items, cells) finds the best. Returns the chosen indices of `c`.
  */
 function bestSubset(a: number[], c: number[]): number[] {
@@ -195,8 +195,8 @@ function nearestToCenter(layout: Layout, cells: Cell[], n: number): Cell[] {
 }
 
 /**
- * `n` cells spread evenly: k-means on cell centres (seeded by farthest-point sampling, so
- * it's deterministic), then the cell nearest each cluster centre. The iteration count is
+ * `n` cells spread evenly: k-means on cell centers (seeded by farthest-point sampling, so
+ * it's deterministic), then the cell nearest each cluster center. The iteration count is
  * capped so very large layouts stay fast; the seeding alone is already well spread.
  */
 function spread(cells: Cell[], n: number): Cell[] {
@@ -206,7 +206,7 @@ function spread(cells: Cell[], n: number): Cell[] {
   const ys = Float64Array.from(cells, (c) => c.centroid.y);
   const ws = Float64Array.from(cells, (c) => c.area);
 
-  // Farthest-point seeding, starting from the cell nearest the overall (area-weighted) centre.
+  // Farthest-point seeding, starting from the cell nearest the overall (area-weighted) center.
   let sx = 0, sy = 0, sw = 0;
   for (let i = 0; i < m; i++) { sx += xs[i]! * ws[i]!; sy += ys[i]! * ws[i]!; sw += ws[i]!; }
   sx /= sw || 1; sy /= sw || 1;
@@ -256,7 +256,7 @@ function spread(cells: Cell[], n: number): Cell[] {
     if (!moved) break;
   }
 
-  // The nearest still-free cell to each centre.
+  // The nearest still-free cell to each center.
   const taken = new Uint8Array(m);
   const chosen: Cell[] = [];
   for (let k = 0; k < n; k++) {

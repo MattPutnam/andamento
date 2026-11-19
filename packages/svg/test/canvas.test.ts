@@ -42,7 +42,7 @@ describe("drawLayout", () => {
     expect(ops.filter((o) => o[0] === "save").length).toBe(ops.filter((o) => o[0] === "restore").length);
   });
 
-  it("centres a layout in a canvas of another shape", () => {
+  it("centers a layout in a canvas of another shape", () => {
     const { ctx, ops } = recorder(300, 400);
     drawLayout(ctx, g);
     expect(ops.find((o) => o[0] === "setTransform")).toEqual(["setTransform", 1, 0, 0, 1, 0, 100]);

@@ -57,8 +57,8 @@ import { hexagonal } from "@andamento/core";
 - `placement`: where children go when there are fewer than tiles. `"reading"` (default)
   packs them from the top left, `"center"` clusters them in the middle, `"spread"` spaces them
   evenly. Children always run in reading order across the tiles chosen.
-- `fill`: color of empty tiles. A color, a palette (neighbouring tiles get different
-  entries), or `(cell) => color`. Defaults to `neutralPalette`, soft greys that keep the pattern
+- `fill`: color of empty tiles. A color, a palette (neighboring tiles get different
+  entries), or `(cell) => color`. Defaults to `neutralPalette`, soft grays that keep the pattern
   visible; `fill="transparent"` hides empty tiles.
 - Per-cell functions (`fallback`, `cellClassName`, `cellStyle`) get a second argument,
   `{ empty, slot }`: whether the tile has content, and the index of the child it holds.
@@ -79,7 +79,7 @@ const aspects = useImageAspects(photos); // width / height of each, once loaded
 
 With `aspects` (one width / height per child), each child goes in a tile of similar shape,
 so `object-fit: cover` crops as little as possible: landscape photos in wide tiles,
-portraits in tall ones. The arrangement minimises the total crop (as the difference in log
+portraits in tall ones. The arrangement minimizes the total crop (as the difference in log
 aspect ratio, which matching in sorted order solves exactly). By default the same tiles are
 used as without matching (`placement`), only rearranged; `choose="shape"` also picks which
 tiles get content by their shape, e.g. the vertical bricks of a herringbone for portraits.
@@ -101,7 +101,7 @@ returns the item per cell. Children's order no longer follows reading order when
 Content normally fills a tile's bounding box and is clipped to the tile's shape, so text in a
 triangle or hexagon loses its corners. With `safeArea`, each tile's content goes in a box at
 the tile's *safe area*: the largest rectangle that fits inside its shape (holes and rounded
-corners included), centred where it could slide. Add `aspects` and each child's box has the
+corners included), centerd where it could slide. Add `aspects` and each child's box has the
 child's own shape, so a photo or card shows whole and uncropped, as big as the tile allows.
 The box has `data-safe-area`, and every tile shows its `fill` around it.
 
@@ -134,7 +134,7 @@ const focus = useImageFocus(photos); // or your own: [{ x: 0.3, y: 0.25 }, …]
   as the `object-position` percentage as it is.
 - The target is the middle of the tile's safe area, so in a window layout it's the part
   that shows (see [Window edges](#window-edges)).
-- `estimateFocus(pixels)` (core) guesses the focal point: the spot whose colour and
+- `estimateFocus(pixels)` (core) guesses the focal point: the spot whose color and
   brightness stand out most from their surroundings, leaning a little to the middle. It suits
   a subject against a plainer background; for busy pictures, give the focus yourself.
   `useImageFocus(srcs)` (React) loads each image and runs it.
@@ -192,11 +192,11 @@ move to the nearest tile in that direction, in any tiling: hexagons, herringbone
 aperiodic hats. Home and End go to the first and last tile. `onCellActivate` runs on Enter,
 Space or a click. Keys pressed in a tile's own inputs or buttons are left alone. The focused
 tile gets a ring drawn inside its shape, because a CSS outline would be clipped away. Set
-the ring's colour with `focusRing`, or pass `false` and style `[data-cell-id]:focus-visible`
+the ring's color with `focusRing`, or pass `false` and style `[data-cell-id]:focus-visible`
 yourself. In core, `cellInDirection(layout, cell, "left", accept?)` is the same navigation.
 
 For SVG, `imageAlts` (on `<SvgTileLayout>` or `renderToString`) gives each image a text
-alternative. Those cells become labelled images, the SVG a group of them, and the rest is
+alternative. Those cells become labeled images, the SVG a group of them, and the rest is
 hidden as decoration.
 
 #### Animated transitions
@@ -212,7 +212,7 @@ removing or reordering children.
 - **Moving and reshaping:** a child keeps its tile element (give children keys), and the
   tile glides to its new place while its shape morphs, a square into a hexagon say.
 - **Coming and going:** new tiles fade in, and removed ones stay a moment to fade out.
-- **Colours:** empty-tile fills cross-fade.
+- **Colors:** empty-tile fills cross-fade.
 - **Bevels:** a `relief` bevel fades in for the new shape as the tile arrives.
 
 It is all CSS transitions, with no animation loop in JavaScript. Every tile's `clip-path`
@@ -225,7 +225,7 @@ their content moves to an ordinary tile. Cells with holes, and window cells the 
 without morphing. Animation is off for users who prefer reduced motion. Static SVG output
 doesn't animate.
 
-#### Virtualisation
+#### Virtualization
 
 ```tsx
 <TileLayout options={{ region: { x: 0, y: 0, width: 2000, height: 40000 }, tiling }} virtualize>
@@ -288,13 +288,13 @@ thousands of cells.
 ```ts
 import { gradientFill, paletteFill, protoTileFill, randomFill } from "@andamento/core";
 
-fill={paletteFill(["#eee", "#ddd", "#ccc"])}               // neighbours differ (same as passing the array)
+fill={paletteFill(["#eee", "#ddd", "#ccc"])}               // neighbors differ (same as passing the array)
 fill={gradientFill(["#f6d365", "#fda085"], { angle: 45 })} // by position; also { shape: "radial" }
 fill={protoTileFill(["#e7e5e4", "#d6d3d1"])}               // by tile shape, e.g. herringbone's two directions
 fill={randomFill(["#eee", "#ddd", "#ccc"], 42)}            // stable per tile id across resizes
 ```
 
-Gradients take hex colors and blend in OKLab, so the middle doesn't turn grey.
+Gradients take hex colors and blend in OKLab, so the middle doesn't turn gray.
 
 `imageFill(pixels, { fit, palette, fallback, samples })` colors each tile with the average
 color of an image under it, for a mosaic. `pixels` is RGBA data (`{ width, height, data }`,
@@ -473,7 +473,7 @@ Patterns:
 - Curved and interlocking (non-convex tiles): `fishScale`, `jigsaw` (seeded tab directions)
 - Aperiodic monotiles (a single shape that tiles without ever repeating): `hat` (about one hat
   in seven is mirrored; `protoTile` 4) and `spectre` (no mirrored tiles). `size` is the tile's
-  width; `origin` is the pattern's fixed centre, as for `penrose`
+  width; `origin` is the pattern's fixed center, as for `penrose`
 - Escher-style: `isohedral({ ih, size, params?, edges?, amount? })`, any of the 81 isohedral
   types with freely shaped tiles. Edges are `"wave"` (default), `"straight"` or your own curves,
   one per edge class; `isohedralInfo(ih)` lists the type's shape parameters and which edges
@@ -481,7 +481,7 @@ Patterns:
   lists the types. `protoTile` is the tile's orientation class within the pattern
 - Other: `cairo` (pentagons), `penrose` (a pattern that never repeats: thick and thin rhombs,
   or kites and darts with `variant: "kitesAndDarts"`; `origin` places the star at the pattern's
-  centre, so set it to the middle of the region)
+  center, so set it to the middle of the region)
 - Random, seeded (same `seed`, same layout): `voronoi` (irregular polygons, like crazy paving),
   `delaunay` (random triangles), `ashlar` (stone courses of random lengths), `mondrian`
   (random rectangles). `relax` controls how even Voronoi cells and triangles are.
@@ -510,7 +510,7 @@ checkPeriodic(trominoes); // { ok, gaps, overlaps, selfIntersecting, cellArea, m
 const custom = tiles({ tiles: [{ polygon: myPolygon, id: "hero", protoTile: 1 }, /* … */] });
 ```
 
-Both get the usual gap, margin, edge handling, rounding, neighbours and rendering; `periodic`
+Both get the usual gap, margin, edge handling, rounding, neighbors and rendering; `periodic`
 also gets rotation, origin and lattice-based ids. Polygons can be non-convex but must be simple.
 `checkPeriodic` samples one lattice cell and reports the fraction of points covered by no tile
 (`gaps`) or by several (`overlaps`); `periodicDefinition(spec)` gives the `{ a, b, motif }` of
@@ -531,7 +531,7 @@ region outline), `protoTile` and `neighbors` (ids of cells sharing an edge).
 For other frameworks, `cellCss(cell, layout)` returns `{ left, top, width, height, clipPath }`
 as percentages, and `boundsAspectRatio(layout)` gives the container's `aspect-ratio`.
 
-Lower-level helpers are exported too, e.g. `colorCells` (neighbour-aware color indices),
+Lower-level helpers are exported too, e.g. `colorCells` (neighbor-aware color indices),
 `insetPolygon`, `roundedPolygon`, `voronoiCells`, `delaunayTriangles` and `generateSubstitution`.
 
 ## Canvas and PNG
@@ -552,7 +552,7 @@ strokes, with rounded corners drawn as true arcs.
 - **`width` and `pixelRatio`:** set the size; the height follows the layout's shape.
 - **`renderToCanvas(layout, canvas, options)`:** the same, onto your own canvas.
 - **`drawLayout(ctx, layout, options)`:** draws synchronously, scaled to fit the canvas and
-  centred. Pass loaded images in `loaded`, e.g. from `loadImages(imagesUsed(layout, options))`.
+  centerd. Pass loaded images in `loaded`, e.g. from `loadImages(imagesUsed(layout, options))`.
 
 It works with any 2D context. In Node, use a canvas package such as `@napi-rs/canvas` or
 `skia-canvas`: pass its `loadImage` and `createCanvas` (or call `drawLayout` and its own
@@ -563,7 +563,7 @@ Two cautions:
   allow it, or the browser won't let the canvas be exported. Images that fail to load show
   their cell's `fill`.
 - **React content:** `<TileLayout>` children are HTML, so they can't be drawn; the canvas
-  renderer draws images and colours.
+  renderer draws images and colors.
 
 ## Development
 
@@ -609,16 +609,16 @@ createLayout({
 });
 ```
 
-Each feature merges `tiles` neighbouring tiles into one bigger cell, for a hero image or a
+Each feature merges `tiles` neighboring tiles into one bigger cell, for a hero image or a
 highlighted item. The group grows from a tile near `at` (default: the middle of the
-region), adding whichever neighbour keeps it most compact, so 4 grid tiles make a 2 × 2
+region), adding whichever neighbor keeps it most compact, so 4 grid tiles make a 2 × 2
 square and 7 hexagons a flower. It tries growing from several of the free tiles nearest `at`
 and keeps the most compact group, close to `at` and avoiding tiles the region edge cuts
 (a tile the margin only trims counts as whole). Features never share tiles. To pick the tiles yourself, pass `ids` (tile ids are stable, so read them from a
 layout without features).
 
 Merging happens before the gap and edge handling, so a featured cell gets the same gap all
-round and is cut, rounded and given neighbours like any other. Featured cells have
+round and is cut, rounded and given neighbors like any other. Featured cells have
 `featured` (their position in `features`) and `merged` (the ids of the tiles inside), and
 take the first content: `<TileLayout>`'s first child goes to the first feature, and so on;
 the rest follow `placement` as usual. A feature can name its item instead (`item: 4`).
@@ -634,8 +634,8 @@ When some items matter more than others, give each a weight: how many tiles it s
 ```
 
 - Every item over 1 (weights are rounded) gets a featured tile of that many merged tiles,
-  where it falls in the items' order: its feature is centred on the tiles it would have
-  filled, one by one, in reading order, so heavy items stay among their neighbours. Bigger
+  where it falls in the items' order: its feature is centerd on the tiles it would have
+  filled, one by one, in reading order, so heavy items stay among their neighbors. Bigger
   features are placed first, so they get room.
 - With `fit`, the tiles are sized so everything fits, counting each item as its weight.
 - Vue takes `weights` too, `<andamento-layout>` reads `data-weight="4"` on children (or a
@@ -659,7 +659,7 @@ createLayout({ region, tiling: flow({ size: 8, guides: [{ points: curve }] }) })
 shapes of the picture. The `flow` tiling lays its rows along three kinds of guide:
 - **The region's outline:** this is `followEdges`, the default when there's nothing else.
   Rows run round any holes too, as in opus vermiculatum.
-- **Centre points:** each gets a round tessera, ringed by row after row.
+- **Center points:** each gets a round tessera, ringed by row after row.
 - **Guide curves:** open or closed polylines in layout units. A row runs along each curve, with
   more rows parallel to it on both sides.
 
@@ -671,13 +671,13 @@ The options:
 - **`length`:** the tessera length along its row, as a multiple of `size` (default 1.3).
 - **`jitter`:** how much tessera lengths vary (default 0.3).
 - **`seed`:** varies the random lengths.
-- **Row colours:** rows alternate `protoTile` 0 and 1, so `protoTileFill` can colour by row.
+- **Row colors:** rows alternate `protoTile` 0 and 1, so `protoTileFill` can color by row.
 
 How it's built:
 - **Rows:** each row is a band of a distance field. Its edges are the field's level lines, and
-  tesserae are cut across it between seeds spaced along its centre line.
+  tesserae are cut across it between seeds spaced along its center line.
 - **Exact cover:** the bands and cuts are assembled into tiles that cover the region exactly,
-  with leftover crumbs merged into a neighbour in the same row.
+  with leftover crumbs merged into a neighbor in the same row.
 - **Speed:** a 400 × 300 region with rows 10 high (about 1,000 tesserae) takes about a quarter
   of a second.
 - **Limits:** `rotation`, `origin` and `sizeAt` don't apply. `tileScale` scales the rows.
@@ -700,7 +700,7 @@ How the size changes depends on the tiling:
   under about half that, groups of them are replaced by the same tiling at half the scale,
   then again, down to the smallest. A grid from the same origin nests exactly, like a quadtree.
   Other tilings are cut where a finer area meets a coarser one, and cut slivers are merged into
-  a neighbour, so there are no crumbs or gaps.
+  a neighbor, so there are no crumbs or gaps.
 
 Three helpers make size fields, each easing smoothly between its two sizes:
 - **`radialSize({ center, radius, inner, outer })`:** small at a point, growing outwards.
@@ -730,7 +730,7 @@ the holes as subpaths. `layout.holes` lists the region's holes, and `regionCss(l
 
 In `"clip"` mode a cut tile *is* the piece left inside the region: rounding, relief and
 content all treat the cut as a real edge, so rounding gives the cut new round corners, the bevel
-runs along it, and a photo is centred in the sliver. That suits work that ends at the region
+runs along it, and a photo is centerd in the sliver. That suits work that ends at the region
 edge. With `edges: "window"` the tiles stay whole and the region is just a window onto them:
 
 ```ts
@@ -764,7 +764,7 @@ polygon overlay, applied only to tiles near an edge, so it costs about the same.
   kept. If the region edge cuts a non-convex tile into separate parts, each part becomes its
   own cell: the largest keeps the tile's id, the others get `~1`, `~2`, ….
 - Content is laid out in each tile's bounding box and clipped; for hexagons and cut edge tiles,
-  keep important content near the centre.
+  keep important content near the center.
 
 ## Credits
 

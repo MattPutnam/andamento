@@ -10,7 +10,7 @@ import { generateFlow, type FlowSpec } from "./flow";
 export type { FlowSpec } from "./flow";
 
 /*
- * Tiling specs are plain, JSON-serialisable objects so a layout can be saved,
+ * Tiling specs are plain, JSON-serializable objects so a layout can be saved,
  * shared and used as a memo key. The helper functions below just add `type`.
  */
 
@@ -48,7 +48,7 @@ export interface BasketweaveSpec {
 
 export interface HexagonalSpec {
   type: "hexagonal";
-  /** Circumradius: centre-to-corner distance. */
+  /** Circumradius: center-to-corner distance. */
   size: number;
   /** "pointy" puts a corner at the top; "flat" puts an edge at the top. Defaults to "pointy". */
   orientation?: "pointy" | "flat";
@@ -102,7 +102,7 @@ export interface PinwheelSpec {
   type: "pinwheel";
   /** Long side of each rectangle. Must be greater than `width`. */
   length: number;
-  /** Short side of each rectangle. The centre squares have side `length - width`. */
+  /** Short side of each rectangle. The center squares have side `length - width`. */
   width: number;
 }
 
@@ -233,7 +233,7 @@ export interface PeriodicSpec {
 
 /**
  * Explicit tiles, used as given (in region units): nothing is generated, and `rotation`
- * and `origin` are ignored. The usual gap, margin, edge, rounding and neighbour handling
+ * and `origin` are ignored. The usual gap, margin, edge, rounding and neighbor handling
  * applies. Ids default to "t0", "t1", …; given ids must be unique.
  */
 export interface TilesSpec {
@@ -317,7 +317,7 @@ export const penrose = (p: Omit<PenroseSpec, "type">): PenroseSpec => ({ type: "
 export const periodic = (p: Omit<PeriodicSpec, "type">): PeriodicSpec => ({ type: "periodic", ...p });
 export const tiles = (p: Omit<TilesSpec, "type">): TilesSpec => ({ type: "tiles", ...p });
 export const mondrian = (p: Omit<MondrianSpec, "type">): MondrianSpec => ({ type: "mondrian", ...p });
-/** Andamento: tesserae in rows following guide curves, centres or the region's outline. See `FlowSpec`. */
+/** Andamento: tesserae in rows following guide curves, centers or the region's outline. See `FlowSpec`. */
 export const flow = (p: Omit<FlowSpec, "type">): FlowSpec => ({ type: "flow", ...p });
 
 /** A tile as produced by a generator, before gap/clipping is applied. */
@@ -461,7 +461,7 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
     case "rhombille": {
       const s = positive("rhombille.size", spec.size);
       const r3 = Math.sqrt(3);
-      // A pointy hexagon split into three rhombi from its centre: top, right and left faces of a cube.
+      // A pointy hexagon split into three rhombi from its center: top, right and left faces of a cube.
       const v = regular(6, s, 30);
       const face = (k: number): Polygon => [vec(0, 0), v[k % 6]!, v[(k + 1) % 6]!, v[(k + 2) % 6]!];
       return {
@@ -506,7 +506,7 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
     case "rhombitrihexagonal": {
       const s = positive("rhombitrihexagonal.size", spec.size);
       const d = s * (1 + Math.sqrt(3));
-      // Pointy hexagon; a square on each edge facing a neighbour (0°, 60°, 120°) and a
+      // Pointy hexagon; a square on each edge facing a neighbor (0°, 60°, 120°) and a
       // triangle in each corner between two of those squares (30°, 90°).
       const square = (dir: number): Polygon => {
         const p = polar(s, dir - 30);
@@ -569,7 +569,7 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
       const L = positive("pinwheel.length", spec.length);
       const W = positive("pinwheel.width", spec.width);
       if (L <= W) throw new RangeError("pinwheel.length must be greater than pinwheel.width");
-      // Four rectangles turning around a small square; neighbouring pinwheels share rectangles.
+      // Four rectangles turning around a small square; neighboring pinwheels share rectangles.
       return {
         a: vec(L, -W),
         b: vec(W, L),
@@ -585,7 +585,7 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
       const H = positive("flemishBond.height", spec.height);
       const D = positive("flemishBond.header", spec.header ?? L / 2);
       // Each course alternates stretcher and header; the next course is shifted so its
-      // headers sit centred over the stretchers below.
+      // headers sit centerd over the stretchers below.
       return {
         a: vec(L + D, 0),
         b: vec((L + D) / 2, H),
@@ -599,7 +599,7 @@ export function periodicDefinition(spec: Exclude<TilingSpec, ProceduralSpec | Pe
       const r = positive("fishScale.size", spec.size) / 2;
       // Each scale: the lower half of a circle, topped by the lower arcs of the two scales
       // above it, which meet in a point. Arcs are sampled at the same angles everywhere,
-      // so neighbouring scales share exactly the same boundary points.
+      // so neighboring scales share exactly the same boundary points.
       const q = FISH_SCALE_STEPS;
       const arc = (cx: number, cy: number, from: number, to: number, steps: number) =>
         Array.from({ length: steps }, (_, k) => polar(r, from + ((to - from) * k) / steps)).map((v) => vec(cx + v.x, cy + v.y));
@@ -789,7 +789,7 @@ export function generateTiles(spec: TilingSpec, ctx: GenerateContext): RawTile[]
 
 /**
  * Shared plumbing for the monotile tilings: map the region into tile units around the
- * pattern's fixed centre (`ctx.origin`), collect tiles there, and map them back.
+ * pattern's fixed center (`ctx.origin`), collect tiles there, and map them back.
  */
 function generateMonotile(
   size: number,

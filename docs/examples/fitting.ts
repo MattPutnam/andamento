@@ -29,7 +29,7 @@ export function contain() {
 export function focus() {
   const layout = createLayout({ region: { x: 0, y: 0, width: 220, height: 140 }, tiling: grid({ width: 27.5, height: 140 }), gap: 3 });
   return {
-    centred: renderToString(layout, { images, imageAspects: aspects, background: "#e9e3d8" }),
+    centerd: renderToString(layout, { images, imageAspects: aspects, background: "#e9e3d8" }),
     focused: renderToString(layout, { images, imageAspects: aspects, imageFocus: photoFocus(30), background: "#e9e3d8" }),
   };
 }

@@ -8,10 +8,10 @@ Every pattern is a function in `@andamento/core` that returns a plain spec objec
 `hexagonal({ size: 26 })` is the same as `{ type: "hexagonal", size: 26 }`. Sizes are in
 region units. Below, each picture is a 240 × 150 region with the spec shown.
 
-Tiles are coloured so neighbours differ, or by `protoTile` (the kind of tile within the
+Tiles are colored so neighbors differ, or by `protoTile` (the kind of tile within the
 pattern) where the pattern has several, like herringbone's two directions or rhombille's three
-faces. Colour by kind yourself with `protoTileFill` (see
-[Colour, pictures and relief](/guide/styling)).
+faces. Color by kind yourself with `protoTileFill` (see
+[Color, pictures and relief](/guide/styling)).
 
 Every pattern takes `rotation` and `origin` in the layout options, except the random ones
 (`voronoi`, `delaunay`, `ashlar`, `mondrian`, `jigsaw`) and `flow`. Every pattern can be
@@ -31,11 +31,11 @@ scaled as a whole with `tileScale`.
 | `basketweave` | `length` (square side), `strips` (bricks per square) |
 | `hopscotch` | `large`, `small` (square sides) |
 | `pinwheel` | `length`, `width` |
-| `hexagonal` | `size` (centre to corner), `orientation` (`"pointy"` or `"flat"`) |
+| `hexagonal` | `size` (center to corner), `orientation` (`"pointy"` or `"flat"`) |
 | `triangular`, `rhombille`, `octagonSquare`, `trihexagonal`, `rhombitrihexagonal`, `cairo`, `fishScale` | `size` |
 | `jigsaw` | `size`, `seed` |
 | `penrose` | `size`, `variant` (`"rhombs"` or `"kitesAndDarts"`); set `origin` to place the star |
-| `hat`, `spectre` | `size` (the tile's width); `origin` is the pattern's fixed centre |
+| `hat`, `spectre` | `size` (the tile's width); `origin` is the pattern's fixed center |
 | `isohedral` | `ih` (one of `isohedralTypes`), `size`, `params`, `edges`, `amount` |
 | `voronoi`, `delaunay` | `size`, `relax` (evenness), `seed` |
 | `ashlar` | `height`, `minLength`, `maxLength`, `heightVariation`, `seed` |
@@ -59,7 +59,7 @@ tile's orientation class is its `protoTile`.
 
 ### Aperiodic tilings
 
-`penrose`, `hat` and `spectre` never repeat. They grow from a fixed centre, `origin`, which
+`penrose`, `hat` and `spectre` never repeat. They grow from a fixed center, `origin`, which
 defaults to the region's top left. Set it to the region's middle for a symmetrical
 picture: Penrose then has its ten-fold star in the middle. About one hat in seven is a mirror
 image, with `protoTile` 4; the spectre needs no mirrored tiles.

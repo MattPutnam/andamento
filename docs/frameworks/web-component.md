@@ -47,8 +47,8 @@ As attributes:
 | `safe-area` | On, or `"visible"`. |
 | `fit` | On, or `"nearest"`. |
 | `placement`, `content-cells`, `choose` | As in the components. |
-| `background`, `fill` | A colour, or a JSON palette for `fill`. |
-| `focus-ring` | Ring colour. |
+| `background`, `fill` | A color, or a JSON palette for `fill`. |
+| `focus-ring` | Ring color. |
 | `label` | The layout's accessible name. |
 
 Or set them as properties, including the ones that can't be attributes: `options` and

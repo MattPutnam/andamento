@@ -1,18 +1,18 @@
-# Colour, pictures and relief
+# Color, pictures and relief
 
 ## Fills
 
-`fill` colours tiles that have no content (in the SVG and canvas renderers, every tile without
+`fill` colors tiles that have no content (in the SVG and canvas renderers, every tile without
 an image). It takes:
 
-- **A colour:** every tile the same.
-- **A palette:** an array of colours, given so neighbouring tiles always differ.
-- **A function:** `(cell, layout) => colour`.
+- **A color:** every tile the same.
+- **A palette:** an array of colors, given so neighboring tiles always differ.
+- **A function:** `(cell, layout) => color`.
 
 Core has ready-made functions:
 
 <Figures :columns="4" :items="[
-  { name: 'styling-palette', caption: 'paletteFill: neighbours differ' },
+  { name: 'styling-palette', caption: 'paletteFill: neighbors differ' },
   { name: 'styling-gradient', caption: 'gradientFill: by position' },
   { name: 'styling-proto-tile', caption: 'protoTileFill: by kind of tile' },
   { name: 'styling-random', caption: 'randomFill: stable per tile' },
@@ -21,29 +21,29 @@ Core has ready-made functions:
 ```ts
 import { gradientFill, paletteFill, protoTileFill, randomFill } from "@andamento/core";
 
-fill={paletteFill(["#eee", "#ddd", "#ccc"])}               // neighbours differ (same as passing the array)
+fill={paletteFill(["#eee", "#ddd", "#ccc"])}               // neighbors differ (same as passing the array)
 fill={gradientFill(["#f6d365", "#fda085"], { angle: 45 })} // by position; also { shape: "radial" }
 fill={protoTileFill(["#e7e5e4", "#d6d3d1"])}               // by kind of tile, e.g. herringbone's two directions
 fill={randomFill(["#eee", "#ddd", "#ccc"], 42)}            // random, but stable per tile id across resizes
 ```
 
-- **Gradients** take hex colours and blend in OKLab, so the middle doesn't turn grey.
+- **Gradients** take hex colors and blend in OKLab, so the middle doesn't turn gray.
   `angle` is in degrees (0 runs left to right, 90 top to bottom), and `shape: "radial"` runs
   from the region's middle out to its corners.
-- **Palettes** are coloured with `colorCells(layout, n)`, which gives neighbour-aware colour
+- **Palettes** are colored with `colorCells(layout, n)`, which gives neighbor-aware color
   indices. It's exported if you need the indices yourself.
-- **Defaults:** `defaultPalette` (warm earth colours, the SVG default) and `neutralPalette`
-  (soft greys, the HTML default for empty tiles) are exported from the renderers.
+- **Defaults:** `defaultPalette` (warm earth colors, the SVG default) and `neutralPalette`
+  (soft grays, the HTML default for empty tiles) are exported from the renderers.
 
 ## Mosaics
 
-`imageFill(pixels, options)` colours each tile with the average colour of a picture under it.
-Averages are taken in linear light, the way colours mix by eye. Add a `palette` and each tile
-snaps to the nearest of a set of colours, like choosing from a box of real tiles.
+`imageFill(pixels, options)` colors each tile with the average color of a picture under it.
+Averages are taken in linear light, the way colors mix by eye. Add a `palette` and each tile
+snaps to the nearest of a set of colors, like choosing from a box of real tiles.
 
 <Figures :items="[
-  { name: 'styling-mosaic-average', caption: 'Penrose rhombs, each the average colour under it' },
-  { name: 'styling-mosaic-palette', caption: 'Snapped to a box of twelve tile colours' },
+  { name: 'styling-mosaic-average', caption: 'Penrose rhombs, each the average color under it' },
+  { name: 'styling-mosaic-palette', caption: 'Snapped to a box of twelve tile colors' },
 ]" />
 
 <<< @/examples/styling.ts#mosaic
@@ -51,7 +51,7 @@ snaps to the nearest of a set of colours, like choosing from a box of real tiles
 | `imageFill` option | Default | |
 |---|---|---|
 | `fit` | `"cover"` | How the picture is laid over the layout: `"cover"`, `"contain"` or `"stretch"`. |
-| `palette` | none | Snap each tile to the nearest of these colours. |
+| `palette` | none | Snap each tile to the nearest of these colors. |
 | `fallback` | `"#d6d3d1"` | For tiles outside the picture. |
 | `samples` | 256 | Points sampled per tile. |
 
@@ -60,7 +60,7 @@ snaps to the nearest of a set of colours, like choosing from a box of real tiles
 CORS-enabled. In React:
 
 ```tsx
-const fill = useImageFill("portrait.jpg", { palette: tileColours }); // undefined while loading
+const fill = useImageFill("portrait.jpg", { palette: tileColors }); // undefined while loading
 <SvgTileLayout options={options} fill={fill} />
 ```
 
@@ -94,7 +94,7 @@ the gaps and cut-outs of the pattern in between.
 
 ## Grout and relief
 
-`gap` is the grout's width and `background` its colour. In the HTML components
+`gap` is the grout's width and `background` its color. In the HTML components
 `background` is any CSS background, so a texture works too. `relief` makes the tiles look
 raised:
 

@@ -41,31 +41,31 @@ describe("flow", () => {
     }
   });
 
-  it("rings a centre point with rows of tesserae", () => {
-    const centre = vec(200, 150);
-    const l = createLayout({ region, tiling: flow({ size: 10, centers: [centre] }) });
+  it("rings a center point with rows of tesserae", () => {
+    const center = vec(200, 150);
+    const l = createLayout({ region, tiling: flow({ size: 10, centers: [center] }) });
     expect(tilesExactly(l)).toBe(true);
-    // A round tessera at the centre.
-    const middle = l.cells.find((c) => pointInPolygon(centre, c.polygon))!;
+    // A round tessera at the center.
+    const middle = l.cells.find((c) => pointInPolygon(center, c.polygon))!;
     // (Its outline is a polygon, slightly inside the circle.)
     expect(middle.area / (Math.PI * 5.137 ** 2)).toBeGreaterThan(0.9);
     expect(middle.area / (Math.PI * 5.137 ** 2)).toBeLessThan(1.01);
     // Away from where rows meet the region's edge, each tessera spans one row across.
     const ring = l.cells.filter((c) => {
-      const d = Math.hypot(c.centroid.x - centre.x, c.centroid.y - centre.y);
+      const d = Math.hypot(c.centroid.x - center.x, c.centroid.y - center.y);
       return d > 30 && d < 120;
     });
     expect(ring.length).toBeGreaterThan(100);
-    const spreads = ring.map((c) => radialSpread(c, centre)).sort((a, b) => a - b);
+    const spreads = ring.map((c) => radialSpread(c, center)).sort((a, b) => a - b);
     expect(spreads[spreads.length >> 1]).toBeLessThan(11.5);
-    // Rows alternate protoTile 0 / 1, for colouring by row.
+    // Rows alternate protoTile 0 / 1, for coloring by row.
     expect(new Set(l.cells.map((c) => c.protoTile))).toEqual(new Set([0, 1]));
   });
 
   it("runs straight rows along a straight guide", () => {
     const l = createLayout({ region, tiling: flow({ size: 10, guides: [{ points: [vec(-50, 150), vec(450, 150)] }] }) });
     expect(tilesExactly(l)).toBe(true);
-    // Rows are horizontal bands 10 high, the middle one centred on the guide.
+    // Rows are horizontal bands 10 high, the middle one centerd on the guide.
     for (const c of l.cells.filter((c) => c.centroid.y > 20 && c.centroid.y < 280)) {
       expect(c.bbox.height).toBeLessThan(10.5);
     }
@@ -101,7 +101,7 @@ describe("flow", () => {
 });
 
 describe("partition", () => {
-  it("splits the plane into labelled regions along the given lines", () => {
+  it("splits the plane into labeled regions along the given lines", () => {
     // A square split into quadrants by two lines.
     const lines = [rectPolygon(0, 0, 10, 10), [vec(5, 0), vec(5, 10)], [vec(0, 5), vec(10, 5)]];
     const label = (p: Vec) => (p.x < 0 || p.y < 0 || p.x > 10 || p.y > 10 ? -1 : (p.x > 5 ? 1 : 0) + (p.y > 5 ? 2 : 0));

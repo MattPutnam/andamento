@@ -5,7 +5,7 @@ These options shape every layout, whatever the pattern. The pictures use hexagon
 
 ## Gap
 
-`gap` is the space between neighbouring tiles: the grout. The renderers show the layout's
+`gap` is the space between neighboring tiles: the grout. The renderers show the layout's
 `background` through it.
 
 <Figures :items="[
@@ -38,7 +38,7 @@ and the HTML renderers approximate them in the `clip-path`.
 ## Rotation, origin and scale
 
 - **`rotation`:** turns the pattern, in degrees.
-- **`origin`:** shifts the pattern. For Penrose, the hat and the spectre it's the fixed centre
+- **`origin`:** shifts the pattern. For Penrose, the hat and the spectre it's the fixed center
   the pattern grows from.
 - **`tileScale`:** scales the whole pattern, whatever its size settings are called. This is how
   [`fit`](/guide/content#sizing-tiles-to-the-content) sizes tiles to the content.

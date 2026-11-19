@@ -26,7 +26,7 @@ export function edges() {
   return renderToString(layout, { fill: ["#e76f51", "#f4a261", "#e9c46a", "#f1dca7"], background: "#fbf8f3" });
 }
 
-/** Small stones where a picture is dark, coloured from the same picture: a mosaic. */
+/** Small stones where a picture is dark, colored from the same picture: a mosaic. */
 export function picture() {
   const pixels = scenePixels();
   const layout = createLayout({

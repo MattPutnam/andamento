@@ -48,7 +48,7 @@ import { hexagonal } from "@andamento/core";
 | `safeArea` | `true`, `"tile"` or `"visible"`: put content in the largest rectangle inside each tile. |
 | `focalPoints` | `{ x, y, aspect? }` per child: what to keep in view. |
 | `weights` | Tiles each child spans. [More](/guide/featured#important-items) |
-| `fill` | Colour of empty tiles: a colour, palette or function. Defaults to `neutralPalette`. |
+| `fill` | Color of empty tiles: a color, palette or function. Defaults to `neutralPalette`. |
 | `fallback` | What to render in empty tiles (fixed, or per cell). |
 | `backdrop` | One element shown across all the tiles. [More](/guide/styling#one-picture-across-all-the-tiles) |
 | `background` | The grout: any CSS background. |
@@ -56,7 +56,7 @@ import { hexagonal } from "@andamento/core";
 | `navigable` | Arrow-key navigation, one tab stop. [More](/guide/accessibility) |
 | `onCellActivate(cell, { slot, empty })` | Enter, Space or a click on a tile. |
 | `cellLabel` | Accessible name per tile. |
-| `focusRing` | Focus ring colour, or `false` to style it yourself. |
+| `focusRing` | Focus ring color, or `false` to style it yourself. |
 | `animate` | `true` or `{ duration, easing }`. [More](/guide/animation) |
 | `virtualize` | `true` or `{ overscan }`. [More](/guide/virtualization) |
 | `cellClassName`, `cellStyle` | Per tile, fixed or a function `(cell, { empty, slot })`. |

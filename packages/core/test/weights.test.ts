@@ -22,7 +22,7 @@ describe("weighted items", () => {
     expect(f.merged).toHaveLength(4);
     const slots = contentSlots(layout, weights.length);
     expect(slots[f.index]).toBe(1);
-    // Tiles 1–4 of the top row are where item 1 would go: its 2 x 2 block is centred under them.
+    // Tiles 1–4 of the top row are where item 1 would go: its 2 x 2 block is centerd under them.
     expect(f.centroid).toEqual({ x: 150, y: 50 });
     // The others fill the remaining tiles in order.
     const order = layout.cells.filter((c) => slots[c.index]! >= 0 && c !== f).map((c) => slots[c.index]);

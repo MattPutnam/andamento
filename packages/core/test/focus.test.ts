@@ -6,7 +6,7 @@ const tall = createLayout({ region: { x: 0, y: 0, width: 100, height: 200 }, til
 const cell = tall.cells[0]!;
 
 describe("coverRect", () => {
-  it("covers the cell's box, centred without a focus", () => {
+  it("covers the cell's box, centerd without a focus", () => {
     const r = coverRect(cell, tall, { aspect: 2 });
     expect(r).toEqual({ x: -175, y: 0, width: 400, height: 200 });
     expect(objectPosition(cell, tall, { aspect: 2 })).toBe("50% 50%");

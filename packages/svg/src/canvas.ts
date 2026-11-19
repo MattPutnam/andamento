@@ -53,7 +53,7 @@ export interface CanvasRenderOptions
 
 /**
  * Draw a layout on a canvas context, scaled to fit `width` by `height` device pixels (the
- * canvas size by default) and centred, like SVG's default `preserveAspectRatio`. It draws
+ * canvas size by default) and centerd, like SVG's default `preserveAspectRatio`. It draws
  * what the SVG renderer does: background, cast shadows, fills, images, bevels and strokes.
  * Synchronous: pass loaded images in `loaded`.
  */
@@ -194,7 +194,7 @@ export function tracePolygon(ctx: Pick<CanvasContextLike, "moveTo" | "lineTo" | 
   ctx.closePath();
 }
 
-/** Draw `img` covering `box`, cropped to its shape and centred (CSS `object-fit: cover`). */
+/** Draw `img` covering `box`, cropped to its shape and centerd (CSS `object-fit: cover`). */
 function drawCover(ctx: CanvasContextLike, img: CanvasImage, box: Rect) {
   if (!img.width || !img.height || !box.width || !box.height) return;
   const s = Math.max(box.width / img.width, box.height / img.height);
@@ -202,7 +202,7 @@ function drawCover(ctx: CanvasContextLike, img: CanvasImage, box: Rect) {
   ctx.drawImage(img as never, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, box.x, box.y, box.width, box.height);
 }
 
-/** Draw `img` whole inside `box`, centred (CSS `object-fit: contain`). */
+/** Draw `img` whole inside `box`, centerd (CSS `object-fit: contain`). */
 function drawContain(ctx: CanvasContextLike, img: CanvasImage, box: Rect) {
   if (!img.width || !img.height || !box.width || !box.height) return;
   const s = Math.min(box.width / img.width, box.height / img.height);

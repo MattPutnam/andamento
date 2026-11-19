@@ -22,7 +22,7 @@ export interface SafeAreaOptions {
  * The largest axis-aligned rectangle that fits wholly inside a cell's shape (its outline,
  * holes and rounded corners), so content placed there isn't clipped. With `aspect`, the
  * largest rectangle of that shape. Among equally large positions it picks the one nearest
- * the cell's centre. In layout coordinates; see `safeAreaCss` for CSS.
+ * the cell's center. In layout coordinates; see `safeAreaCss` for CSS.
  *
  * Works for any shape, convex or not. Results are cached per cell.
  */
@@ -128,7 +128,7 @@ function fitAspect(loops: Polygon[], cell: { centroid: Vec }, a: number, toleran
   const tx = cell.centroid.x * sx, ty = cell.centroid.y * sy;
   const size = Math.min(maxX - minX, maxY - minY);
   const precision = size * tolerance;
-  // Prefer the centre among near-equal positions; small enough not to move a unique best.
+  // Prefer the center among near-equal positions; small enough not to move a unique best.
   const lambda = 1e-2;
 
   /** Signed L∞ distance to the outline: positive inside. */
@@ -159,9 +159,9 @@ function fitAspect(loops: Polygon[], cell: { centroid: Vec }, a: number, toleran
   }
   let best = { x: tx, y: ty, d: dist(tx, ty) };
   let bestScore = score(best.x, best.y, best.d);
-  const bboxCentre = { x: minX + w / 2, y: minY + hgt / 2 };
-  const bd = dist(bboxCentre.x, bboxCentre.y);
-  if (score(bboxCentre.x, bboxCentre.y, bd) > bestScore) { best = { ...bboxCentre, d: bd }; bestScore = score(best.x, best.y, bd); }
+  const bboxCenter = { x: minX + w / 2, y: minY + hgt / 2 };
+  const bd = dist(bboxCenter.x, bboxCenter.y);
+  if (score(bboxCenter.x, bboxCenter.y, bd) > bestScore) { best = { ...bboxCenter, d: bd }; bestScore = score(best.x, best.y, bd); }
 
   for (let guard = 0; heap.size > 0 && guard < 20000; guard++) {
     const n = heap.pop()!;

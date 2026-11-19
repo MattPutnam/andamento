@@ -144,7 +144,7 @@ export function nearestCell(layout: Layout, point: Vec, maxDistance = Infinity):
  */
 export function cellsInRect(layout: Layout, rect: Rect, options: { contain?: boolean } = {}): Cell[] {
   const ix = index(layout);
-  const r = normalise(rect);
+  const r = normalize(rect);
   const out: Cell[] = [];
   for (const i of candidates(ix, r)) {
     const c = layout.cells[i]!;
@@ -159,7 +159,7 @@ export function cellsInRect(layout: Layout, rect: Rect, options: { contain?: boo
   return out;
 }
 
-function normalise(r: Rect): Rect {
+function normalize(r: Rect): Rect {
   const x = Math.min(r.x, r.x + r.width), y = Math.min(r.y, r.y + r.height);
   return { x, y, width: Math.abs(r.width), height: Math.abs(r.height) };
 }
@@ -197,7 +197,7 @@ export interface ScreenBox {
  * Convert a screen point (e.g. a pointer event's `clientX`, `clientY`) to layout units,
  * given the box of the element the layout fills: a `<TileLayout>` container, an `<svg>`
  * with the layout's viewBox, or a canvas you drew it on. Like SVG's default
- * `preserveAspectRatio`, the layout is taken to be scaled to fit the box and centred.
+ * `preserveAspectRatio`, the layout is taken to be scaled to fit the box and centerd.
  */
 export function screenToLayout(layout: Layout, box: ScreenBox, clientX: number, clientY: number): Vec {
   const b = layout.bounds;

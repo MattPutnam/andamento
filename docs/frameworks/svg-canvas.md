@@ -33,10 +33,10 @@ scales to any size.
 | `imageFit` | `"cover"` (default) or `"contain"` (whole, in the safe area). |
 | `containWithin` | `"tile"` or `"visible"`, for window layouts. |
 | `imageFocus` | Focal point of each image. |
-| `fill` | Colour of cells without an image: a colour, palette or function. Defaults to `defaultPalette`. |
+| `fill` | Color of cells without an image: a color, palette or function. Defaults to `defaultPalette`. |
 | `stroke`, `strokeWidth` | An outline on top of each cell. |
 | `relief` | Raised tiles. |
-| `background` | Colour painted over the region (the grout). |
+| `background` | Color painted over the region (the grout). |
 | `backdrop` | One image across all the cells. |
 | `title`, `imageAlts` | Accessible names. |
 | `idPrefix` | Prefix for generated ids, when several layouts share a page. |
@@ -68,7 +68,7 @@ strokes, with rounded corners drawn as true arcs.
 |---|---|
 | `renderToPng(layout, options)` | Loads the images, draws on an offscreen canvas and resolves to a `Blob`. Use `type` and `quality` for JPEG or WebP. |
 | `renderToCanvas(layout, canvas, options)` | The same, onto your own canvas. |
-| `drawLayout(ctx, layout, options)` | Draws synchronously, scaled to fit the canvas and centred. Pass loaded images in `loaded`, e.g. from `loadImages(imagesUsed(layout, options))`. |
+| `drawLayout(ctx, layout, options)` | Draws synchronously, scaled to fit the canvas and centerd. Pass loaded images in `loaded`, e.g. from `loadImages(imagesUsed(layout, options))`. |
 
 `width` and `pixelRatio` set the size; the height follows the layout's shape.
 
@@ -82,4 +82,4 @@ Two cautions:
   allow it, or the browser won't let the canvas be exported. Images that fail to load show their
   cell's `fill`.
 - **HTML content:** `<TileLayout>` children are HTML, so they can't be drawn. The canvas
-  renderer draws images and colours.
+  renderer draws images and colors.

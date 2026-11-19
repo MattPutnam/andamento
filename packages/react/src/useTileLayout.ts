@@ -3,7 +3,7 @@ import { createLayout, fitCount, type ContentCells, type FitOptions, type Layout
 import { layoutResolver, type FitProp, type LayoutNeeds } from "@andamento/dom";
 
 /**
- * Compute a layout, recomputing only when the (serialisable) options change.
+ * Compute a layout, recomputing only when the (serializable) options change.
  * Inline object literals are fine: options are compared by value.
  */
 export function useTileLayout(options: LayoutOptions): Layout {

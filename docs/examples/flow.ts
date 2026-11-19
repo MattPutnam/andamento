@@ -11,8 +11,8 @@ export function outline() {
   return renderToString(layout, { fill: rows, background: "#5b4636" });
 }
 
-/** Rows ringing two centre points, meeting the rows along the edges. */
-export function centres() {
+/** Rows ringing two center points, meeting the rows along the edges. */
+export function centers() {
   const layout = createLayout({
     region,
     tiling: flow({ size: 8, centers: [{ x: 75, y: 75 }, { x: 175, y: 95 }], followEdges: true }),
@@ -29,7 +29,7 @@ export function guide() {
 }
 
 // #region mosaic
-/** A mosaic: rows ringing the sun and following the coast, coloured from the picture. */
+/** A mosaic: rows ringing the sun and following the coast, colored from the picture. */
 export function mosaic() {
   const pixels = scenePixels();
   const layout = createLayout({

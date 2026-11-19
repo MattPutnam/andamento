@@ -15,4 +15,4 @@
   [safe areas or focal points](/guide/photos).
 - **Crowded features:** when heavy items crowd together, a later feature may come out as an L
   or T shape rather than a block.
-- **Canvas:** the canvas renderer draws images and colours, not HTML children.
+- **Canvas:** the canvas renderer draws images and colors, not HTML children.

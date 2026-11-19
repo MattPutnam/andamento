@@ -38,11 +38,11 @@ features:
     link: /guide/regions
     linkText: Regions and holes
   - title: Mosaics
-    details: Colour each tile from a picture, snap to a box of real tile colours, size the tiles by the picture's detail, and lay tesserae in rows that flow round the subject.
+    details: Color each tile from a picture, snap to a box of real tile colors, size the tiles by the picture's detail, and lay tesserae in rows that flow round the subject.
     link: /guide/styling#mosaics
     linkText: Make a mosaic
   - title: Usable
-    details: Keyboard navigation in any tiling, screen-reader structure, animated transitions that morph shapes, virtualisation for thousands of tiles, and hit testing on the real shapes.
+    details: Keyboard navigation in any tiling, screen-reader structure, animated transitions that morph shapes, virtualization for thousands of tiles, and hit testing on the real shapes.
     link: /guide/accessibility
     linkText: Interaction
 ---
@@ -60,7 +60,7 @@ This is the Vue `<TileLayout>` running live: switch the pattern and watch the ph
 ## A few things it can do
 
 <Figures :columns="4" :items="[
-  { name: 'flow-mosaic', caption: 'Mosaic rows flowing round the sun, coloured from a picture' },
+  { name: 'flow-mosaic', caption: 'Mosaic rows flowing round the sun, colored from a picture' },
   { name: 'showcase-hats', caption: 'The hat monotile, mirrored hats picked out' },
   { name: 'featured-weights', caption: 'Important photos spanning four tiles' },
   { name: 'styling-backdrop', caption: 'One picture across a jigsaw' },

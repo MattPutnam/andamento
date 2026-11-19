@@ -21,7 +21,7 @@ detail.
   under about half that size, groups of them are replaced by the same tiling at half the scale,
   then again, down to the smallest size. A grid from the same origin nests exactly, like a
   quadtree. Other tilings are cut where a finer area meets a coarser one, and cut slivers are
-  merged into a neighbour, so there are no crumbs or gaps.
+  merged into a neighbor, so there are no crumbs or gaps.
 
 ## Size fields
 

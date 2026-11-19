@@ -17,7 +17,7 @@ export const tileSpans = (weights: readonly number[]): number[] =>
 /**
  * Featured tiles for items of different importance. `weights` gives how many tiles each
  * item should span (1 for an ordinary item; rounded); each item over 1 gets a feature of
- * that many merged tiles, for it (`Feature.item`), centred where its tiles would be if every
+ * that many merged tiles, for it (`Feature.item`), centerd where its tiles would be if every
  * item took its share of `layout`'s cells in order (so the reading order of the items is
  * kept). Bigger features come first, so they get room. `layout` should have no features
  * of its own. See `weightedLayout` for the whole job.
@@ -45,7 +45,7 @@ export function weightedFeatures(layout: Layout, weights: readonly number[], opt
   return features.sort((a, b) => b.tiles! - a.tiles! || a.item! - b.item!);
 }
 
-/** Area-weighted centre of some cells. */
+/** Area-weighted center of some cells. */
 function middle(cells: Cell[]): Vec {
   let x = 0, y = 0, w = 0;
   for (const c of cells) {

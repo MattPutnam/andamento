@@ -4,7 +4,7 @@ Andamento splits a region into tiles and lets you put anything in them. The regi
 rectangle, an L-shaped wall, an arch or any other outline, with doors and windows cut out.
 The tiles come from one of 29 patterns: bricks, herringbone, hexagons, Penrose rhombs, the hat
 monotile, jigsaw pieces, random stones, rows of mosaic tesserae, or a tiling of your own.
-Each tile can then hold a photo, a video, a card, a button or a colour.
+Each tile can then hold a photo, a video, a card, a button or a color.
 
 <Figure name="hero" caption="A photo wall in rounded hexagons, with a featured flower of seven tiles in the middle and raised, bevelled tiles." />
 
@@ -20,7 +20,7 @@ run and turn to follow the shapes of the picture. The library does that too
 Everything starts with **`createLayout(options)`** in `@andamento/core`. It takes a region,
 a tiling and a few settings (the gap between tiles, a margin, rounded corners, how to treat
 tiles cut by the edge) and returns a **layout**: a plain object with a list of **cells**, one
-per tile, each with its polygon, bounding box, centre, area, neighbours and a stable id.
+per tile, each with its polygon, bounding box, center, area, neighbors and a stable id.
 
 The core is pure TypeScript with no DOM, so the same layout can be drawn in many ways:
 

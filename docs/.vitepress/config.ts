@@ -58,7 +58,7 @@ export default defineConfig({
           items: [
             { text: "Placing content", link: "/guide/content" },
             { text: "Fitting photos", link: "/guide/photos" },
-            { text: "Colour, pictures and relief", link: "/guide/styling" },
+            { text: "Color, pictures and relief", link: "/guide/styling" },
           ],
         },
         {
@@ -66,7 +66,7 @@ export default defineConfig({
           items: [
             { text: "Keyboard and accessibility", link: "/guide/accessibility" },
             { text: "Animated transitions", link: "/guide/animation" },
-            { text: "Virtualisation", link: "/guide/virtualization" },
+            { text: "Virtualization", link: "/guide/virtualization" },
             { text: "Hit testing", link: "/guide/hit-testing" },
           ],
         },

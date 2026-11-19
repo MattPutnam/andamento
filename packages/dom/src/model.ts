@@ -406,6 +406,6 @@ export const coverStyle: StyleMap = {
   width: "100%",
   height: "100%",
   objectFit: "cover",
-  // Set by the tile from the item's focal point (see `focalPoints`); centred otherwise.
+  // Set by the tile from the item's focal point (see `focalPoints`); centerd otherwise.
   objectPosition: "var(--andamento-object-position, 50% 50%)",
 };

@@ -64,7 +64,7 @@ function expectedSites(box: Rect, size: number, sizeAt?: (p: Vec) => number): nu
 
 /**
  * Voronoi cells of `sites` within `box`: each cell is the box clipped by the
- * perpendicular bisectors towards nearby sites. Neighbours are visited ring by ring
+ * perpendicular bisectors towards nearby sites. Neighbors are visited ring by ring
  * through a bucket grid, stopping once no further site can cut the cell.
  */
 export function voronoiCells(sites: Vec[], box: Rect): Polygon[] {
@@ -281,8 +281,8 @@ function tab(p: Vec, q: Vec, side: number, unit: number, at: number): Vec[] {
   const u = vec((q.x - p.x) / len, (q.y - p.y) / len);
   const n = vec(u.y * side, -u.x * side);
   const put = (along: number, out: number) => vec(p.x + u.x * along + n.x * out, p.y + u.y * along + n.y * out);
-  const c = len * at; // tab centre, along the edge
-  const head = 0.2 * unit; // head centre, out from the edge
+  const c = len * at; // tab center, along the edge
+  const head = 0.2 * unit; // head center, out from the edge
   const r = 0.12 * unit;
   const neck = 0.9; // radians either side of "straight back at the edge" where the head meets the neck
   const pts: Vec[] = [put(c - 0.12 * unit, 0)];

@@ -18,8 +18,8 @@ interface TilingDef {
   params: Param[];
   defaults: Record<string, number | string>;
   rotates: boolean;
-  /** Put the pattern's origin at the centre of the region (where Penrose has its star). */
-  centred?: boolean;
+  /** Put the pattern's origin at the center of the region (where Penrose has its star). */
+  centerd?: boolean;
 }
 
 /** Built-in patterns shown in the playground (custom "periodic" and "tiles" specs are code-only). */
@@ -195,21 +195,21 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
     params: [{ key: "size", label: "Edge length", min: 6, max: 80, step: 1 }],
     defaults: { size: 22, variant: "rhombs" },
     rotates: true,
-    centred: true,
+    centerd: true,
   },
   hat: {
     label: "Hat",
     params: [{ key: "size", label: "Tile width", min: 10, max: 100, step: 1 }],
     defaults: { size: 30 },
     rotates: true,
-    centred: true,
+    centerd: true,
   },
   spectre: {
     label: "Spectre",
     params: [{ key: "size", label: "Tile width", min: 10, max: 100, step: 1 }],
     defaults: { size: 30 },
     rotates: true,
-    centred: true,
+    centerd: true,
   },
   isohedral: {
     label: "Escher (isohedral)",
@@ -228,7 +228,7 @@ const TILINGS: Record<PlaygroundTiling, TilingDef> = {
       { key: "jitter", label: "Length variety", min: 0, max: 0.9, step: 0.05 },
       { key: "seed", label: "Seed", min: 1, max: 999, step: 1 },
     ],
-    defaults: { size: 7, length: 1.3, jitter: 0.3, seed: 1, mode: "centreEdges" },
+    defaults: { size: 7, length: 1.3, jitter: 0.3, seed: 1, mode: "centerEdges" },
     rotates: false,
   },
   mondrian: {
@@ -337,7 +337,7 @@ function flowSpec(p: Record<string, number | string>, w: number, h: number) {
   switch (p.mode) {
     case "edges":
       return { ...base, followEdges: true };
-    case "centre":
+    case "center":
       return { ...base, centers: [{ x: w / 2, y: h / 2 }] };
     case "wave":
       return { ...base, guides: [{ points: wave }] };
@@ -364,7 +364,7 @@ export function App() {
   // A wall 15 times taller than wide, in a scrolling box: only the tiles in view are mounted.
   const [longWall, setLongWall] = useState(false);
   // Tile size by density: even, small in the middle, small at the edges, or from the picture.
-  const [density, setDensity] = useState<"even" | "centre" | "edges" | "picture">("even");
+  const [density, setDensity] = useState<"even" | "center" | "edges" | "picture">("even");
   const [densityPixels, setDensityPixels] = useState<Pixels>();
   const [shape, setShape] = useState<RegionShape>("rectangle");
   const [holeSet, setHoleSet] = useState<HoleSet>("none");
@@ -411,7 +411,7 @@ export function App() {
   ) as TilingSpec;
   const wallHeight = longWall ? wall.width * 15 : wall.height;
   const sizeAt =
-    density === "centre"
+    density === "center"
       ? radialSize({ center: { x: wall.width / 2, y: wallHeight / 2 }, radius: Math.max(wall.width, wallHeight) * 0.6, inner: 0.3 })
       : density === "edges"
         ? edgeSize(asPolygon(regionShape(shape, wall.width, wallHeight)), {
@@ -433,7 +433,7 @@ export function App() {
     margin,
     cornerRadius,
     rotation: def.rotates ? rotation : 0,
-    ...(def.centred ? { origin: { x: wall.width / 2, y: wall.height / 2 } } : {}),
+    ...(def.centerd ? { origin: { x: wall.width / 2, y: wall.height / 2 } } : {}),
     edges,
     minFill,
   };
@@ -589,13 +589,13 @@ export function App() {
             <span>Tile size</span>
             <select value={density} onChange={(e) => setDensity(e.target.value as typeof density)}>
               <option value="even">Even</option>
-              <option value="centre">Smaller in the middle</option>
+              <option value="center">Smaller in the middle</option>
               <option value="edges">Smaller at the edges</option>
               <option value="picture">From the picture</option>
             </select>
           </label>
           <label className="row">
-            <span>Long scrolling wall (virtualised)</span>
+            <span>Long scrolling wall (virtualized)</span>
             <input type="checkbox" checked={longWall} onChange={(e) => setLongWall(e.target.checked)} />
           </label>
           <label className="row">
@@ -695,8 +695,8 @@ export function App() {
             <label className="row">
               <span>Rows follow</span>
               <select value={String(params.flow.mode)} onChange={(e) => setParam("mode", e.target.value)}>
-                <option value="centreEdges">A point and the edges</option>
-                <option value="centre">A point</option>
+                <option value="centerEdges">A point and the edges</option>
+                <option value="center">A point</option>
                 <option value="two">Two points</option>
                 <option value="wave">A wave</option>
                 <option value="edges">The edges</option>
@@ -831,7 +831,7 @@ export function App() {
                 <span>Placement</span>
                 <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)}>
                   <option value="reading">Reading order</option>
-                  <option value="center">Centre</option>
+                  <option value="center">Center</option>
                   <option value="spread">Spread out</option>
                 </select>
               </label>

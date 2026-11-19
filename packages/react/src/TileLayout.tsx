@@ -104,7 +104,7 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
    */
   weights?: readonly number[];
   /**
-   * Color of empty tiles: a color, a palette (neighbouring tiles get different entries),
+   * Color of empty tiles: a color, a palette (neighboring tiles get different entries),
    * or a function per cell. Defaults to `neutralPalette`; use "transparent" for none.
    */
   fill?: FillSource;
@@ -265,12 +265,12 @@ export function TileLayout(props: TileLayoutProps) {
     return { i, cell, content, key: keyOf(i), empty, state };
   };
 
-  // Virtualisation: the part of the layout in view, in layout units (null until measured).
+  // Virtualization: the part of the layout in view, in layout units (null until measured).
   const virtual = !!virtualize;
   const overscan = Math.max(0, (typeof virtualize === "object" ? virtualize.overscan : undefined) ?? 300);
   const container = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<Rect | null>(null);
-  // Without virtualisation, every tile's entry is worked out before rendering, so navigation
+  // Without virtualization, every tile's entry is worked out before rendering, so navigation
   // knows which have content. With it, only the tiles in view are; whether others have
   // content is judged without rendering them.
   const allEntries = virtual ? undefined : layout.cells.map((_, i) => makeEntry(i));
@@ -449,7 +449,7 @@ export function TileLayout(props: TileLayoutProps) {
     }
   });
 
-  // Virtualisation: measure what's in view, again on scroll (of the page or any container)
+  // Virtualization: measure what's in view, again on scroll (of the page or any container)
   // and resize, at most once a frame.
   useIsomorphicLayoutEffect(() => {
     if (!virtual) return;

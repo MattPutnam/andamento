@@ -14,7 +14,7 @@ overlapping or gappy input gives an overlapping or gappy layout.
 
 `periodic({ a, b, motif })` copies the `motif` (one or more polygons, in region units) to every
 `i·a + j·b`. It gets everything the built-in patterns get: gap, margin, edges, rounding,
-neighbours, rotation, origin, and stable lattice-based ids.
+neighbors, rotation, origin, and stable lattice-based ids.
 
 `checkPeriodic(spec)` samples one lattice cell and reports the fraction of points covered by
 no tile (`gaps`) or by several (`overlaps`), plus whether any polygon crosses itself:
@@ -38,7 +38,7 @@ Polygons can be non-convex but must be simple: their outlines must not cross the
 
 The building blocks are exported too:
 
-- **Colouring:** `colorCells` (neighbour-aware colour indices).
+- **Coloring:** `colorCells` (neighbor-aware color indices).
 - **Polygon operations:** `insetPolygon`, `roundedPolygon`, `overlay`.
 - **Generators:** `voronoiCells`, `delaunayTriangles` and `generateSubstitution` (for
   substitution tilings like Penrose).

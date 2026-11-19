@@ -15,7 +15,7 @@ export const defaultPalette = ["#e9d8a6", "#94d2bd", "#ee9b00", "#0a9396", "#ca6
 export const neutralPalette = ["#e7e5e4", "#d6d3d1", "#f5f5f4", "#dedad6", "#ecebe9"];
 
 export type ImageSource = readonly string[] | ((cell: Cell) => string | undefined);
-/** A color, a palette (neighbouring cells get different entries), or a color per cell. */
+/** A color, a palette (neighboring cells get different entries), or a color per cell. */
 export type FillSource = string | readonly string[] | CellFill;
 
 export interface RenderOptions {
@@ -55,7 +55,7 @@ export interface RenderOptions {
   /** With `imageAspects`: "shape" also picks which cells get images by their shape. */
   choose?: "placement" | "shape";
   /**
-   * Cell color when there is no image: a color, a palette (neighbouring cells get
+   * Cell color when there is no image: a color, a palette (neighboring cells get
    * different entries), or a function. Defaults to `defaultPalette`.
    */
   fill?: FillSource;
@@ -86,7 +86,7 @@ export interface RenderOptions {
   title?: string;
   /**
    * Text alternative for each image in `images` (by position). Cells showing an image with
-   * one become labelled images to assistive technology, and the SVG a group of them; the
+   * one become labeled images to assistive technology, and the SVG a group of them; the
    * other cells are hidden as decoration.
    */
   imageAlts?: readonly string[];
@@ -147,7 +147,7 @@ export interface CellStyle {
 }
 
 /**
- * Fill color per cell (by `cell.index`): a color, a palette (neighbouring cells get
+ * Fill color per cell (by `cell.index`): a color, a palette (neighboring cells get
  * different entries), or a function.
  */
 export function resolveFills(layout: Layout, fill: FillSource): string[] {
@@ -180,7 +180,7 @@ export function resolveCellStyles(layout: Layout, opts: StyleOptions = {}): Cell
   });
 }
 
-/** Minimal element tree, serialisable to a string or built into DOM nodes. */
+/** Minimal element tree, serializable to a string or built into DOM nodes. */
 export interface SvgNode {
   tag: string;
   attrs: Record<string, string | number | undefined>;

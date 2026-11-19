@@ -20,11 +20,11 @@ import {
 } from "@andamento/core";
 
 const region = { x: 0, y: 0, width: 400, height: 300 };
-const centre = vec(200, 150);
-const focus = radialSize({ center: centre, radius: 200, inner: 0.25, outer: 1 });
+const center = vec(200, 150);
+const focus = radialSize({ center: center, radius: 200, inner: 0.25, outer: 1 });
 const total = (l: Layout) => l.cells.reduce((s, c) => s + c.area, 0);
 const meanArea = (l: Layout, pred: (d: number) => boolean) => {
-  const cs = l.cells.filter((c) => !c.boundary && pred(Math.hypot(c.centroid.x - centre.x, c.centroid.y - centre.y)));
+  const cs = l.cells.filter((c) => !c.boundary && pred(Math.hypot(c.centroid.x - center.x, c.centroid.y - center.y)));
   return cs.reduce((s, c) => s + c.area, 0) / cs.length;
 };
 
@@ -66,7 +66,7 @@ describe("sizeAt", () => {
       expect(total(l)).toBeCloseTo(total(plain), 6);
       expect(meanArea(l, (d) => d < 40)).toBeLessThan(meanArea(l, (d) => d > 200) / 4);
       expect(tilesExactly(l, 1500)).toBe(true);
-      // No crumbs: cut pieces at the edge of a finer area are merged into neighbours.
+      // No crumbs: cut pieces at the edge of a finer area are merged into neighbors.
       const smallest = Math.min(...l.cells.filter((c) => !c.boundary).map((c) => c.area));
       expect(smallest).toBeGreaterThan(meanArea(l, (d) => d < 40) * 0.15);
     }
@@ -88,7 +88,7 @@ describe("sizeAt", () => {
     const b = createLayout({ region, tiling: hexagonal({ size: 20 }), sizeAt: focus });
     expect(a.cells.map((c) => c.id)).toEqual(b.cells.map((c) => c.id));
     expect(new Set(a.cells.map((c) => c.id)).size).toBe(a.cells.length);
-    expect(cellAt(a, centre)!.area).toBeLessThan(cellAt(a, vec(5, 5))!.area);
+    expect(cellAt(a, center)!.area).toBeLessThan(cellAt(a, vec(5, 5))!.area);
   });
 
   it("rejects bad fields and too many tiles", () => {
@@ -99,7 +99,7 @@ describe("sizeAt", () => {
 
 describe("size fields", () => {
   it("radialSize eases from inner to outer", () => {
-    expect(focus(centre)).toBeCloseTo(0.25);
+    expect(focus(center)).toBeCloseTo(0.25);
     expect(focus(vec(400, 150))).toBeCloseTo(1);
     expect(focus(vec(300, 150))).toBeCloseTo(0.625);
   });

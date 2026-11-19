@@ -145,7 +145,7 @@ describe.each(specs)("%s", (_name, tiling) => {
     expect(l.cells.map((c) => c.index)).toEqual(l.cells.map((_, i) => i));
   });
 
-  it("separates neighbours by the gap", () => {
+  it("separates neighbors by the gap", () => {
     const gap = 10;
     const l = createLayout({ region: wall, tiling, gap });
     // Growing every cell by slightly less than half the gap must not create overlaps.
@@ -187,7 +187,7 @@ function polygonDistance(p: P[], q: P[]) {
 }
 
 describe("layout options", () => {
-  it("neighbours: centre of a 3x3 grid has 4", () => {
+  it("neighbors: center of a 3x3 grid has 4", () => {
     const l = createLayout({ region: { x: 0, y: 0, width: 300, height: 300 }, tiling: grid({ width: 100 }), gap: 10 });
     expect(l.cells).toHaveLength(9);
     expect(l.cells[4]!.neighbors).toHaveLength(4);
@@ -365,11 +365,11 @@ describe("random patterns", () => {
     }
   });
 
-  it("makes about one Voronoi cell per size² and links neighbours", () => {
+  it("makes about one Voronoi cell per size² and links neighbors", () => {
     const l = createLayout({ region, tiling: voronoi({ size: 100 }) });
     expect(l.cells.length).toBe(70);
     const avg = l.cells.reduce((s, c) => s + c.neighbors.length, 0) / l.cells.length;
-    expect(avg).toBeGreaterThan(4.5); // interior Voronoi cells average six neighbours
+    expect(avg).toBeGreaterThan(4.5); // interior Voronoi cells average six neighbors
   });
 
   it("relaxation evens out Voronoi cell sizes", () => {
@@ -438,8 +438,8 @@ describe("penrose", () => {
   it("puts the ten-fold star at the origin and follows rotation", () => {
     const origin = { x: 500, y: 350 };
     const l = createLayout({ region, tiling: penrose({ size: 50 }), origin });
-    const atCentre = l.cells.filter((c) => c.polygon.some((v) => Math.hypot(v.x - origin.x, v.y - origin.y) < 1e-6));
-    expect(atCentre.length).toBeGreaterThanOrEqual(5);
+    const atCenter = l.cells.filter((c) => c.polygon.some((v) => Math.hypot(v.x - origin.x, v.y - origin.y) < 1e-6));
+    expect(atCenter.length).toBeGreaterThanOrEqual(5);
     const r = createLayout({ region, tiling: penrose({ size: 50 }), origin, rotation: 36 });
     expect(r.cells.length).toBeGreaterThan(0);
   });
@@ -481,7 +481,7 @@ describe("non-convex tilings", () => {
     }
   });
 
-  it("jigsaw pieces fit the region exactly, interlock and have four neighbours inside", () => {
+  it("jigsaw pieces fit the region exactly, interlock and have four neighbors inside", () => {
     const l = createLayout({ region, tiling: jigsaw({ size: 100, seed: 4 }) });
     expect(l.cells).toHaveLength(70); // 10 × 7
     expect(l.cells.every((c) => !c.boundary)).toBe(true);
@@ -600,7 +600,7 @@ describe("spectre", () => {
     const width = Math.max(...SPECTRE.flatMap((a) => SPECTRE.map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
     const unit = 60 / width;
     // Every edge has unit length; all tiles have the same handedness (checked on the
-    // original pattern tiles, before the layout normalises orientation).
+    // original pattern tiles, before the layout normalizes orientation).
     for (const c of l.cells) {
       expect(c.polygon).toHaveLength(14);
       sides(c.polygon).forEach((x) => expect(x).toBeCloseTo(unit, 6));
@@ -650,8 +650,8 @@ describe("tiles split by the region edge", () => {
   });
 });
 
-describe("patterns grown from a fixed centre", () => {
-  // The region surrounds the pattern's centre, so it must grow in every direction.
+describe("patterns grown from a fixed center", () => {
+  // The region surrounds the pattern's center, so it must grow in every direction.
   const region = { x: 0, y: 0, width: 1000, height: 700 };
   const origin = { x: 500, y: 350 };
   const cases: [string, TilingSpec][] = [
@@ -729,7 +729,7 @@ describe("isohedral", () => {
   });
 });
 
-describe("neighbours", () => {
+describe("neighbors", () => {
   it("match a brute-force shared-edge check", async () => {
     const { sharesEdge, isohedral } = await import("@andamento/core");
     const region = { x: 0, y: 0, width: 700, height: 500 };

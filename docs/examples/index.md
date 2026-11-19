@@ -126,7 +126,7 @@ mirrored; here they're red.
 <<< @/examples/density.ts
 :::
 
-### From a box of twelve colours
+### From a box of twelve colors
 
 <Figure name="styling-mosaic-palette" />
 

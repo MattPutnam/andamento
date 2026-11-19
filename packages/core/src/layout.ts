@@ -45,7 +45,7 @@ export interface LayoutOptions {
    */
   holes?: (Rect | Polygon)[];
   tiling: TilingSpec;
-  /** Space between neighbouring tiles. Defaults to 0. */
+  /** Space between neighboring tiles. Defaults to 0. */
   gap?: number;
   /** Empty border kept between the region outline (and any holes) and the tiles. Defaults to 0. */
   margin?: number;
@@ -53,7 +53,7 @@ export interface LayoutOptions {
   rotation?: number;
   /**
    * Shifts the pattern (ignored by the random patterns). For penrose this is where the
-   * ten-fold star at the pattern's centre sits. Defaults to the top-left of the region.
+   * ten-fold star at the pattern's center sits. Defaults to the top-left of the region.
    */
   origin?: Vec;
   /** Defaults to "clip". */
@@ -77,7 +77,7 @@ export interface LayoutOptions {
    */
   tileScale?: number;
   /**
-   * Featured tiles: groups of neighbouring tiles merged into one bigger cell, e.g. for a
+   * Featured tiles: groups of neighboring tiles merged into one bigger cell, e.g. for a
    * hero image. Merging happens before the gap and edge handling, so a featured cell gets
    * the same gap all round as any other. See `Feature`.
    */
@@ -96,8 +96,8 @@ export interface LayoutOptions {
 }
 
 /**
- * A featured tile: `tiles` neighbouring tiles merged into one cell. The group grows from
- * a tile near `at`, adding whichever neighbour keeps it most compact (so 4 grid tiles make
+ * A featured tile: `tiles` neighboring tiles merged into one cell. The group grows from
+ * a tile near `at`, adding whichever neighbor keeps it most compact (so 4 grid tiles make
  * a 2 × 2 square, 7 hexagons a flower); several starting tiles are tried and the most
  * compact group kept, near `at` and avoiding tiles the region edge cuts. Features don't
  * share tiles: a later one grows among the tiles still free.
@@ -270,7 +270,7 @@ export function createLayout(options: LayoutOptions): Layout {
   /** Gap, edge handling and clipping for one pattern tile; its visible piece(s) as drafts. */
   const place = (original: Polygon, id: string, protoTile: number): Draft[] => {
     const convex = isConvex(original);
-    // Each tile gives up half the gap on every side, so neighbours end up `gap` apart.
+    // Each tile gives up half the gap on every side, so neighbors end up `gap` apart.
     const tile = gap <= 0 ? original : convex ? insetConvex(original, gap / 2) : insetPolygon(original, gap / 2);
     if (tile.length === 0) return [];
     const full = area(tile);
@@ -437,7 +437,7 @@ function mergeFeatures(
       const want = Math.max(1, Math.floor(f.tiles ?? 4));
       const at = f.at ?? middle;
       // Score: (mostly) uncut tiles first, then distance to `to`, then distance to `at` (which keeps
-      // the group centred on `at` when several tiles are equally compact); then the earlier tile.
+      // the group centerd on `at` when several tiles are equally compact); then the earlier tile.
       const eps = 1e-9 * scale * scale;
       const d2 = (i: number, p: Vec) => (cx[i]!.x - p.x) ** 2 + (cx[i]!.y - p.y) ** 2;
       const better = (i: number, j: number, to: Vec) => {
@@ -449,7 +449,7 @@ function mergeFeatures(
         return i < j;
       };
       // Grow a group from each of the free tiles nearest `at`, and keep the best: the most
-      // tiles, then the lowest cost (spread out, off-centre from `at`, or cut by the edge).
+      // tiles, then the lowest cost (spread out, off-center from `at`, or cut by the edge).
       // Growing from the nearest tile alone can make a strip where a block fits a step away.
       const free: number[] = [];
       for (let i = 0; i < tiles.length; i++) if (!taken[i]) free.push(i);
@@ -459,7 +459,7 @@ function mergeFeatures(
         const g = [seed];
         const inGroup = new Set(g);
         while (g.length < want) {
-          // The group's centre (area-weighted), and the free neighbour nearest it.
+          // The group's center (area-weighted), and the free neighbor nearest it.
           let sx = 0, sy = 0, sw = 0;
           for (const i of g) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; }
           const c = vec(sx / sw, sy / sw);
@@ -478,7 +478,7 @@ function mergeFeatures(
         for (const i of g) { sx += cx[i]!.x * ar[i]!; sy += cx[i]!.y * ar[i]!; sw += ar[i]!; if (cut[i]) lost += (1 - kept[i]!) * ar[i]!; }
         if (!(sw > 0)) return Infinity;
         const c = vec(sx / sw, sy / sw);
-        // Spread: the tiles' moment of inertia about the group's centre over its area squared
+        // Spread: the tiles' moment of inertia about the group's center over its area squared
         // (a 2 x 2 square of squares scores 1/8, an L 7/32, a 4 x 1 strip 5/16).
         let inertia = 0;
         for (const i of g) inertia += ar[i]! * d2(i, c);
@@ -604,7 +604,7 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
       active.push(s);
     }
   }
-  // Parts of one tile get the same neighbours as the tile.
+  // Parts of one tile get the same neighbors as the tile.
   polys.forEach((p, i) => {
     const owner = owners.get(p)!;
     if (owner !== i) result[i] = [...result[owner]!];
@@ -614,7 +614,7 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
 }
 
 /**
- * Greedy graph coloring over cell adjacency: neighbouring cells get different
+ * Greedy graph coloring over cell adjacency: neighboring cells get different
  * color indices. Handy for placeholder fills. Returns one index per cell (by cell.index).
  */
 export function colorCells(layout: Layout, colors: number): number[] {

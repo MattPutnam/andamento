@@ -35,7 +35,7 @@ function checkCover(l: Layout, n = 40) {
 }
 
 describe("featured tiles", () => {
-  it("merges a 2 × 2 block of grid tiles, centred, with the gap all round", () => {
+  it("merges a 2 × 2 block of grid tiles, centerd, with the gap all round", () => {
     const l = createLayout({ region, tiling: grid({ width: 100 }), gap: 4, features: [{ tiles: 4 }] });
     const [f] = featured(l);
     expect(f!.merged).toHaveLength(4);
@@ -44,7 +44,7 @@ describe("featured tiles", () => {
     expect([f!.centroid.x, f!.centroid.y]).toEqual([300, 200]);
     expect(f!.id).toBe("feature0");
     expect(l.cells).toHaveLength(24 - 4 + 1);
-    // The merged tiles are gone, and their ids don't linger as neighbours.
+    // The merged tiles are gone, and their ids don't linger as neighbors.
     const ids = new Set(l.cells.map((c) => c.id));
     for (const id of f!.merged!) expect(ids.has(id)).toBe(false);
     for (const c of l.cells) for (const n of c.neighbors) expect(ids.has(n)).toBe(true);

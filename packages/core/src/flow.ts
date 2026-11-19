@@ -7,7 +7,7 @@ import { mulberry32 } from "./random";
 import type { GenerateContext, RawTile } from "./tilings";
 
 /**
- * Andamento: tesserae laid in rows (courses) that follow guide curves, circle centre points
+ * Andamento: tesserae laid in rows (courses) that follow guide curves, circle center points
  * or run along the region's outline, the way mosaicists lay them.
  */
 export interface FlowSpec {
@@ -27,7 +27,7 @@ export interface FlowSpec {
   centers?: Vec[];
   /**
    * Rows also run along the region's outline (and round its holes), as in opus
-   * vermiculatum. Defaults to true when there are no guides or centres.
+   * vermiculatum. Defaults to true when there are no guides or centers.
    */
   followEdges?: boolean;
   /** Seed for the deterministic random generator. Defaults to 1. */
@@ -56,7 +56,7 @@ export function generateFlow(spec: FlowSpec, ctx: GenerateContext): RawTile[] {
   const scale = Math.max(box.width, box.height);
 
   // The row field: how far a point is from where rows start. Rows on a guide or round a
-  // centre are centred on it (hence + h/2); rows along the outline start at it.
+  // center are centerd on it (hence + h/2); rows along the outline start at it.
   const lines: [Vec, Vec][] = [];
   const shifted: [Vec, Vec][] = [];
   for (const g of guides) {
@@ -93,11 +93,11 @@ export function generateFlow(spec: FlowSpec, ctx: GenerateContext): RawTile[] {
   const band = (p: Vec) => Math.max(0, Math.floor((phi(p) - eps) / h));
   const top = Math.floor((Math.max(...F) - eps) / h);
 
-  // Row boundaries (level lines between rows), and each row's centre line.
+  // Row boundaries (level lines between rows), and each row's center line.
   const boundaries: [Vec, Vec][] = [];
   for (let k = 1; k <= top; k++) boundaries.push(...contourSegments(F, cols, rows, box, g, k * h + eps));
 
-  // Tesserae along each row: seeds spaced about L apart (varied by `jitter`) on its centre line.
+  // Tesserae along each row: seeds spaced about L apart (varied by `jitter`) on its center line.
   const seeds: { p: Vec; row: number; normal?: Vec }[] = [];
   const step = () => L * (1 + jitter * (2 * rng() - 1));
   const lay = (line: Vec[], closed: boolean, row: number, along = false) => {
@@ -198,7 +198,7 @@ export function generateFlow(spec: FlowSpec, ctx: GenerateContext): RawTile[] {
       pieces.push({ id: j ? `${base}~${j}` : base, polygon: s.outer, protoTile: row % 2, nominal, group: row });
     });
   }
-  // Leftover crumbs where rows meet join a neighbour.
+  // Leftover crumbs where rows meet join a neighbor.
   return mergeSlivers(pieces, scale, scale * 1e-7).filter((t) => area(t.polygon) > 0);
 }
 
@@ -285,7 +285,7 @@ function contourLines(F: Float64Array, cols: number, rows: number, box: Rect, g:
     }
     return { keys, closed: false };
   };
-  // Open lines start at their ends (a crossing with one neighbour); then the loops.
+  // Open lines start at their ends (a crossing with one neighbor); then the loops.
   for (const [k, ns] of next) {
     if (ns.length !== 1 || ns.every((x) => used.has(edge(k, x.key)))) continue;
     const { keys } = walk(k);

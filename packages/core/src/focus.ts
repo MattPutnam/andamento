@@ -71,7 +71,7 @@ function focusTarget(cell: Cell, layout: Pick<Layout, "cornerRadius" | "view">, 
 }
 
 /**
- * A guess at what a photo is of: the most eye-catching spot, where colour and brightness
+ * A guess at what a photo is of: the most eye-catching spot, where color and brightness
  * stand out most from their surroundings, with a slight preference for the middle. Good
  * for a subject against a plainer background (a face, a flower, a sun); for busy pictures
  * give the focus yourself. Pass small pixels (`loadImagePixels` gives at most 256 a side).
@@ -97,14 +97,14 @@ export function estimateFocus(pixels: Pixels): Focus {
         }
       }
       r /= n * 255; g /= n * 255; b /= n * 255;
-      // A rough opponent colour space: brightness and two colour axes.
+      // A rough opponent color space: brightness and two color axes.
       const i = y * w + x;
       L[i] = 0.299 * r + 0.587 * g + 0.114 * b;
       A[i] = r - g;
       B[i] = (r + g) / 2 - b;
     }
   }
-  // How much each spot differs from its surroundings (centre minus surround), at two scales.
+  // How much each spot differs from its surroundings (center minus surround), at two scales.
   const size = Math.max(w, h);
   const near = Math.max(1, Math.round(size / 32)), far = Math.max(2, Math.round(size / 6));
   const blur = (src: Float64Array, r: number) => boxBlur(boxBlur(src, w, h, r), w, h, r);
@@ -113,7 +113,7 @@ export function estimateFocus(pixels: Pixels): Focus {
     const c = blur(chan, near), s = blur(chan, far);
     for (let i = 0; i < sal.length; i++) sal[i]! += weight * Math.abs(c[i]! - s[i]!);
   }
-  // Favour a blob over a thin line: smooth, then pick the peak, leaning a little to the middle.
+  // Favor a blob over a thin line: smooth, then pick the peak, leaning a little to the middle.
   const smooth = blur(sal, Math.max(1, Math.round(size / 16)));
   let best = -1, bx = w / 2, by = h / 2;
   for (let y = 0; y < h; y++) {

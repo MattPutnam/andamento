@@ -21,13 +21,13 @@ export function fills() {
 }
 
 // #region mosaic
-/** A mosaic: each tile the average colour of a picture under it, snapped to a box of tile colours. */
+/** A mosaic: each tile the average color of a picture under it, snapped to a box of tile colors. */
 export function mosaic() {
-  const tileColours = ["#1d1b3a", "#3b2f63", "#7a3b69", "#c44f78", "#e8766b", "#f6a35c", "#ffd58a", "#fff1cf", "#30263f", "#5a3d5c", "#d66868", "#26355f"];
+  const tileColors = ["#1d1b3a", "#3b2f63", "#7a3b69", "#c44f78", "#e8766b", "#f6a35c", "#ffd58a", "#fff1cf", "#30263f", "#5a3d5c", "#d66868", "#26355f"];
   const layout = createLayout({ region: { x: 0, y: 0, width: 240, height: 160 }, tiling: penrose({ size: 7 }), origin: { x: 120, y: 80 }, gap: 0.5 });
   return {
     "mosaic-average": renderToString(layout, { fill: imageFill(scenePixels()), background: "#141418" }),
-    "mosaic-palette": renderToString(layout, { fill: imageFill(scenePixels(), { palette: tileColours }), background: "#141418" }),
+    "mosaic-palette": renderToString(layout, { fill: imageFill(scenePixels(), { palette: tileColors }), background: "#141418" }),
   };
 }
 // #endregion mosaic

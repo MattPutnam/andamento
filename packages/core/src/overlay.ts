@@ -38,7 +38,7 @@ export function overlay(outlines: Polygon[], inside: (p: Vec) => boolean, scale:
 }
 
 /**
- * Split the plane into regions by a labelling function: each point gets a label (a number;
+ * Split the plane into regions by a labeling function: each point gets a label (a number;
  * negative for "nothing"), and every region of equal label is returned as shapes. The
  * labels may only change across the given outlines (closed loops; pass an open polyline's
  * segments as two-point "loops"), which are cut where they meet like `overlay`'s.

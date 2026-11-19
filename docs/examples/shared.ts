@@ -35,7 +35,7 @@ const smooth = (e0: number, e1: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** The scene's colour at (u, v), fractions of its width and height: a sunset over the sea. */
+/** The scene's color at (u, v), fractions of its width and height: a sunset over the sea. */
 function sceneColor(u: number, v: number, aspect: number): RGB {
   const horizon = 0.62;
   const sun = { u: 0.62, v: 0.47, r: 0.13 };
@@ -92,7 +92,7 @@ export function sceneImage(width = 600, height = 400): string {
 }
 
 /** `svg` with the layout's region (and holes) outlined in a dashed line on top, to show where it ends. */
-export function outlined(svg: string, layout: Layout, colour = "#b4532a"): string {
-  const path = `<path d="${regionPath(layout)}" fill="none" stroke="${colour}" stroke-width="1.2" stroke-dasharray="4 3" fill-rule="evenodd"/>`;
+export function outlined(svg: string, layout: Layout, color = "#b4532a"): string {
+  const path = `<path d="${regionPath(layout)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3" fill-rule="evenodd"/>`;
   return svg.replace(/<\/svg>$/, `${path}</svg>`);
 }

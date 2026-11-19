@@ -5,7 +5,7 @@
  * - Coordinates are SVG-style (y grows downward), but all math is orientation-agnostic.
  * - Polygons are arrays of vertices without a repeated closing vertex.
  * - "Positive" orientation means a positive shoelace area. All internal polygons are
- *   normalised to positive orientation, so the interior is to the left of each edge
+ *   normalized to positive orientation, so the interior is to the left of each edge
  *   in the shoelace sense and the inward normal of edge (dx, dy) is (-dy, dx).
  * - `clipConvex` needs a convex clip polygon (the subject can be any simple polygon);
  *   `insetConvex` needs a convex polygon and `containsPolygon` a convex `outer`. Non-convex tiles are inset

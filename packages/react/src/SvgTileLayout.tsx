@@ -77,7 +77,7 @@ export interface SvgTileLayoutProps extends Omit<SVGProps<SVGSVGElement>, "child
   renderCell?: (cell: Cell, ctx: SvgCellRenderContext) => ReactNode;
   /** Accessible title. */
   title?: string;
-  /** Text alternative per image in `images`: those cells become labelled images; the rest decoration. */
+  /** Text alternative per image in `images`: those cells become labeled images; the rest decoration. */
   imageAlts?: readonly string[];
 }
 

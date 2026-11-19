@@ -171,7 +171,7 @@ function placed(n: Node, T: Affine): Bounds {
   return { x0, y0, x1, y1 };
 }
 
-/** Spectres covering `box` (in tile units, relative to the pattern's centre). */
+/** Spectres covering `box` (in tile units, relative to the pattern's center). */
 export function spectresCovering(box: Box, maxTiles: number): SpectreTile[] {
   const near = grow(box, SPECTRE_WIDTH);
   for (let level = 1; level <= 10; level++) {

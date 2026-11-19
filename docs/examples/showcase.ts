@@ -56,7 +56,7 @@ export function spectres() {
 // #endregion spectres
 
 // #region penroseStar
-/** Penrose rhombs radiating from the star at the centre. */
+/** Penrose rhombs radiating from the star at the center. */
 export function penroseStar() {
   const layout = createLayout({ region, tiling: penrose({ size: 20 }), origin: middle, gap: 1.2 });
   return renderToString(layout, { fill: gradientFill(["#ffd166", "#ef476f", "#3a0ca3"], { shape: "radial" }), background: "#fbf8f3" });

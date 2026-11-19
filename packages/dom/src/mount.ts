@@ -444,7 +444,7 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
       }
     }
 
-    // Virtualisation: measure what's in view, and again whenever it may change.
+    // Virtualization: measure what's in view, and again whenever it may change.
     if (virtual && !stopWatching) stopWatching = watchView(container, measure);
     else if (!virtual && stopWatching) {
       stopWatching();
@@ -518,7 +518,7 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
       const shownTile = [...tiles.values()].find((x) => x.cell.id === to.id);
       if (shownTile) shownTile.el.focus();
       else {
-        // Out of view (virtualised): render it, then focus it.
+        // Out of view (virtualized): render it, then focus it.
         pendingFocus = to.id;
         render();
       }
