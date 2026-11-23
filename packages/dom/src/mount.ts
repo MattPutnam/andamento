@@ -179,6 +179,8 @@ interface Tile {
   safe?: HTMLDivElement;
   bevel?: { key: string; node: SVGSVGElement };
   ring?: { key: string; node: SVGSVGElement };
+  /** Names of the attributes `cellAttributes` set last time. */
+  extra?: string[];
   /** Fading out (animated removal). */
   leaving?: boolean;
 }
@@ -328,7 +330,11 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
       attr(el, "data-index", cell.index);
       attr(el, "data-empty", empty);
       attr(el, "data-boundary", !!cell.boundary);
-      for (const [k, v] of Object.entries(resolvePerCell(c.cellAttributes, cell, state) ?? {})) attr(el, k, v);
+      // Extra attributes; those given last time and not now are removed.
+      const extra = resolvePerCell(c.cellAttributes, cell, state) ?? {};
+      for (const k of tile.extra ?? []) if (!(k in extra)) attr(el, k, undefined);
+      for (const [k, v] of Object.entries(extra)) attr(el, k, v);
+      tile.extra = Object.keys(extra);
       applyStyle(el, {
         ...tileStyle(frame, cell, {
           empty,
@@ -445,7 +451,13 @@ export function mountTileLayout(target: Element | ShadowRoot, initial: TileLayou
     }
 
     // Virtualization: measure what's in view, and again whenever it may change.
-    if (virtual && !stopWatching) stopWatching = watchView(container, measure);
+    if (virtual && !stopWatching) {
+      // watchView measures straight away, which can render again: mark it started first,
+      // so that render doesn't start a second watcher.
+      let stop: (() => void) | undefined;
+      stopWatching = () => stop?.();
+      stop = watchView(container, measure);
+    }
     else if (!virtual && stopWatching) {
       stopWatching();
       stopWatching = undefined;

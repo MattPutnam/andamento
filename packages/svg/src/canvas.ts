@@ -141,10 +141,10 @@ export function drawLayout(
       ctx.save();
       ctx.clip("evenodd");
       if (options.imageFit === "contain") {
-        const aspect = options.imageAspects && style.slot >= 0 ? options.imageAspects[style.slot % options.imageAspects.length] : undefined;
+        const aspect = options.imageAspects && style.slot >= 0 ? options.imageAspects[style.slot] : undefined;
         drawContain(ctx, img, safeArea(cell, layout, { aspect, within: options.containWithin }));
       } else {
-        const focus = style.slot >= 0 ? (Array.isArray(options.images) ? options.imageFocus?.[style.slot % options.images.length] : undefined) : undefined;
+        const focus = style.slot >= 0 ? options.imageFocus?.[style.slot] : undefined;
         if (focus && img.width && img.height) {
           const r = coverRect(cell, layout, { aspect: img.width / img.height, focus });
           ctx.drawImage(img as never, 0, 0, img.width, img.height, r.x, r.y, r.width, r.height);

@@ -172,11 +172,10 @@ export function resolveCellStyles(layout: Layout, opts: StyleOptions = {}): Cell
         : contentSlots(layout, count, content);
   }
   return layout.cells.map((c, i) => {
-    const slot = slots[i]!;
-    let image: string | undefined;
-    if (typeof images === "function") image = images(c);
-    else if (images && slot >= 0) image = images[slot % images.length];
-    return { fill: fills[i]!, image, slot };
+    if (typeof images === "function") return { fill: fills[i]!, image: images(c), slot: -1 };
+    // With repeatImages, slots run past the images: the image shown is the slot wrapped round.
+    const slot = images && images.length > 0 && slots[i]! >= 0 ? slots[i]! % images.length : -1;
+    return { fill: fills[i]!, image: slot >= 0 ? images![slot] : undefined, slot };
   });
 }
 
@@ -258,9 +257,9 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
       const clipId = `${prefix}-clip-${cell.index}`;
       parts.unshift(el("clipPath", { id: clipId }, [el("path", { d, "clip-rule": holed ? "evenodd" : undefined })]));
       const contain = opts.imageFit === "contain";
-      const aspect = contain && opts.imageAspects && style.slot >= 0 ? opts.imageAspects[style.slot % opts.imageAspects.length] : undefined;
-      const focus = !contain && style.slot >= 0 ? (Array.isArray(opts.images) ? opts.imageFocus?.[style.slot % opts.images.length] : undefined) : undefined;
-      const shape = focus ? (opts.imageAspects?.[style.slot % opts.imageAspects.length] ?? focus.aspect) : undefined;
+      const aspect = contain && opts.imageAspects && style.slot >= 0 ? opts.imageAspects[style.slot] : undefined;
+      const focus = !contain && style.slot >= 0 ? opts.imageFocus?.[style.slot] : undefined;
+      const shape = focus ? (opts.imageAspects?.[style.slot] ?? focus.aspect) : undefined;
       const box = contain
         ? safeArea(cell, layout, { aspect, within: opts.containWithin })
         : focus && shape
@@ -324,7 +323,7 @@ export function toSvgTree(layout: Layout, opts: RenderOptions = {}): SvgNode {
 /** With `imageAlts`: a cell showing a described image is an image; the rest is decoration. */
 export function cellA11y(style: CellStyle, alts: readonly string[] | undefined): { role?: "img"; "aria-label"?: string; "aria-hidden"?: "true" } {
   if (!alts?.length) return {};
-  const alt = style.image && style.slot >= 0 ? alts[style.slot % alts.length] : undefined;
+  const alt = style.image && style.slot >= 0 ? alts[style.slot] : undefined;
   return alt ? { role: "img", "aria-label": alt } : { "aria-hidden": "true" };
 }
 

@@ -1,5 +1,6 @@
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from "vue";
 import { createLayout, fitCount, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
+import { optionsKey } from "@andamento/dom";
 
 /** A computed value worked out again only when `key` changes. */
 function byKey<T>(key: () => string, make: () => T): ComputedRef<T> {
@@ -19,13 +20,13 @@ function byKey<T>(key: () => string, make: () => T): ComputedRef<T> {
  * they change by value.
  */
 export function useTileLayout(options: MaybeRefOrGetter<LayoutOptions>): ComputedRef<Layout> {
-  return byKey(() => JSON.stringify(toValue(options)), () => createLayout(toValue(options)));
+  return byKey(() => optionsKey(toValue(options)), () => createLayout(toValue(options)));
 }
 
 /** A layout whose tiles are sized to give about `count` usable cells (see `fitCount`). */
 export function useFitCount(options: MaybeRefOrGetter<LayoutOptions>, count: MaybeRefOrGetter<number>, fit: FitOptions = {}): ComputedRef<Layout> {
   return byKey(
-    () => JSON.stringify([toValue(options), toValue(count)]),
+    () => optionsKey([toValue(options), toValue(count), fit.cells, fit.mode]),
     () => fitCount(toValue(options), toValue(count), fit).layout,
   );
 }

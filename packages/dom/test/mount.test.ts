@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { grid, hexagonal } from "@andamento/core";
-import { mountTileLayout, type TileLayoutConfig, type TileLayoutHandle } from "@andamento/dom";
+import { mountTileLayout, optionsKey, type TileLayoutConfig, type TileLayoutHandle } from "@andamento/dom";
 
 // 3 x 2 grid: reading order 0 1 2 / 3 4 5.
 const options = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }) };
@@ -262,5 +262,44 @@ describe("mountTileLayout", () => {
     expect(tileOf(nodes[0]!).style.getPropertyValue("width")).not.toBe(tileOf(nodes[2]!).style.getPropertyValue("width"));
     handle!.update({ weights: undefined });
     expect(tileOf(nodes[2]!).getAttribute("data-cell-id")).not.toBe("feature0");
+  });
+
+  it("stops every watcher it started when virtualized", () => {
+    const add = vi.spyOn(window, "addEventListener");
+    const remove = vi.spyOn(window, "removeEventListener");
+    mount({ items: items(6), virtualize: true });
+    handle!.destroy();
+    handle = undefined;
+    const added = add.mock.calls.filter(([t]) => t === "scroll" || t === "resize").length;
+    const removed = remove.mock.calls.filter(([t]) => t === "scroll" || t === "resize").length;
+    add.mockRestore();
+    remove.mockRestore();
+    expect(added).toBeGreaterThan(0);
+    expect(removed).toBe(added);
+  });
+
+  it("removes cellAttributes no longer given", () => {
+    mount({ items: items(6), cellAttributes: (c) => (c.index === 0 ? { "aria-current": "true" } : {}) });
+    expect(tiles()[0]!.getAttribute("aria-current")).toBe("true");
+    handle!.update({ cellAttributes: (c) => (c.index === 1 ? { "aria-current": "true" } : {}) });
+    expect(tiles()[0]!.hasAttribute("aria-current")).toBe(false);
+    expect(tiles()[1]!.getAttribute("aria-current")).toBe("true");
+  });
+});
+
+describe("optionsKey", () => {
+  it("tells apart options that differ only in a function", () => {
+    const a = (p: { x: number }) => p.x / 300, b = (p: { x: number }) => 1 - p.x / 300;
+    expect(optionsKey({ ...options, sizeAt: a })).toBe(optionsKey({ ...options, sizeAt: a }));
+    expect(optionsKey({ ...options, sizeAt: a })).not.toBe(optionsKey({ ...options, sizeAt: b }));
+    expect(optionsKey({ ...options })).toBe(optionsKey({ ...options }));
+  });
+
+  it("lays out again when only sizeAt changes", () => {
+    const big = { region: { x: 0, y: 0, width: 400, height: 400 }, tiling: grid({ width: 100 }) };
+    mount({ options: { ...big, sizeAt: () => 1 } });
+    const before = handle!.layout.cells.length;
+    handle!.update({ options: { ...big, sizeAt: (p) => (p.x < 200 ? 0.25 : 1) } });
+    expect(handle!.layout.cells.length).toBeGreaterThan(before);
   });
 });

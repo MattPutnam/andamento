@@ -648,6 +648,13 @@ describe("tiles split by the region edge", () => {
       expect(isConvex(p.polygon) || p.polygon.length >= 3).toBe(true);
     }
   });
+
+  it("are neighbors both ways round, like every cell", () => {
+    const l = createLayout({ region: { x: 0, y: 0, width: 1000, height: 700 }, tiling: spectre({ size: 90 }), gap: 10 });
+    const byId = new Map(l.cells.map((c) => [c.id, c]));
+    expect(l.cells.some((c) => c.id.includes("~") && c.neighbors.length > 0)).toBe(true);
+    for (const c of l.cells) for (const n of c.neighbors) expect(byId.get(n)!.neighbors, `${n} lists ${c.id}`).toContain(c.id);
+  });
 });
 
 describe("patterns grown from a fixed center", () => {

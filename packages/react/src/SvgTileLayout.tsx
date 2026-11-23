@@ -211,8 +211,8 @@ export function SvgTileLayout(props: SvgTileLayoutProps) {
                     : undefined
                 }
                 cover={(() => {
-                  const focus = imageFit !== "contain" && style.image && style.slot >= 0 ? (Array.isArray(images) ? imageFocus?.[style.slot % images.length] : undefined) : undefined;
-                  const aspect = focus ? (imageAspects?.[style.slot % imageAspects.length] ?? focus.aspect) : undefined;
+                  const focus = imageFit !== "contain" && style.image && style.slot >= 0 ? imageFocus?.[style.slot] : undefined;
+                  const aspect = focus ? (imageAspects?.[style.slot] ?? focus.aspect) : undefined;
                   return focus && aspect ? coverRect(cell, layout, { aspect, focus }) : undefined;
                 })()}
               />}

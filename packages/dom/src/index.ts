@@ -18,6 +18,7 @@ export {
   layoutResolver,
   MORPH_POINTS,
   NOTHING_IN_VIEW,
+  optionsKey,
   overlayStyle,
   resolvePerCell,
   ringStrokes,

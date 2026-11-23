@@ -61,7 +61,21 @@ export type StyleMap = Record<string, string | number | undefined>;
 /** Clip paths get this many points when animating, so any two tile shapes can morph. */
 export const MORPH_POINTS = 72;
 
-const PLACEHOLDER: LayoutOptions = { region: { x: 0, y: 0, width: 1, height: 1 }, tiling: { type: "grid", width: 1 } };
+const functionIds = new WeakMap<object, number>();
+let nextFunctionId = 1;
+
+/**
+ * A key for options that changes when they change: compared by value, with any function in
+ * them (`sizeAt`, say) by identity, which JSON alone would leave out.
+ */
+export function optionsKey(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) => {
+    if (typeof v !== "function") return v;
+    let id = functionIds.get(v);
+    if (!id) functionIds.set(v, (id = nextFunctionId++));
+    return `\u0192${id}`;
+  });
+}
 
 /** What a layout's items need from it: how many there are, and how they're sized and placed. */
 export interface LayoutNeeds {
@@ -88,13 +102,13 @@ export function layoutResolver(component: string) {
     const count = fit && Number.isFinite(fit.count) ? fit.count : 0;
     const weights = fit?.weights?.some((w) => w > 1) && count > 0 ? Array.from({ length: count }, (_, i) => fit.weights![i] ?? 1) : undefined;
     const cells = fitting || weights ? fit!.cells : undefined;
-    const key = JSON.stringify([options, fitting && fit!.count, mode, weights, weights && fit!.placement]);
+    const key = optionsKey([options, fitting && fit!.count, mode, weights, weights && fit!.placement]);
     if (last && key === lastKey && cells === lastCells) return last;
     last = weights
       ? weightedLayout(options, weights, { fit: fitting && mode, cells, placement: fit!.placement }).layout
       : fitting
         ? fitCount(options, fit!.count, { cells, mode }).layout
-        : createLayout(options ?? PLACEHOLDER);
+        : createLayout(options);
     lastKey = key;
     lastCells = cells;
     return last;
@@ -151,7 +165,7 @@ export function frameBuilder() {
       fillSource = fill;
     }
     const relief = o.relief === true ? {} : o.relief || undefined;
-    const rk = relief ? JSON.stringify(relief) : "";
+    const rk = relief ? optionsKey(relief) : "";
     if (layout !== bevelLayout || rk !== bevelKey) {
       bevels = new Map();
       bevelLayout = layout;

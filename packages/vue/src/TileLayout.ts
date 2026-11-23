@@ -243,7 +243,18 @@ export const TileLayout = defineComponent({
         }
         return `cell:${L.cells[i]!.id}`;
       };
-      const hasContent = (i: number) => slotOf[i]! >= 0;
+      // What each tile holds, worked out once per render. Without virtualization every tile's
+      // is worked out first, so only tiles with content take focus; with it, only those in
+      // view are, and a tile counts as having content when it has a slot.
+      const contents = new Map<number, VNode[] | undefined>();
+      const contentOf = (i: number) => {
+        if (!contents.has(i)) {
+          const slot = slotOf[i]!;
+          contents.set(i, slots.cell ? flatten(slots.cell({ cell: L.cells[i]!, slot })) : slot >= 0 ? [items[slot]!] : undefined);
+        }
+        return contents.get(i);
+      };
+      const hasContent = (i: number) => slotOf[i]! >= 0 && (virtual || !isEmpty(contentOf(i)));
       const focusable = new Set(props.navigable ? L.cells.filter((c) => hasContent(c.index)).map((c) => c.id) : []);
       const first = L.cells.find((c) => focusable.has(c.id))?.id;
       const active = activeId.value !== undefined && focusable.has(activeId.value) ? activeId.value : first;
@@ -269,7 +280,7 @@ export const TileLayout = defineComponent({
       const rendered = shown.map((i) => {
         const cell = L.cells[i]!;
         const slot = slotOf[i]!;
-        let content: VNode[] | undefined = slots.cell ? flatten(slots.cell({ cell, slot })) : slot >= 0 ? [items[slot]!] : undefined;
+        let content = contentOf(i);
         const empty = isEmpty(content);
         const st: CellState = { empty, slot: empty && !slots.cell ? -1 : slot };
         state.set(cell.id, st);

@@ -1,13 +1,14 @@
 import { useMemo, useRef } from "react";
 import { createLayout, fitCount, type ContentCells, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
-import { layoutResolver, type FitProp, type LayoutNeeds } from "@andamento/dom";
+import { layoutResolver, optionsKey, type FitProp, type LayoutNeeds } from "@andamento/dom";
 
 /**
- * Compute a layout, recomputing only when the (serializable) options change.
- * Inline object literals are fine: options are compared by value.
+ * Compute a layout, recomputing only when the options change.
+ * Inline object literals are fine: options are compared by value (a function in them,
+ * such as `sizeAt`, by identity).
  */
 export function useTileLayout(options: LayoutOptions): Layout {
-  const key = JSON.stringify(options);
+  const key = optionsKey(options);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => createLayout(options), [key]);
 }
@@ -18,7 +19,7 @@ export function useTileLayout(options: LayoutOptions): Layout {
  * identity.
  */
 export function useFitCount(options: LayoutOptions, count: number, fit: FitOptions = {}): Layout {
-  const key = JSON.stringify(options);
+  const key = optionsKey(options);
   const { cells, mode } = fit;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => fitCount(options, count, { cells, mode }).layout, [key, count, cells, mode]);

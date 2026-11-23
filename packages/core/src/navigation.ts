@@ -16,22 +16,11 @@ export interface DirectionOptions {
   lane?: number;
 }
 
-/** Each cell's touching cells, both ways round (a piece of a cut tile may be listed on one side only). */
-const touchCache = new WeakMap<Layout, Map<Cell, Set<Cell>>>();
-function touchingCells(layout: Layout, cell: Cell): Iterable<Cell> {
-  let m = touchCache.get(layout);
-  if (!m) {
-    const ids = new Map(layout.cells.map((c) => [c.id, c]));
-    m = new Map(layout.cells.map((c) => [c, new Set<Cell>()]));
-    for (const c of layout.cells) {
-      for (const id of c.neighbors) {
-        const n = ids.get(id);
-        if (n && n !== c) { m.get(c)!.add(n); m.get(n)!.add(c); }
-      }
-    }
-    touchCache.set(layout, m);
-  }
-  return m.get(cell) ?? [];
+const byId = new WeakMap<Layout, Map<string, Cell>>();
+function cellsById(layout: Layout): Map<string, Cell> {
+  let m = byId.get(layout);
+  if (!m) byId.set(layout, (m = new Map(layout.cells.map((c) => [c.id, c]))));
+  return m;
 }
 
 /**
@@ -73,7 +62,8 @@ export function cellInDirection(
   };
 
   // Touching tiles ahead: nearest the lane, then the most nearly straight ahead.
-  const touching = touchingCells(layout, from);
+  const ids = cellsById(layout);
+  const touching = from.neighbors.map((id) => ids.get(id)).filter((c): c is Cell => !!c);
   const near = (p: ReturnType<typeof place>) => p.off + 0.25 * p.across;
   // Further away, through cells `accept` passes over or across a hole.
   const far = (p: ReturnType<typeof place>) => p.along + 2 * p.off;

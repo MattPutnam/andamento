@@ -131,4 +131,14 @@ describe("svg image alternatives", () => {
     expect(svg).toMatch(/<image href="a\.jpg" x="-95" y="0" width="400" height="200"/);
     expect(svg).toMatch(/<image href="b\.jpg" x="50" y="0" width="50" height="200"/);
   });
+
+describe("repeated images", () => {
+  it("describe and size each cell by the image it shows", () => {
+    const l = createLayout({ region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }) });
+    const svg = renderToString(l, { images: ["a.png", "b.png"], repeatImages: true, imageAlts: ["A"] });
+    // Cells 0, 2, 4 show a.png (described); 1, 3, 5 show b.png (no description).
+    expect(svg.match(/aria-label="A"/g)).toHaveLength(3);
+    expect([...svg.matchAll(/<g [^>]*aria-label="A"[^>]*>.*?href="([^"]+)"/g)].map((m) => m[1])).toEqual(["a.png", "a.png", "a.png"]);
+  });
+});
 });

@@ -604,10 +604,13 @@ function findNeighbors(polys: Polygon[], primary: boolean[], tol: number): numbe
       active.push(s);
     }
   }
-  // Parts of one tile get the same neighbors as the tile.
+  // Parts of one tile get the same neighbors as the tile, and are their neighbors too.
+  const ownNeighbors = result.map((list) => [...list]);
   polys.forEach((p, i) => {
     const owner = owners.get(p)!;
-    if (owner !== i) result[i] = [...result[owner]!];
+    if (owner === i) return;
+    result[i] = [...ownNeighbors[owner]!];
+    for (const j of ownNeighbors[owner]!) result[j]!.push(i);
   });
   for (const list of result) list.sort((a, b) => a - b);
   return result;

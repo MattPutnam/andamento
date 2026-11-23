@@ -175,3 +175,11 @@ describe("useTileLayout", () => {
     expect(layout.value.cells.length).toBe(4);
   });
 });
+
+describe("TileLayout navigation with a cell slot", () => {
+  it("doesn't make tiles the slot leaves empty focusable", () => {
+    mount(() => h(TileLayout, { options, navigable: true }, { cell: ({ cell }: { cell: { index: number } }) => (cell.index % 2 ? [] : [h("span", `t${cell.index}`)]) }));
+    const focusable = tiles().filter((t) => t.hasAttribute("tabindex")).map((t) => t.dataset.index);
+    expect(focusable).toEqual(["0", "2", "4"]);
+  });
+});
