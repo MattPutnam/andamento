@@ -2,16 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   area,
   basketweave,
-  clipConvex,
-  containsPolygon,
   createLayout,
   grid,
   herringbone,
   hexagonal,
-  insetConvex,
   mondrian,
   rectPolygon,
-  rectsOverlap,
   runningBond,
   triangular,
   rhombille,
@@ -28,21 +24,27 @@ import {
   ashlar,
   penrose,
   hat,
-  HAT,
   spectre,
-  SPECTRE,
   periodic,
   periodicDefinition,
   tiles,
   checkPeriodic,
   fishScale,
   jigsaw,
-  pointInPolygon,
-  isConvex,
   bbox,
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
+import {
+  clipConvex,
+  containsPolygon,
+  insetConvex,
+  rectsOverlap,
+  HAT,
+  SPECTRE,
+  pointInPolygon,
+  isConvex,
+} from "@andamento/core/internal";
 
 const wall = { x: 0, y: 0, width: 1000, height: 700 };
 const wallArea = wall.width * wall.height;
@@ -738,7 +740,8 @@ describe("isohedral", () => {
 
 describe("neighbors", () => {
   it("match a brute-force shared-edge check", async () => {
-    const { sharesEdge, isohedral } = await import("@andamento/core");
+    const { isohedral } = await import("@andamento/core");
+    const { sharesEdge } = await import("@andamento/core/internal");
     const region = { x: 0, y: 0, width: 700, height: 500 };
     for (const tiling of [
       grid({ width: 90, height: 60 }),

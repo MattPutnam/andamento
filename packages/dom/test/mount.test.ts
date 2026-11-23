@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { grid, hexagonal } from "@andamento/core";
-import { mountTileLayout, optionsKey, type TileLayoutConfig, type TileLayoutHandle } from "@andamento/dom";
+import { mountTileLayout, type TileLayoutConfig, type TileLayoutHandle } from "@andamento/dom";
+import { optionsKey } from "@andamento/dom/internal";
 
 // 3 x 2 grid: reading order 0 1 2 / 3 4 5.
 const options = { region: { x: 0, y: 0, width: 300, height: 200 }, tiling: grid({ width: 100 }) };

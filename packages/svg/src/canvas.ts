@@ -1,5 +1,6 @@
 import { cellShape, coverRect, roundCorners, safeArea, type Cell, type Layout, type Polygon, type Rect } from "@andamento/core";
-import { resolveCellStyles, type RenderOptions } from "./index";
+import type { RenderOptions } from "./index";
+import { resolveCellStyles } from "./styles";
 import { defaultBevel, reliefLayers, shadowOffset, type ReliefOptions } from "./relief";
 
 /**

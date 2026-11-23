@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { area, bevelFacets, cellAt, cellCss, cellShape, createLayout, grid, hexagonal, safeArea, safeAreaCss, shapeArea, viewCss, visibleShapes, type Cell, type LayoutOptions } from "@andamento/core";
+import { area, bevelFacets, cellAt, cellCss, cellShape, createLayout, grid, hexagonal, safeArea, safeAreaCss, viewCss, visibleShapes, type Cell, type LayoutOptions } from "@andamento/core";
+import { shapeArea } from "@andamento/core/internal";
 
 // A 100-unit grid in a 250-wide region: the third column is cut in half.
 const base: LayoutOptions = { region: { x: 0, y: 0, width: 250, height: 200 }, tiling: grid({ width: 100 }), cornerRadius: 10 };

@@ -9,13 +9,15 @@ import {
   herringbone,
   hexagonal,
   isohedral,
-  pointInPolygon,
   rectPolygon,
   type Layout,
   type LayoutOptions,
   type TilingSpec,
   type Vec,
 } from "@andamento/core";
+import {
+  pointInPolygon,
+} from "@andamento/core/internal";
 
 const region = { x: 0, y: 0, width: 600, height: 400 };
 const total = (l: Layout) => l.cells.reduce((s, c) => s + c.area, 0);

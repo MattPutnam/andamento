@@ -1,22 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   area,
-  clipConvex,
-  clipPolygonToConvex,
   createLayout,
   fishScale,
   hat,
-  insetConvex,
-  insetPolygon,
   isohedral,
   jigsaw,
   rectPolygon,
   roundedPolygon,
-  signedArea,
   spectre,
-  splitSelfIntersections,
   type Polygon,
+  insetPolygon,
 } from "@andamento/core";
+import {
+  clipConvex,
+  clipPolygonToConvex,
+  insetConvex,
+  signedArea,
+  splitSelfIntersections,
+} from "@andamento/core/internal";
 
 const L: Polygon = [
   { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 0, y: 2 },

@@ -3,31 +3,30 @@
  *
  * @module @andamento/core
  */
-export * from "./geometry";
-export { clipPolygonToConvex, insetPolygon, insetPolygonPieces, outsetPolygon, pointInPolygon, splitSelfIntersections } from "./offset";
-export { overlay, partition, shapeArea, shapeCentroid } from "./overlay";
+// Helpers the packages share but that aren't part of the public API are in "./internal"
+// (`@andamento/core/internal`), which may change in any release.
+export { area, bbox, centroid, rectPolygon, vec } from "./geometry";
+export type { Polygon, Rect, Vec } from "./geometry";
+export { insetPolygon } from "./offset";
+export { overlay } from "./overlay";
 export type { Shape } from "./overlay";
-export * from "./tilings";
 export { delaunayTriangles, voronoiCells } from "./procedural";
+export { ashlar, basketweave, cairo, checkPeriodic, chevron, delaunay, fishScale, flemishBond, flow, grid, hat, herringbone, hexagonal, hopscotch, isohedral, jigsaw, mondrian, octagonSquare, penrose, periodic, periodicDefinition, pinwheel, rhombille, rhombitrihexagonal, runningBond, spectre, tiles, triangular, trihexagonal, voronoi } from "./tilings";
+export type { AshlarSpec, BasketweaveSpec, CairoSpec, ChevronSpec, DelaunaySpec, FishScaleSpec, FlemishBondSpec, FlowSpec, GridSpec, HatSpec, HerringboneSpec, HexagonalSpec, HopscotchSpec, IsohedralSpec, JigsawSpec, MondrianSpec, OctagonSquareSpec, PenroseSpec, PeriodicCheck, PeriodicDefinition, PeriodicSpec, PinwheelSpec, ProceduralSpec, RhombilleSpec, RhombitrihexagonalSpec, RunningBondSpec, SpectreSpec, TilesSpec, TilingSpec, TilingType, TriangularSpec, TrihexagonalSpec, VoronoiSpec } from "./tilings";
 export { generateSubstitution, penroseKitesAndDarts, penroseRhombs } from "./substitution";
-export { HAT, hatSupertile, placedBounds } from "./hat";
-export type { HatLabel } from "./hat";
-export { SPECTRE, spectreSupertile } from "./spectre";
-export { isohedralInfo, isohedralPrototile, isohedralTypes } from "./isohedral";
+export { isohedralInfo, isohedralTypes } from "./isohedral";
 export type { EdgeKind, IsohedralInfo } from "./isohedral";
-export type { SpectreLabel } from "./spectre";
 export type { Piece, SubstitutionRule } from "./substitution";
 export { roundCorners, roundedPolygon } from "./rounding";
 export type { RoundedCorner } from "./rounding";
 export { createLayout, colorCells } from "./layout";
 export type { Cell, EdgeMode, Feature, Layout, LayoutOptions } from "./layout";
-export { mulberry32 } from "./random";
-export { backdropCss, boundsAspectRatio, cellCss, cssPolygon, cssShapes, morphPolygon, regionCss, resamplePolygon, safeAreaCss, viewCss } from "./css";
+export { backdropCss, boundsAspectRatio, cellCss, cssShapes, morphPolygon, regionCss, safeAreaCss, viewCss } from "./css";
 export { cellShape, visibleShapes } from "./shape";
 export type { CellShape } from "./shape";
 export { safeArea } from "./safe";
 export { bevelFacets, lightVector } from "./relief";
-export { cellInDirection, navigationLane, noteMove } from "./navigation";
+export { cellInDirection } from "./navigation";
 export { edgeSize, imageSize, radialSize } from "./density";
 export type { SizeField } from "./density";
 export { cellAt, cellsInRect, nearestCell, screenToLayout } from "./hit";

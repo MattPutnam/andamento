@@ -1,6 +1,7 @@
 import { useId, useMemo, type ReactNode, type SVGProps } from "react";
 import { cellShape, coverRect, safeArea, type Cell, type Focus, type ContentCells, type ContentPlacement, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
-import { cellA11y, cellPath, defaultBevel, regionPath, viewPath, reliefPaths, resolveCellStyles, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
+import { cellPath, defaultBevel, regionPath, viewPath, reliefPaths, shadowOffset, type FillSource, type ImageSource, type ReliefOptions } from "@andamento/svg";
+import { cellA11y, resolveCellStyles } from "@andamento/svg/internal";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 
 export interface SvgCellRenderContext {

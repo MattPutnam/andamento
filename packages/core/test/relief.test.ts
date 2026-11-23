@@ -7,7 +7,6 @@ import {
   grid,
   hat,
   lightVector,
-  pointInPolygon,
   rectPolygon,
   roundedPolygon,
   vec,
@@ -15,6 +14,9 @@ import {
   type Cell,
   type Layout,
 } from "@andamento/core";
+import {
+  pointInPolygon,
+} from "@andamento/core/internal";
 
 const one = (region: Layout["region"], extra: object = {}) => createLayout({ region, tiling: grid({ width: 1000 }), ...extra });
 const total = (f: { polygon: { x: number; y: number }[] }[]) => f.reduce((s, x) => s + area(x.polygon), 0);

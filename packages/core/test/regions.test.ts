@@ -9,7 +9,6 @@ import {
   herringbone,
   hexagonal,
   isohedral,
-  pointInPolygon,
   rectPolygon,
   voronoi,
   type Layout,
@@ -18,6 +17,9 @@ import {
   type TilingSpec,
   type Vec,
 } from "@andamento/core";
+import {
+  pointInPolygon,
+} from "@andamento/core/internal";
 import { cellPath } from "@andamento/svg";
 
 const inCell = (p: Vec, c: Layout["cells"][number]) => pointInPolygon(p, c.polygon) && !(c.holes ?? []).some((h) => pointInPolygon(p, h));

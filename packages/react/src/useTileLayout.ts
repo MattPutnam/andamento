@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { createLayout, fitCount, type ContentCells, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
-import { layoutResolver, optionsKey, type FitProp, type LayoutNeeds } from "@andamento/dom";
+import { type FitProp } from "@andamento/dom";
+import { layoutResolver, optionsKey, type LayoutNeeds } from "@andamento/dom/internal";
 
 /**
  * Compute a layout, recomputing only when the options change.

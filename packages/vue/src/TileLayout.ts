@@ -17,6 +17,13 @@ import {
 } from "vue";
 import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Focus, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import {
+  type CellState,
+  type SafeAreaProp,
+  type FitProp,
+  type PerCell,
+  type StyleMap,
+} from "@andamento/dom";
+import {
   backdropStyle,
   backgroundStyle,
   containerStyle,
@@ -34,12 +41,7 @@ import {
   tileViewBox,
   viewRect,
   watchView,
-  type CellState,
-  type SafeAreaProp,
-  type FitProp,
-  type PerCell,
-  type StyleMap,
-} from "@andamento/dom";
+} from "@andamento/dom/internal";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
 
 /** Top-level children of a slot, with fragments (`v-for`) opened and comments (`v-if`) dropped. */

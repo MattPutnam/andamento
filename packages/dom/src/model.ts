@@ -3,8 +3,6 @@ import {
   cellCss,
   cellShape,
   cellInDirection,
-  navigationLane,
-  noteMove,
   contentSlots,
   createLayout,
   objectPosition,
@@ -17,13 +15,15 @@ import {
   type Cell,
   type ContentCells,
   type ContentPlacement,
+  type Direction,
   type Focus,
   type Layout,
   type LayoutOptions,
   type Rect,
   weightedLayout,
 } from "@andamento/core";
-import { cellPath, defaultBevel, neutralPalette, reliefPaths, resolveFills, shadowOffset, type FillSource, type ReliefOptions, type ReliefPath } from "@andamento/svg";
+import { cellPath, defaultBevel, neutralPalette, reliefPaths, shadowOffset, type FillSource, type ReliefOptions, type ReliefPath } from "@andamento/svg";
+import { resolveFills } from "@andamento/svg/internal";
 
 /**
  * The parts of an HTML tile layout that don't depend on a framework: what each tile's
@@ -297,6 +297,21 @@ export function shadowShape(frame: Frame, cells: readonly Cell[]) {
   };
 }
 
+/** Where the last run of arrow presses along an axis started, per layout. */
+const runs = new WeakMap<Layout, { at: string; vertical: boolean; lane: number }>();
+
+/**
+ * The lane for a move (see `DirectionOptions.lane`): the one the last move along the same
+ * axis used, if that move ended at `from`, else `from`'s own center. So holding one arrow
+ * key keeps to a column (or row), zigzagging through hexagons or bricks.
+ */
+function navigationLane(layout: Layout, from: Cell, direction: Direction): number {
+  const vertical = direction === "up" || direction === "down";
+  const run = runs.get(layout);
+  if (run && run.at === from.id && run.vertical === vertical) return run.lane;
+  return vertical ? from.centroid.x : from.centroid.y;
+}
+
 /**
  * What a key does on a focused tile: move focus to another tile, activate it, or just stop
  * the page scrolling (arrows at the edge). Undefined for keys that aren't ours.
@@ -308,15 +323,14 @@ export function keyAction(
   accept: (cell: Cell) => boolean,
   canActivate: boolean,
 ): { move: Cell } | { activate: true } | { prevent: true } | undefined {
-  const dirs: Record<string, "up" | "down" | "left" | "right"> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+  const dirs: Record<string, Direction> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
   let to: Cell | undefined;
   const dir = dirs[key];
   if (dir) {
     const lane = navigationLane(layout, from, dir);
     to = cellInDirection(layout, from, dir, { accept, lane });
-    if (to) noteMove(layout, to, dir, lane);
-  }
-  else if (key === "Home") to = layout.cells.find(accept);
+    if (to) runs.set(layout, { at: to.id, vertical: dir === "up" || dir === "down", lane });
+  } else if (key === "Home") to = layout.cells.find(accept);
   else if (key === "End") to = [...layout.cells].reverse().find(accept);
   else if ((key === "Enter" || key === " ") && canActivate) return { activate: true };
   if (to) return { move: to };

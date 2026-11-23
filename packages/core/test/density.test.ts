@@ -8,8 +8,6 @@ import {
   hat,
   hexagonal,
   imageSize,
-  mulberry32,
-  pointInPolygon,
   radialSize,
   rectPolygon,
   triangular,
@@ -18,6 +16,10 @@ import {
   type Layout,
   type TilingSpec,
 } from "@andamento/core";
+import {
+  mulberry32,
+  pointInPolygon,
+} from "@andamento/core/internal";
 
 const region = { x: 0, y: 0, width: 400, height: 300 };
 const center = vec(200, 150);

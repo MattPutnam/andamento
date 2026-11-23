@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellInDirection, createLayout, grid, hat, herringbone, hexagonal, navigationLane, noteMove, penrose, runningBond, voronoi, type Direction, type Layout } from "@andamento/core";
+import { cellInDirection, createLayout, grid, hat, herringbone, hexagonal, penrose, runningBond, voronoi, type Direction, type Layout } from "@andamento/core";
 
 const region = { x: 0, y: 0, width: 300, height: 200 };
 const at = (l: Layout, id: string) => l.cells.find((c) => c.id === id)!;
@@ -93,10 +93,9 @@ describe("cellInDirection", () => {
     const rows = new Set(l.cells.map((x) => Math.round(x.centroid.y)));
     let steps = 0;
     for (;;) {
-      const lane = navigationLane(l, c, "up");
-      const n = cellInDirection(l, c, "up", { lane });
+      // The column started in, as the components remember it while one arrow key is held.
+      const n = cellInDirection(l, c, "up", { lane: x0 });
       if (!n) break;
-      noteMove(l, n, "up", lane);
       expect(c.neighbors).toContain(n.id);
       expect(Math.abs(n.centroid.x - x0)).toBeLessThan(20);
       c = n;

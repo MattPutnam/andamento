@@ -15,12 +15,14 @@ The bindings are thin layers over helpers that are exported for anyone writing a
 | `cellAt`, `cellsInRect`, `screenToLayout` | Hit testing. |
 | `bevelFacets`, `lightVector` | Relief geometry. |
 
-## From `@andamento/dom`
+## Shared internals
 
-`@andamento/dom` exports the pieces the React, Vue and web component bindings share: tile
-styles, bevel and focus ring paths, what a key does, and what's in view. They have names like
-`tileStyle`, `keyAction`, `viewRect`, `layoutResolver` and `frameBuilder`. Read
-`packages/vue/src/TileLayout.ts` for a complete binding in about 400 lines.
+The React, Vue and web component bindings share more: tile styles, bevel and focus ring paths,
+what a key does, and what's in view. Those are in `@andamento/dom/internal` (with
+`@andamento/svg/internal` and `@andamento/core/internal` for the helpers under them), under
+names like `tileStyle`, `keyAction`, `viewRect`, `layoutResolver` and `frameBuilder`. They're
+not part of the public API and can change in any release, so pin an exact version if you use
+them. Read `packages/vue/src/TileLayout.ts` for a complete binding in about 400 lines.
 
 ## Every spec is JSON
 

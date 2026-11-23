@@ -1,6 +1,6 @@
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter } from "vue";
 import { createLayout, fitCount, type FitOptions, type Layout, type LayoutOptions } from "@andamento/core";
-import { optionsKey } from "@andamento/dom";
+import { optionsKey } from "@andamento/dom/internal";
 
 /** A computed value worked out again only when `key` changes. */
 function byKey<T>(key: () => string, make: () => T): ComputedRef<T> {

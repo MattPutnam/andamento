@@ -1,5 +1,5 @@
 /**
- * No framework: `mountTileLayout()` and the `<andamento-layout>` web component, plus the pieces the framework bindings share.
+ * No framework: `mountTileLayout()` and the `<andamento-layout>` web component.
  *
  * @module @andamento/dom
  */
@@ -7,31 +7,8 @@ export { mountTileLayout } from "./mount";
 export type { TileContent, TileLayoutConfig, TileLayoutHandle } from "./mount";
 export { AndamentoLayoutElement, defineTileLayoutElement } from "./element";
 export type { CellActivateDetail } from "./element";
-export {
-  backdropStyle,
-  backgroundStyle,
-  containerStyle,
-  coverStyle,
-  focusStyle,
-  frameBuilder,
-  keyAction,
-  layoutResolver,
-  MORPH_POINTS,
-  NOTHING_IN_VIEW,
-  optionsKey,
-  overlayStyle,
-  resolvePerCell,
-  ringStrokes,
-  safeBoxStyle,
-  sameRect,
-  shadowShape,
-  tileSheet,
-  tileStyle,
-  tileViewBox,
-  viewRect,
-  watchView,
-} from "./model";
-export type { CellState, FitProp, Frame, FrameOptions, LayoutNeeds, PerCell, SafeAreaProp, StyleMap } from "./model";
+export { coverStyle } from "./model";
+export type { CellState, FitProp, PerCell, SafeAreaProp, StyleMap } from "./model";
 export { cellFromPointer } from "./pointer";
 export type { PointerLike } from "./pointer";
 export { defaultPalette, neutralPalette } from "@andamento/svg";

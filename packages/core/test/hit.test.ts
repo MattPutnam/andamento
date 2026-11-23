@@ -5,9 +5,7 @@ import {
   createLayout,
   grid,
   hat,
-  mulberry32,
   nearestCell,
-  pointInPolygon,
   rectPolygon,
   roundedPolygon,
   screenToLayout,
@@ -17,6 +15,10 @@ import {
   type Layout,
   type Vec,
 } from "@andamento/core";
+import {
+  mulberry32,
+  pointInPolygon,
+} from "@andamento/core/internal";
 
 const region = { x: 0, y: 0, width: 300, height: 200 };
 // 3 x 2 grid of 100-unit cells, 10 apart.

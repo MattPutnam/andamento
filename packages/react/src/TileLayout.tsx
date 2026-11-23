@@ -16,10 +16,15 @@ import {
 } from "react";
 import { cellsInRect, type Cell, type ContentCells, type ContentPlacement, type Focus, type Layout, type LayoutOptions, type Rect } from "@andamento/core";
 import {
+  coverStyle as sharedCoverStyle,
+  type CellState,
+  type SafeAreaProp,
+  type PerCell,
+} from "@andamento/dom";
+import {
   backdropStyle,
   backgroundStyle,
   containerStyle,
-  coverStyle as sharedCoverStyle,
   frameBuilder,
   keyAction,
   overlayStyle,
@@ -33,10 +38,7 @@ import {
   tileViewBox,
   viewRect,
   watchView,
-  type CellState,
-  type SafeAreaProp,
-  type PerCell,
-} from "@andamento/dom";
+} from "@andamento/dom/internal";
 import type { FillSource, ReliefOptions } from "@andamento/svg";
 import { useResolvedLayout, type FitProp } from "./useTileLayout";
 

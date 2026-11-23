@@ -1,6 +1,7 @@
 import { defineComponent, h, type PropType, type VNode } from "vue";
 import type { ContentCells, ContentPlacement, Layout, LayoutOptions } from "@andamento/core";
-import { layoutResolver, type FitProp } from "@andamento/dom";
+import { type FitProp } from "@andamento/dom";
+import { layoutResolver } from "@andamento/dom/internal";
 import { toSvgTree, type FillSource, type ImageSource, type ReliefOptions, type SvgNode } from "@andamento/svg";
 
 const toVNode = (n: SvgNode | string, key?: number): VNode | string =>

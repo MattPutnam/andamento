@@ -9,7 +9,7 @@ export interface DirectionOptions {
   accept?: (cell: Cell) => boolean;
   /**
    * The cross-axis coordinate to keep to: x when moving up or down, y when moving left or
-   * right. Pass the value from the start of a run of presses (see `navigationLane`) and
+   * right. Pass the value from the start of a run of presses, and
    * repeated moves zigzag along a column of a hexagon or brick tiling instead of drifting
    * to one side. Defaults to `from`'s center.
    */
@@ -68,24 +68,4 @@ export function cellInDirection(
   // Further away, through cells `accept` passes over or across a hole.
   const far = (p: ReturnType<typeof place>) => p.along + 2 * p.off;
   return pick(touching, near, true) ?? pick(layout.cells, far, true) ?? pick(touching, near, false) ?? pick(layout.cells, far, false);
-}
-
-/** Where a run of arrow presses started, so `navigationLane` can keep to it. */
-const runs = new WeakMap<Layout, { at: string; vertical: boolean; lane: number }>();
-
-/**
- * The lane for a move from `from` (see `DirectionOptions.lane`): the one the last move
- * along the same axis used, if that move ended at `from`, else `from`'s own center. Call
- * `noteMove` after each move.
- */
-export function navigationLane(layout: Layout, from: Cell, direction: Direction): number {
-  const vertical = direction === "up" || direction === "down";
-  const run = runs.get(layout);
-  if (run && run.at === from.id && run.vertical === vertical) return run.lane;
-  return vertical ? from.centroid.x : from.centroid.y;
-}
-
-/** Records a move made with `lane`, so the next press along the same axis keeps to it. */
-export function noteMove(layout: Layout, to: Cell, direction: Direction, lane: number): void {
-  runs.set(layout, { at: to.id, vertical: direction === "up" || direction === "down", lane });
 }

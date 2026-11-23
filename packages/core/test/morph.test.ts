@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { area, cellCss, createLayout, grid, hexagonal, resamplePolygon, signedArea, vec } from "@andamento/core";
+import { area, cellCss, createLayout, grid, hexagonal, vec } from "@andamento/core";
+import { resamplePolygon, signedArea } from "@andamento/core/internal";
 
 const box = { x: 0, y: 0, width: 10, height: 10 };
 

@@ -5,7 +5,6 @@ import {
   grid,
   herringbone,
   hexagonal,
-  pointInPolygon,
   rectPolygon,
   roundedPolygon,
   safeArea,
@@ -17,6 +16,9 @@ import {
   type Layout,
   type Rect,
 } from "@andamento/core";
+import {
+  pointInPolygon,
+} from "@andamento/core/internal";
 
 const one = (region: Layout["region"] | Rect, extra: object = {}) =>
   createLayout({ region, tiling: grid({ width: 1000 }), ...extra });

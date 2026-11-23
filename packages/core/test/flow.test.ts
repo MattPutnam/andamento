@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createLayout, flow, mulberry32, partition, pointInPolygon, rectPolygon, vec, type Layout, type Vec } from "@andamento/core";
+import { createLayout, flow, rectPolygon, vec, type Layout, type Vec } from "@andamento/core";
+import { mulberry32, partition, pointInPolygon } from "@andamento/core/internal";
 
 const region = { x: 0, y: 0, width: 400, height: 300 };
 const total = (l: Layout) => l.cells.reduce((s, c) => s + c.area, 0);

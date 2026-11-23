@@ -31,14 +31,8 @@ away with the tile. Set the ring's color with `focusRing`, or pass `false` and s
 `[data-cell-id]:focus-visible` yourself.
 
 In core, `cellInDirection(layout, cell, "left", { accept, lane })` is the same navigation, for
-your own renderer. `lane` is the column (or row) to keep to; `navigationLane` and `noteMove`
-remember it from one press to the next:
-
-```ts
-const lane = navigationLane(layout, cell, "up");
-const next = cellInDirection(layout, cell, "up", { accept: hasContent, lane });
-if (next) noteMove(layout, next, "up", lane);
-```
+your own renderer. `lane` is the column (or row) to keep to: pass the x (or y) where a run of
+presses along one axis started, and repeated moves zigzag along it instead of drifting.
 
 Try it in the demo: click a tile, then use the arrow keys.
 
