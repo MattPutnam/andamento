@@ -188,12 +188,12 @@ content a list item, in reading order. Tiles with nothing in them are hidden fro
 technology as decoration. `cellLabel` gives tiles an accessible name.
 
 With `navigable`, the tiles with content are one tab stop (a roving tabindex). The arrow keys
-move to the nearest tile in that direction, in any tiling: hexagons, herringbone or
+move to a touching tile in that direction, in any tiling: hexagons, herringbone or
 aperiodic hats. Home and End go to the first and last tile. `onCellActivate` runs on Enter,
 Space or a click. Keys pressed in a tile's own inputs or buttons are left alone. The focused
 tile gets a ring drawn inside its shape, because a CSS outline would be clipped away. Set
 the ring's color with `focusRing`, or pass `false` and style `[data-cell-id]:focus-visible`
-yourself. In core, `cellInDirection(layout, cell, "left", accept?)` is the same navigation.
+yourself. In core, `cellInDirection(layout, cell, "left", { accept, lane })` is the same navigation.
 
 For SVG, `imageAlts` (on `<SvgTileLayout>` or `renderToString`) gives each image a text
 alternative. Those cells become labeled images, the SVG a group of them, and the rest is

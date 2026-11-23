@@ -131,7 +131,7 @@ export interface TileLayoutProps extends Omit<HTMLAttributes<HTMLDivElement>, "c
   relief?: boolean | ReliefOptions;
   /**
    * Keyboard navigation: tiles with content become focusable as one tab stop (roving
-   * tabindex). Arrow keys move to the nearest tile in that direction, whatever the tiling;
+   * tabindex). Arrow keys move to a touching tile in that direction, whatever the tiling;
    * Home and End go to the first and last. The focused tile shows `focusRing`.
    */
   navigable?: boolean;

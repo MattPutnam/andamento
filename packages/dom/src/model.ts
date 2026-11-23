@@ -3,6 +3,8 @@ import {
   cellCss,
   cellShape,
   cellInDirection,
+  navigationLane,
+  noteMove,
   contentSlots,
   createLayout,
   objectPosition,
@@ -294,7 +296,12 @@ export function keyAction(
 ): { move: Cell } | { activate: true } | { prevent: true } | undefined {
   const dirs: Record<string, "up" | "down" | "left" | "right"> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
   let to: Cell | undefined;
-  if (dirs[key]) to = cellInDirection(layout, from, dirs[key]!, accept);
+  const dir = dirs[key];
+  if (dir) {
+    const lane = navigationLane(layout, from, dir);
+    to = cellInDirection(layout, from, dir, { accept, lane });
+    if (to) noteMove(layout, to, dir, lane);
+  }
   else if (key === "Home") to = layout.cells.find(accept);
   else if (key === "End") to = [...layout.cells].reverse().find(accept);
   else if ((key === "Enter" || key === " ") && canActivate) return { activate: true };

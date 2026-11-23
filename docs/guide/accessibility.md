@@ -20,7 +20,7 @@ With `navigable`, the tiles with content form one tab stop (a roving tabindex).
 
 | Key | |
 |---|---|
-| Arrow keys | Move to the nearest tile in that direction, in any tiling: hexagons, herringbone or aperiodic hats. |
+| Arrow keys | Move to a touching tile in that direction, in any tiling: hexagons, herringbone or aperiodic hats. Holding to one direction keeps to a column, zigzagging through hexagons or bricks. |
 | Home, End | The first and last tile. |
 | Enter, Space | Activate the tile (`onCellActivate`; a click does too). |
 
@@ -30,8 +30,15 @@ The focused tile gets a ring drawn inside its shape, because a CSS outline would
 away with the tile. Set the ring's color with `focusRing`, or pass `false` and style
 `[data-cell-id]:focus-visible` yourself.
 
-In core, `cellInDirection(layout, cell, "left", accept?)` is the same navigation, for your own
-renderer.
+In core, `cellInDirection(layout, cell, "left", { accept, lane })` is the same navigation, for
+your own renderer. `lane` is the column (or row) to keep to; `navigationLane` and `noteMove`
+remember it from one press to the next:
+
+```ts
+const lane = navigationLane(layout, cell, "up");
+const next = cellInDirection(layout, cell, "up", { accept: hasContent, lane });
+if (next) noteMove(layout, next, "up", lane);
+```
 
 Try it in the demo: click a tile, then use the arrow keys.
 

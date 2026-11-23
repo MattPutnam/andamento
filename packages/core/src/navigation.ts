@@ -4,34 +4,98 @@ export type Direction = "up" | "down" | "left" | "right";
 
 const DIRS: Record<Direction, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
+export interface DirectionOptions {
+  /** Only land on cells this accepts (those with content, say). Others are passed over. */
+  accept?: (cell: Cell) => boolean;
+  /**
+   * The cross-axis coordinate to keep to: x when moving up or down, y when moving left or
+   * right. Pass the value from the start of a run of presses (see `navigationLane`) and
+   * repeated moves zigzag along a column of a hexagon or brick tiling instead of drifting
+   * to one side. Defaults to `from`'s center.
+   */
+  lane?: number;
+}
+
+/** Each cell's touching cells, both ways round (a piece of a cut tile may be listed on one side only). */
+const touchCache = new WeakMap<Layout, Map<Cell, Set<Cell>>>();
+function touchingCells(layout: Layout, cell: Cell): Iterable<Cell> {
+  let m = touchCache.get(layout);
+  if (!m) {
+    const ids = new Map(layout.cells.map((c) => [c.id, c]));
+    m = new Map(layout.cells.map((c) => [c, new Set<Cell>()]));
+    for (const c of layout.cells) {
+      for (const id of c.neighbors) {
+        const n = ids.get(id);
+        if (n && n !== c) { m.get(c)!.add(n); m.get(n)!.add(c); }
+      }
+    }
+    touchCache.set(layout, m);
+  }
+  return m.get(cell) ?? [];
+}
+
 /**
  * The cell to move to from `from` in a direction, for arrow-key navigation over any tiling.
  *
- * Looks at cells whose center lies ahead (within 60° of the direction first, then anywhere
- * ahead) and picks the nearest, with sideways distance counting double, so moving keeps to
- * a "row" or "column" where the tiling has one. `accept` limits it to some cells (those
- * with content, say). Returns undefined at the edge.
+ * Moves to a tile that shares an edge with `from` and lies ahead (its center within 60° of
+ * the direction), so no row is ever skipped; among those it takes the one nearest the
+ * `lane`. If no touching tile qualifies (at a hole, or because `accept` passes them over),
+ * it looks further: the nearest accepted cell ahead, distance from the lane counting double.
+ * Returns undefined at the edge.
  */
-export function cellInDirection(layout: Layout, from: Cell, direction: Direction, accept: (cell: Cell) => boolean = () => true): Cell | undefined {
+export function cellInDirection(
+  layout: Layout,
+  from: Cell,
+  direction: Direction,
+  options: DirectionOptions | ((cell: Cell) => boolean) = {},
+): Cell | undefined {
+  const { accept = () => true, lane: laneOption } = typeof options === "function" ? { accept: options } : options;
   const [dx, dy] = DIRS[direction];
   const size = Math.sqrt(Math.max(from.area, 1e-12));
   const eps = 1e-6 * size;
   const cone = Math.tan(Math.PI / 3);
-  let best: Cell | undefined, bestScore = Infinity;
-  let fallback: Cell | undefined, fallbackScore = Infinity;
-  for (const c of layout.cells) {
-    if (c === from || !accept(c)) continue;
+  const cross = (c: Cell) => (dx ? c.centroid.y : c.centroid.x);
+  const lane = laneOption ?? cross(from);
+  const place = (c: Cell) => {
     const ox = c.centroid.x - from.centroid.x, oy = c.centroid.y - from.centroid.y;
-    const along = ox * dx + oy * dy;
-    if (along <= eps) continue;
-    const across = Math.abs(ox * dy - oy * dx);
-    const score = along + 2 * across;
-    if (across <= along * cone) {
-      if (score < bestScore - eps || (Math.abs(score - bestScore) <= eps && best && c.index < best.index)) { best = c; bestScore = score; }
-    } else if (score < fallbackScore - eps || (Math.abs(score - fallbackScore) <= eps && fallback && c.index < fallback.index)) {
-      fallback = c;
-      fallbackScore = score;
+    return { along: ox * dx + oy * dy, across: Math.abs(ox * dy - oy * dx), off: Math.abs(cross(c) - lane) };
+  };
+  const pick = (cells: Iterable<Cell>, score: (p: ReturnType<typeof place>) => number, inCone: boolean) => {
+    let best: Cell | undefined, bestScore = Infinity;
+    for (const c of cells) {
+      if (c === from || !accept(c)) continue;
+      const p = place(c);
+      if (p.along <= eps || (inCone && p.across > p.along * cone)) continue;
+      const s = score(p);
+      if (s < bestScore - eps || (Math.abs(s - bestScore) <= eps && best && c.index < best.index)) { best = c; bestScore = s; }
     }
-  }
-  return best ?? fallback;
+    return best;
+  };
+
+  // Touching tiles ahead: nearest the lane, then the most nearly straight ahead.
+  const touching = touchingCells(layout, from);
+  const near = (p: ReturnType<typeof place>) => p.off + 0.25 * p.across;
+  // Further away, through cells `accept` passes over or across a hole.
+  const far = (p: ReturnType<typeof place>) => p.along + 2 * p.off;
+  return pick(touching, near, true) ?? pick(layout.cells, far, true) ?? pick(touching, near, false) ?? pick(layout.cells, far, false);
+}
+
+/** Where a run of arrow presses started, so `navigationLane` can keep to it. */
+const runs = new WeakMap<Layout, { at: string; vertical: boolean; lane: number }>();
+
+/**
+ * The lane for a move from `from` (see `DirectionOptions.lane`): the one the last move
+ * along the same axis used, if that move ended at `from`, else `from`'s own center. Call
+ * `noteMove` after each move.
+ */
+export function navigationLane(layout: Layout, from: Cell, direction: Direction): number {
+  const vertical = direction === "up" || direction === "down";
+  const run = runs.get(layout);
+  if (run && run.at === from.id && run.vertical === vertical) return run.lane;
+  return vertical ? from.centroid.x : from.centroid.y;
+}
+
+/** Records a move made with `lane`, so the next press along the same axis keeps to it. */
+export function noteMove(layout: Layout, to: Cell, direction: Direction, lane: number): void {
+  runs.set(layout, { at: to.id, vertical: direction === "up" || direction === "down", lane });
 }
