@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@andamento/core": "0.1.0",
-    "@andamento/svg": "0.1.0",
-    "@andamento/vue": "0.1.0",
+    "@andamento/core": "0.2.0",
+    "@andamento/svg": "0.2.0",
+    "@andamento/vue": "0.2.0",
     "vue": "^3.5.13"
   },
   "devDependencies": {

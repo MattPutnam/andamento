@@ -1,6 +1,6 @@
 {
   "name": "@andamento/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-free tiling layouts: generate polygon cells that fill a region.",
   "keywords": [
     "tiling",

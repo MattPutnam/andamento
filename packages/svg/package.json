@@ -1,6 +1,6 @@
 {
   "name": "@andamento/svg",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Render @andamento/core layouts to SVG strings or DOM elements.",
   "keywords": [
     "tiling",
@@ -66,7 +66,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@andamento/core": "0.1.0"
+    "@andamento/core": "0.2.0"
   },
   "publishConfig": {
     "access": "public"

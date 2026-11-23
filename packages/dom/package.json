@@ -1,6 +1,6 @@
 {
   "name": "@andamento/dom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-free @andamento tiling layouts: mount one into any element, or use the <andamento-layout> web component.",
   "keywords": [
     "tiling",
@@ -66,8 +66,8 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@andamento/core": "0.1.0",
-    "@andamento/svg": "0.1.0"
+    "@andamento/core": "0.2.0",
+    "@andamento/svg": "0.2.0"
   },
   "publishConfig": {
     "access": "public"
